@@ -1,0 +1,57 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+secrets/
+private/
+config.local.*
+
+# Health records, databases, exports, runtime output and backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.bak
+*.zip
+*.tar
+*.gz
+raw/
+data/
+backups/
+runtime/
+output/
+.cache/
+Health/
+
+# No personal media in the source repository
+*.jpg
+*.jpeg
+*.png
+*.heic
+*.webp
+*.pdf
+*.mp4
+*.mov
+*.wav
+*.mp3
+
+# Development artifacts
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+DerivedData/
+xcuserdata/
