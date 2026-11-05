@@ -84,7 +84,10 @@ def facts(tools, day: date) -> dict:
                 prev = [v for _, v in vals[:-1]][-7:]
                 out[key] = {"latest": _round(vals[-1][1], nd), "latest_date": vals[-1][0],
                             "avg_prev7": _round(sum(prev) / len(prev), nd) if prev else None,
-                            "recent": [{"date": d, "value": _round(v, nd)} for d, v in vals[-7:]]}
+                            "recent": [{"date": d, "value": _round(v, nd)} for d, v in vals[-7:]],
+                            # 数从哪个设备来（WHOOP 是睡眠中测的；和 Apple 手表的口径不同，不要混着比）
+                            "source": {"whoop": "WHOOP（睡眠中测）", "apple": "Apple 健康"}[
+                                tools.series_source(metric, day, 14)] if hasattr(tools, "series_source") else None}
         except Exception:
             pass
     try:
@@ -289,6 +292,7 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
   · kind 不写就用默认画法：hrv/resp_rate=trend（折线+常态带+警戒线），resting_hr=range（区间刻度），recovery=gauge（半圆仪表），sleep=need（睡了 vs 需要的缺口条），sleep_debt=stack（每晚欠的叠起来），steps=progress（按此刻该走到的进度），weight=route（朝目标的计划路线）。每项能换的画法在 facts.viz.*.kinds；老大说喜欢折线就用 trend。
   · days：trend 7/14/30，range 7/14，need 7/14，stack 5/7。show 从 band、warn、need、pace、goal、target、plan 里挑，不写就全显示。
   · hero.value 写 facts.viz.<metric>.value_text；常态区间和警戒线是按老大自己 30 天的数算的（或他自己定的），不是医学标准，不要说成诊断。
+    结论和 note 里说「比你平时高 / 低」「出了你自己的常态」，**不要写「正常范围」「超标」「异常」**（老大会以为是医学上的不正常）。
   · facts.viz.<metric>.zone 是内核按常态和警戒线算的位置：act=过了警戒线，watch=出了常态，steady=常态里。level 由你判断，但 zone=act 时不能写 steady。
 - level：act=需要处理；watch=留意；steady=平稳/没问题。客户端按 level 给动效：act 最强、watch 缓慢、steady 静止。
 - headline 说判断和接下来该做什么；数字只放主卡，不要在结论里重复主卡的 value。

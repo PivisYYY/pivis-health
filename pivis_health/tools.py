@@ -5,6 +5,7 @@ dsh 的 P-Health bot 通过 CLI（推荐）或 HTTP 调用这里；每个方法�
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from statistics import fmean
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -36,11 +37,17 @@ APPLE_SERIES: dict[str, tuple[str, str]] = {
     "weight": ("body_mass", "mean"),
     "workout": ("workout", "count"),
 }
-WHOOP_SERIES = ("whoop_recovery", "whoop_strain", "whoop_hrv_rmssd", "whoop_skin_temp")
+WHOOP_SERIES = ("whoop_recovery", "whoop_strain", "whoop_hrv_rmssd", "whoop_skin_temp",
+                "whoop_resting_hr", "whoop_resp_rate")
+# 老大每晚戴的是 WHOOP；这两项 Apple 健康里早没新数（手表不戴了）。
+# 取数时：这段时间里 WHOOP 有就整段用 WHOOP，没有才用 Apple —— 一条序列只来自一个设备，不混算
+# （睡眠时测的静息心率和白天手表测的口径不同，混在一起会把常态范围搞乱）。
+PREFER_WHOOP = {"resting_heart_rate": "whoop_resting_hr", "respiratory_rate": "whoop_resp_rate"}
 UNITS = {
     "hrv": "ms", "resting_heart_rate": "count/min", "respiratory_rate": "count/min",
     "oxygen_saturation": "%", "steps": "count", "active_energy": "kcal", "weight": "kg",
     "whoop_recovery": "%", "whoop_strain": "strain", "whoop_hrv_rmssd": "ms", "whoop_skin_temp": "°C",
+    "whoop_resting_hr": "count/min", "whoop_resp_rate": "count/min",
 }
 
 
@@ -50,8 +57,22 @@ class HealthTools:
         self.tz = ZoneInfo(config.timezone)
         self.store = ReadOnlyObjectiveStore(config.vault_db, config.timezone)
         self.subj = SubjectiveStore(config.subjective_db, config.timezone)
-        self._whoop = whoop_mod.load_snapshot(config.whoop_snapshot)
+        self._whoop_sig: object = object()  # 快照文件 (mtime, size)；变了就重读
+        self._whoop_cache: dict | None = None
         self._rows_cache: dict[date, tuple] = {}
+
+    @property
+    def _whoop(self) -> dict | None:
+        """WHOOP 快照。serve 进程常驻，whoop-sync 每小时原子替换文件 → 按 mtime 重新加载。"""
+        try:
+            st = Path(self.cfg.whoop_snapshot).stat()
+            sig: object = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            sig = None
+        if sig != self._whoop_sig:
+            self._whoop_cache = whoop_mod.load_snapshot(self.cfg.whoop_snapshot) if sig else None
+            self._whoop_sig = sig
+        return self._whoop_cache
 
     def _now(self) -> datetime:
         from .clock import now as clock_now
@@ -82,6 +103,14 @@ class HealthTools:
             "latest": whoop_mod.latest_timestamps(snap, self.cfg.timezone),
         }
 
+    def _whoop_freshness(self) -> dict:
+        """WHOOP 同步是否跟上（扣掉北京 02–09 点静默后超过 3 小时算 stale）。"""
+        try:
+            from .whoop_sync import freshness
+            return freshness(self.cfg)
+        except Exception as exc:  # noqa: BLE001 —— 自检不能因为这一项挂掉
+            return {"error": f"{type(exc).__name__}: {exc}"}
+
     # -- 序列 -------------------------------------------------------------
     def _apple_daily(self, canonical: str, end_day: date, days: int) -> dict[date, float]:
         sample_type, agg = APPLE_SERIES[canonical]
@@ -97,10 +126,28 @@ class HealthTools:
         if canonical in source:
             raw = source[canonical]
             return {d: float(v[{"whoop_recovery": "recovery_score", "whoop_strain": "strain"}[canonical]]) for d, v in raw.items() if v.get({"whoop_recovery": "recovery_score", "whoop_strain": "strain"}[canonical]) is not None}
-        key = {"whoop_hrv_rmssd": "hrv_rmssd", "whoop_skin_temp": "skin_temp_celsius"}[canonical]
+        if canonical == "whoop_resp_rate":      # 呼吸频率在 WHOOP 的睡眠评分里，按睡眠夜归档
+            return {d: float(v["respiratory_rate"]) for d, v in views["sleep"].items()
+                    if v.get("respiratory_rate") is not None}
+        key = {"whoop_hrv_rmssd": "hrv_rmssd", "whoop_skin_temp": "skin_temp_celsius",
+               "whoop_resting_hr": "resting_heart_rate"}[canonical]
         return {d: float(v[key]) for d, v in views["recovery"].items() if v.get(key) is not None}
 
+    def series_source(self, canonical: str, end_day: date, days: int) -> str:
+        """这条序列这段时间取自哪个设备（whoop / apple），给页面和 Agent 说清口径。"""
+        if canonical in PREFER_WHOOP and self._whoop_window(PREFER_WHOOP[canonical], end_day, days):
+            return "whoop"
+        return "whoop" if canonical in WHOOP_SERIES else "apple"
+
+    def _whoop_window(self, canonical: str, end_day: date, days: int) -> dict[date, float]:
+        start = end_day - timedelta(days=days)
+        return {d: v for d, v in self._whoop_daily(canonical, end_day, days).items() if start <= d <= end_day}
+
     def daily_series(self, canonical: str, end_day: date, days: int) -> dict[date, float]:
+        if canonical in PREFER_WHOOP:
+            w = self._whoop_window(PREFER_WHOOP[canonical], end_day, days)
+            if w:
+                return w
         if canonical in APPLE_SERIES:
             return self._apple_daily(canonical, end_day, days)
         if canonical in WHOOP_SERIES:
@@ -123,6 +170,7 @@ class HealthTools:
                 "window": [self._whoop.get("window_start"), self._whoop.get("window_end")] if self._whoop else None,
                 **views["latest"],
             },
+            "whoop_sync": self._whoop_freshness(),
             "subjective_db": str(self.cfg.subjective_db),
             "subjective_schema": 1,
         }

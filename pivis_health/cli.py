@@ -112,6 +112,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--kind", help="当日去重 key，默认按内容生成")
 
     sp = sub.add_parser("serve"); sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8943); sp.add_argument("--tls-cert"); sp.add_argument("--tls-key")
+
+    # WHOOP 官方 API 同步（凭据/令牌在 cfg.whoop_auth_dir，不进仓库）
+    sp = sub.add_parser("whoop-auth", help="一次性 WHOOP 授权：老大自己在浏览器登录；secret 只在本机终端隐藏输入")
+    sp.add_argument("--client-id", help="WHOOP 应用 Client ID（secret 不收命令行参数，用 WHOOP_CLIENT_SECRET 或提示输入）")
+    sp.add_argument("--redirect-uri", help="须与 WHOOP 后台登记的一致，默认 http://127.0.0.1:8765/callback")
+    sp.add_argument("--paste", action="store_true", help="回调页打不开时：把浏览器地址栏 URL 粘回终端")
+    sp.add_argument("--no-browser", action="store_true", help="只打印授权地址，不自动打开浏览器")
+    sp.add_argument("--reset-client", action="store_true", help="重新输入 client id / secret")
+    sp.add_argument("--timeout", type=int, default=300)
+    sp = sub.add_parser("whoop-sync", help="拉 WHOOP 官方 API 刷新 14 天快照（北京 02:00–09:00 跳过）；失败 exit≠0")
+    sp.add_argument("--days", type=int, default=14); sp.add_argument("--force", action="store_true", help="静默时段也跑")
+    sub.add_parser("whoop-status", help="WHOOP 快照新鲜度（不联网）；扣掉静默时段超过 3 小时 exit 2")
     return p
 
 
@@ -132,6 +144,11 @@ def main(argv: list[str] | None = None) -> int:
             from .web import serve
             serve(cfg, host=args.host, port=args.port, tls_cert=args.tls_cert, tls_key=args.tls_key)
             return 0
+        if args.cmd in ("whoop-auth", "whoop-sync", "whoop-status"):
+            from .whoop_sync import run_cli
+            out, code = run_cli(cfg, args)
+            _json(out)
+            return code
         tools = HealthTools(cfg)
         if args.cmd == "doctor":
             _json(tools.doctor())

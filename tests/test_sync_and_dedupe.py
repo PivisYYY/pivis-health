@@ -85,3 +85,20 @@ def test_sleep_need_falls_back_to_trend_when_need_missing(monkeypatch):
     v = viz.build(SleepTools(nights), {"metric": "sleep", "kind": "need", "days": 7}, day)
     assert v["kind"] == "trend" and v["fallback_from"] == "need"
     assert v["asof"] == nights[-1]["date"] and v["band"] and v["warn"] is not None
+
+
+def test_resting_hr_and_resp_rate_prefer_whoop_without_mixing(tools_env):
+    """戴 WHOOP 的这段时间整段用 WHOOP 的静息心率 / 呼吸频率；更早、WHOOP 没覆盖的时段才用 Apple。"""
+    from pivis_health.tools import HealthTools
+    t: HealthTools = tools_env
+    nights = sorted(t._whoop_daily("whoop_resting_hr", date(2100, 1, 1), 9999))
+    end = nights[-1]
+    rhr = t.daily_series("resting_heart_rate", end, 30)
+    resp = t.daily_series("respiratory_rate", end, 30)
+    assert rhr and set(rhr.values()) == {58.0}          # 全是 WHOOP 的值，没混进 Apple 的
+    assert resp and set(resp.values()) == {15.8}
+    assert t.series_source("resting_heart_rate", end, 30) == "whoop"
+    # WHOOP 覆盖之前的一段：退回 Apple（夹具里没有 Apple 静息心率就是空，而不是借 WHOOP 的数）
+    old_end = nights[0] - timedelta(days=40)
+    assert t.series_source("resting_heart_rate", old_end, 10) == "apple"
+    assert all(v != 58.0 for v in t.daily_series("resting_heart_rate", old_end, 10).values())
