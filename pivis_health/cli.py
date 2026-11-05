@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 import sys
 from datetime import date, datetime
 
@@ -300,15 +301,19 @@ def main(argv: list[str] | None = None) -> int:
             from .v3 import publish
             pages = ["now", "sleep", "sport", "stress"] if args.page == "all" else [args.page]
             out = {}
-            for pg in pages:
+            prog = tools.cfg.data_dir / "republish.progress.json"
+            for i, pg in enumerate(pages):
+                # 客户端据此知道哪几页正在重排（主卡显示「正在改」）
+                prog.write_text(json.dumps({"current": pg, "left": pages[i + 1:], "at": time.time()}))
                 try:
                     out[pg] = publish(tools, pg, args.timeout)
                 except Exception as exc:  # noqa: BLE001
                     out[pg] = {"error": str(exc)}
-            try:
-                (tools.cfg.data_dir / "republish.lock").unlink()
-            except OSError:
-                pass
+            for f in (prog, tools.cfg.data_dir / "republish.lock"):
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
             _json(out)
         elif args.cmd == "daily-review":
             from .v3 import daily_review

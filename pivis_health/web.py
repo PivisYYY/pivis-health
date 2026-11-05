@@ -424,11 +424,48 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             if u.path == "/api/v3/clock":
                 self._json({"now": tools._now().isoformat(timespec="seconds"), "sim": cfg.sim_mode})
                 return True
+            if u.path == "/api/v3/status":
+                self._json(v3mod.sync_status(tools))
+                return True
+            if u.path == "/api/v3/viz":
+                # 对话里的图表预览：和主卡同一套计算，数字由内核算，P-Health 只给画法
+                from . import viz as vizmod
+                spec = {"metric": (q.get("metric") or [""])[0]}
+                for k in ("kind", "days"):
+                    if q.get(k):
+                        spec[k] = int(q[k][0]) if k == "days" else q[k][0]
+                if q.get("show"):
+                    spec["show"] = [x for x in q["show"][0].split(",") if x]
+                try:
+                    self._json(vizmod.build(tools, spec))
+                except (ValueError, KeyError) as exc:
+                    self._json({"error": "unavailable", "message": str(exc)}, 422)
+                return True
+            if u.path.startswith("/api/v3/photo/"):
+                f = v3mod.photo_file(tools, unquote(u.path.rsplit("/", 1)[-1]))
+                if f is None:
+                    self._json({"error": "not_found"}, 404)
+                    return True
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png" if f.suffix == ".png" else "image/jpeg")
+                self.send_header("Cache-Control", "private, max-age=31536000, immutable")
+                data = f.read_bytes()
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return True
             return False
 
         def _v3_post(self, u) -> None:
             from . import v3 as v3mod
             from .clock import set_now
+            if u.path == "/api/v3/photo":
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 12 * 1024 * 1024:
+                    self._json({"error": "too_large"}, 413)
+                    return
+                self._json(v3mod.save_chat_photo(tools, self.rfile.read(n)))
+                return
             if u.path.startswith("/api/v3/todo/") and u.path.endswith("/photo"):
                 n = int(self.headers.get("Content-Length") or 0)
                 if n > 12 * 1024 * 1024:

@@ -108,7 +108,15 @@ def _series(tools, metric: str, day: date, days: int) -> list[tuple[str, float]]
 def _band(tools, metric: str, asof: str, pref: dict) -> tuple[list[float] | None, float | None]:
     m = METRICS[metric]
     band, warn = None, None
-    if m["series"]:
+    if metric == "sleep":
+        vals = [float(n["actual"]) for n in _sleep_nights(tools, date.fromisoformat(asof) + timedelta(days=1))][-30:]
+        if len(vals) >= 5:
+            c = sum(vals) / len(vals)
+            sd = math.sqrt(sum((v - c) ** 2 for v in vals) / (len(vals) - 1))
+            if sd:
+                band = [_r(c - sd, 1), _r(c + sd, 1)]
+                warn = _r(c - 1.5 * sd, 1)
+    elif m["series"]:
         b = (tools.baseline(m["series"], date.fromisoformat(asof)) or {}).get("baseline") or {}
         c, s = b.get("center"), b.get("spread")
         if c is not None and s:
@@ -193,7 +201,15 @@ def build(tools, spec: Any, day: date | None = None, now: datetime | None = None
             "nd": m["nd"], "show": s.get("show") or list(MARKS)}
     fn = {"trend": _trend, "gauge": _gauge, "need": _need, "stack": _stack, "range": _range,
           "progress": _progress, "route": _route}[kind]
-    out = fn(tools, metric, day, now, s, pref)
+    try:
+        out = fn(tools, metric, day, now, s, pref)
+    except VizUnavailable as exc:
+        # 睡眠：WHOOP 断更时最近几晚只有 Apple 健康的时长、没有「需要睡多久」，need 画不了 → 退回折线，
+        # 并标明是退回来的，免得 Agent 以为页面画的是它选的那种
+        if metric != "sleep" or kind != "need":
+            raise
+        out = _trend(tools, metric, day, now, {**s, "days": s.get("days", 7)}, pref)
+        base = {**base, "kind": "trend", "fallback_from": kind, "fallback_reason": str(exc)}
     out = {**base, **out}
     out["value_text"] = _text(out.get("value"), m["nd"])
     return out
@@ -208,13 +224,13 @@ def _trend(tools, metric, day, now, s, pref) -> dict:
     asof, value = vals[-1]
     out: dict[str, Any] = {"value": _r(value, m["nd"]), "asof": asof, "days": days,
                            "series": [{"date": d, "value": _r(v, m["nd"])} for d, v in vals]}
-    if metric == "sleep":
-        nights = _sleep_nights(tools, day)
-        need = nights[-1].get("need") if nights else None
+    if metric == "sleep" and _last_need(tools, day) is not None:
+        need = _last_need(tools, day)
         out["need"] = _r(need, 1)
         out["band"], out["warn"] = None, None
-        out["zone"] = None if need is None else _night_zone(need - value)
+        out["zone"] = _night_zone(need - value)
     else:
+        # 没有「需要睡多久」的晚上（WHOOP 断更，只有 Apple 健康时长）：跟其他指标一样和自己近 30 天比
         band, warn = _band(tools, metric, asof, pref)
         out["band"], out["warn"] = band, warn
         out["zone"] = _zone(m["dir"], value, band, warn)
@@ -235,6 +251,11 @@ def _gauge(tools, metric, day, now, s, pref) -> dict:
             "prev": _r(prev, 0), "aside": {"text": f"前一天 {_text(prev, 0)}"} if prev is not None else None}
 
 
+def _last_need(tools, day: date) -> float | None:
+    nights = _sleep_nights(tools, day)
+    return nights[-1].get("need") if nights else None
+
+
 def _night_zone(short: float) -> str:
     return "act" if short >= NIGHT_SHORT_ACT else ("watch" if short >= NIGHT_SHORT_WATCH else "steady")
 
@@ -242,8 +263,10 @@ def _night_zone(short: float) -> str:
 def _need(tools, metric, day, now, s, pref) -> dict:
     days = s.get("days", 7)
     nights = _sleep_nights(tools, day)[-days:]
-    if not nights or nights[-1].get("need") is None:
+    if not nights:
         raise VizUnavailable("最近没有睡眠记录")
+    if nights[-1].get("need") is None:
+        raise VizUnavailable("最近一晚只有时长、没有「需要睡多久」（WHOOP 没同步）")
     last = nights[-1]
     slept, need = float(last["actual"]), float(last["need"])
     marks = [{"night_of": n["date"], "slept": _r(n["actual"], 1), "need": _r(n.get("need"), 1),

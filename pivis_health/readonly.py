@@ -81,7 +81,7 @@ class ReadOnlyObjectiveStore:
             rows = con.execute(
                 """
                 SELECT s.sample_id, s.type, s.start_at, s.end_at, s.unit,
-                       s.numeric_value, s.category_value
+                       s.numeric_value, s.category_value, s.device_id
                 FROM samples AS s
                 WHERE (
                     (s.type = 'sleep_analysis' AND s.start_at >= ? AND s.start_at < ?)
@@ -98,6 +98,7 @@ class ReadOnlyObjectiveStore:
             ).fetchall()
         finally:
             con.close()
+        rows = _dedupe_app_installs(rows)
         return tuple(
             {
                 "sample_id": r[0],
@@ -138,3 +139,23 @@ class ReadOnlyObjectiveStore:
         finally:
             con.close()
         return {t: parse_ts(ts).astimezone(timezone.utc) for t, ts in rows}
+
+
+def _dedupe_app_installs(rows: list) -> list:
+    """同一台 iPhone 每重装一次 App 会换一个 device_id，旧的和新的都在上报同一份样本（同 sample_id）。
+    这些行只能算一次：同 (type, sample_id) 只留一条；当天累计值（步数、活动能量）留最大的那条，
+    因为后传的那次覆盖了更多时段。只处理 App 上报（iphone-*）的行，导入库的历史数据不动。"""
+    keep: dict[tuple, tuple] = {}
+    out = []
+    for r in rows:
+        dev = r[7] or ""
+        if not str(dev).startswith("iphone-"):
+            out.append(r)
+            continue
+        key = (r[1], r[0])
+        prev = keep.get(key)
+        if prev is None or (r[5] or 0) > (prev[5] or 0):
+            keep[key] = r
+    out.extend(keep.values())
+    out.sort(key=lambda r: (r[2] or "", r[1] or "", r[0] or ""))
+    return out

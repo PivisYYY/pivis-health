@@ -52,6 +52,6 @@ def test_life_board_cannot_be_hero():
 
 
 def test_chat_hides_photo_path():
-    from pivis_health.dsh_chat import _PHOTO_REF
+    from pivis_health.dsh_chat import _PHOTO_REF, _photo_marker
     text = "用户在待办卡里提交：照片 /some/dir/pivis-runtime/photos/daily-log-lunch-1.jpg（用 read_image 看这张图）"
-    assert _PHOTO_REF.sub("照片", text) == "用户在待办卡里提交：照片"
+    assert _PHOTO_REF.sub(_photo_marker, text) == "用户在待办卡里提交：[[photo:daily-log-lunch-1.jpg]]"

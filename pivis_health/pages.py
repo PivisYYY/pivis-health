@@ -26,8 +26,23 @@ class V2Pages:
 
     # ---------- 公共数据 ----------
     def _nights(self, end: date, days: int = 16) -> dict[date, dict]:
+        """每晚睡眠：有 WHOOP 记录用 WHOOP（带「需要睡多久」）；WHOOP 断更的晚上用 Apple 健康的睡眠补上，
+        只有时长、没有「需要」（不编）。"""
         snap = self.t._whoop or {}
-        return sleep_by_night(snap, self.t.cfg.timezone) if snap else {}
+        out = sleep_by_night(snap, self.t.cfg.timezone) if snap else {}
+        for i in range(days):
+            nd = end - timedelta(days=i)
+            if nd in out or nd >= self.t._now().date():
+                continue
+            try:
+                r = self.t._sleep_results(nd, 1)[nd]
+            except Exception:
+                continue
+            hours = (r.get("night") or {}).get("hours") or 0.0
+            if r.get("error") or hours < 1.0:
+                continue
+            out[nd] = {"asleep_h": round(float(hours), 2), "source": "apple_health"}
+        return out
 
     def _recovery_daily(self, end: date, days: int = 30) -> dict[date, float]:
         return self.t.daily_series("whoop_recovery", end, days)

@@ -538,10 +538,7 @@ def _agent_message(t: dict, values: dict, text: str) -> str:
             "处理完后用一句话说清楚改了什么、什么时候生效。")
 
 
-def save_photo(tools, todo_id: str, data: bytes) -> dict:
-    """待办卡上拍的照片：存到运行目录 photos/，返回给 P-Health 读图用的绝对路径。"""
-    if TodoStore(tools.cfg).get(todo_id) is None:
-        raise KeyError(todo_id)
+def _store_photo(tools, stem: str, data: bytes) -> dict:
     if not data or len(data) > 12 * 1024 * 1024:
         raise ValueError("照片为空或超过 12 MB")
     if not (data[:3] == b"\xff\xd8\xff" or data[:8] == b"\x89PNG\r\n\x1a\n"):
@@ -549,9 +546,89 @@ def save_photo(tools, todo_id: str, data: bytes) -> dict:
     folder = tools.cfg.data_dir / "photos"
     folder.mkdir(parents=True, exist_ok=True)
     ext = "png" if data[:4] == b"\x89PNG" else "jpg"
-    path = folder / f"{re.sub(r'[^A-Za-z0-9_-]', '-', todo_id)}-{int(time.time())}.{ext}"
+    path = folder / f"{re.sub(r'[^A-Za-z0-9_-]', '-', stem)}-{int(time.time() * 1000)}.{ext}"
     path.write_bytes(data)
-    return {"photo": str(path)}
+    return {"photo": str(path), "name": path.name}
+
+
+def save_photo(tools, todo_id: str, data: bytes) -> dict:
+    """待办卡上拍的照片：存到运行目录 photos/，返回给 P-Health 读图用的绝对路径。"""
+    if TodoStore(tools.cfg).get(todo_id) is None:
+        raise KeyError(todo_id)
+    return _store_photo(tools, todo_id, data)
+
+
+def save_chat_photo(tools, data: bytes) -> dict:
+    """对话里直接拍的照片：同样存 photos/，客户端把路径写进消息发给 P-Health。"""
+    return _store_photo(tools, "chat", data)
+
+
+PHOTO_NAME = re.compile(r"^[A-Za-z0-9_-]+\.(?:jpg|png)$")
+
+
+def photo_file(tools, name: str) -> Path | None:
+    """对话里显示缩略图用：只认 photos/ 下的文件名，不接受路径。"""
+    if not PHOTO_NAME.match(name):
+        return None
+    f = tools.cfg.data_dir / "photos" / name
+    return f if f.is_file() else None
+
+
+# ---------------------------------------------------------------- 客户端同步状态
+_TURN_CACHE: dict[str, tuple[int, dict]] = {}
+CHAT_CONTEXTS = ("", "休息", "运动", "压力", "事件处理")
+
+
+def _turn(context: str) -> dict | None:
+    """会话回合状态，按会话文件 mtime 缓存（客户端会几秒轮询一次）。"""
+    from . import dsh_chat
+    f = dsh_chat._session_dir(context) / "session.v4.jsonl.zstd"
+    try:
+        m = f.stat().st_mtime_ns
+    except OSError:
+        return None
+    hit = _TURN_CACHE.get(context)
+    if hit and hit[0] == m:
+        return hit[1]
+    st = dsh_chat.turn_status(context)
+    _TURN_CACHE[context] = (m, st)
+    return st
+
+
+def sync_status(tools) -> dict:
+    """客户端用来决定什么时候刷新、哪里显示「正在改」：
+    rev     页面、待办、偏好、健康数据任一变了就变 → 客户端重新拉页面；
+    agent   P-Health 正在某个对话里处理（可能马上改页面/待办）；
+    updating 后台正在重排的页面（主卡和结论会换）。"""
+    import hashlib
+    cfg = tools.cfg
+    d = cfg.data_dir
+    files = [d / "pages_v3.json", d / "todos_v3.json", d / "agent_context.json",
+             Path(cfg.vault_db), Path(str(cfg.vault_db) + "-wal"), Path(cfg.whoop_snapshot)]
+    sig = "|".join(str(f.stat().st_mtime_ns) if f.exists() else "-" for f in files)
+    lock, again, prog = d / "republish.lock", d / "republish.again", d / "republish.progress.json"
+    updating: list[str] = []
+    try:
+        running = lock.exists() and time.time() - lock.stat().st_mtime < 900
+    except OSError:
+        running = False
+    if running:
+        try:
+            pr = json.loads(prog.read_text(encoding="utf-8"))
+            updating = [x for x in [pr.get("current"), *(pr.get("left") or [])] if x in PAGES]
+        except Exception:  # noqa: BLE001
+            updating = list(PAGES)
+        if again.exists():
+            updating = list(PAGES)
+    agent: dict[str, Any] = {"busy": False}
+    for ctx in CHAT_CONTEXTS:
+        st = _turn(ctx)
+        if st and st.get("busy"):
+            agent = {"busy": True, "context": ctx, "tool": st.get("last_tool"),
+                     "args": (st.get("last_args") or "")[:600]}
+            break
+    return {"rev": hashlib.sha1(sig.encode()).hexdigest()[:12], "agent": agent, "updating": updating,
+            "now": tools._now().isoformat(timespec="seconds")}
 
 
 def submit(tools, todo_id: str, body: dict) -> dict:

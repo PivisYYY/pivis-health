@@ -56,7 +56,12 @@ TZ = ZoneInfo("Asia/Shanghai")
 
 
 # 待办提交时发给 P-Health 的照片引用：「照片 <路径>（用 read_image 看这张图）」，对话里只显示「照片」
-_PHOTO_REF = re.compile(r"照片 \S+?\.(?:jpe?g|png)（用 read_image 看这张图）")
+_PHOTO_REF = re.compile(r"照片 (\S+?\.(?:jpe?g|png))（用 read_image 看这张图）")
+
+
+def _photo_marker(m: re.Match) -> str:
+    """把服务器路径换成 [[photo:文件名]]：客户端据此从 /api/v3/photo/<文件名> 取缩略图显示，路径不露给老大。"""
+    return f"[[photo:{Path(m.group(1)).name}]]"
 
 
 class DshChatError(RuntimeError):
@@ -303,7 +308,7 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
                         continue
                     msgs.append({
                         "role": "me",
-                        "text": _PHOTO_REF.sub("照片", c["text"]),   # 不把服务器上的照片路径给老大看
+                        "text": _PHOTO_REF.sub(_photo_marker, c["text"]),   # 不把服务器上的照片路径给老大看，换成缩略图标记
                         "time": ts.isoformat() if ts else "",
                         "type": "user"
                     })
