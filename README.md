@@ -4,7 +4,20 @@
 
 从 Pivis 健康助手的现有技术实践中逐步提取通用实现，连接健康数据采集、私有存储、可信分析和按需提醒，让 AI 基于可追溯的数据提供辅助信息，而不是制造更多健康报表。
 
-> **项目状态：筹备中 / Project scaffold。** 当前公开的是项目简介与目录骨架，尚未发布业务实现、安装入口或可运行演示。下列目录为计划结构，不代表模块已经交付。
+> **项目状态：v0.1 内核已实现（2026-10-31）。** 只读数据层、睡眠重建（含双计/平行轨事故防线）、个人基线与 z 分数、三级监测规则（关注/提醒/建议就医 + 夜间免打扰）、晨报/周报装配、主观库、CLI 与 Web 交互页均已交付，28 项回归测试通过（`tests/`）。采集链（Apple webhook / WHOOP 同步）按 12-06 交棒计划搬运（见 `docs/CUTOVER-12-06.md`）。
+>
+> 本仓库可开源：真实路径在 `config.local.json`（gitignored），真实数据一律不入库（见 `docs/PRIVACY.md` 与 `.gitignore`）。
+
+## 快速使用
+
+```sh
+python3 -m pivis_health.cli doctor          # 自检（系统 Python 3.9+，零依赖）
+python3 -m pivis_health.cli morning-report  # 晨报装配
+python3 -m pivis_health.cli serve           # Web 交互页（默认 127.0.0.1:8943）
+python3 -m venv .venv && .venv/bin/pip install pytest && .venv/bin/python -m pytest  # 测试
+```
+
+Agent（dsh/其它）接入见 `docs/DSH-INTEGRATION.md`；资产来源见 `docs/MIGRATION.md`。
 
 ## 计划整理的能力
 

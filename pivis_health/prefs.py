@@ -1,0 +1,135 @@
+"""老大定下的偏好（越用越懂）：展示形式、对比基线等。
+
+- P-Health 用 context-record --scope pref.<主题> 记下偏好，payload 里必须有一句人话 rule。
+- 记下后，这里把所有生效的 pref.* 渲染成 AGENTS.md 末尾的一段「老大定下的偏好」，
+  DSH 发现 AGENTS.md 变了会自动把新内容带进每个会话（App 的四个板块、团队里的 P-Health Bot 都读同一份）。
+- 页面编排通过 shared_context 也能看到；对比基线这类要算数的偏好，由 compare() 按偏好算好放进 facts。
+"""
+from __future__ import annotations
+
+import os
+import tempfile
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any
+
+PREF_PREFIX = "pref."
+START = "<!-- 老大的偏好：系统自动维护，不要手改 -->"
+END = "<!-- 老大的偏好：结束 -->"
+
+BASELINES = ("prev_week", "personal")
+METRICS = {
+    "sleep": ("睡眠时长", "小时"),
+    "hrv": ("HRV", "ms"),
+    "recovery": ("恢复", "%"),
+    "strain": ("训练负荷", ""),
+    "steps": ("步数", "步"),
+    "resting_hr": ("静息心率", "次/分"),
+    "resp_rate": ("呼吸频率", "次/分"),
+    "weight": ("体重", "kg"),
+}
+SERIES = {"hrv": "whoop_hrv_rmssd", "recovery": "whoop_recovery", "strain": "whoop_strain", "steps": "steps",
+          "resting_hr": "resting_heart_rate", "resp_rate": "respiratory_rate", "weight": "weight"}
+
+
+def active_prefs(cfg) -> list[dict]:
+    from .agent_context import AgentContextStore
+    return [e for e in AgentContextStore(cfg).snapshot()["entries"] if str(e.get("scope", "")).startswith(PREF_PREFIX)]
+
+
+def baseline_pref(cfg) -> str | None:
+    for e in active_prefs(cfg):
+        if e["scope"] == "pref.baseline":
+            w = (e.get("payload") or {}).get("window")
+            return w if w in BASELINES else None
+    return None
+
+
+def render_block(prefs: list[dict]) -> str:
+    lines = [START, "## 老大定下的偏好（必须遵守；老大改口就用 context-record 覆盖同一个 scope）"]
+    if not prefs:
+        lines.append("- 暂无")
+    for e in prefs:
+        rule = str((e.get("payload") or {}).get("rule") or "").strip() or str(e.get("payload"))
+        when = str(e.get("recorded_at") or "")[:10]
+        lines.append(f"- {rule}（{e['scope']}，{when}）")
+    lines.append(END)
+    return "\n".join(lines)
+
+
+def agents_md_path() -> Path:
+    from . import dsh_chat
+    return Path(dsh_chat.DSH_CWD) / "AGENTS.md"
+
+
+def sync_agents_md(cfg, path: Path | None = None) -> dict:
+    """把生效的偏好写进工作区 AGENTS.md 末尾（只动标记之间的那一段）。"""
+    path = path or agents_md_path()
+    if not path.is_file() or path.is_symlink():
+        return {"ok": False, "reason": f"{path} 不是普通文件"}
+    text = path.read_text(encoding="utf-8")
+    block = render_block(active_prefs(cfg))
+    if START in text and END in text:
+        head, rest = text.split(START, 1)
+        tail = rest.split(END, 1)[1]
+        new = head.rstrip("\n") + "\n\n" + block + tail
+    else:
+        new = text.rstrip("\n") + "\n\n" + block + "\n"
+    if new != text:
+        fd, tmp = tempfile.mkstemp(prefix=".agents-", suffix=".md", dir=path.parent)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(new)
+        os.replace(tmp, path)
+    return {"ok": True, "path": str(path), "prefs": len(active_prefs(cfg)), "changed": new != text}
+
+
+# ---------------------------------------------------------------- 对比（数字都由这里算，P-Health 只抄）
+def _round(v: float | None, nd: int = 1):
+    return None if v is None else (int(round(v)) if nd == 0 else round(v, nd))
+
+
+def _values(tools, metric: str, day: date, days: int) -> list[tuple[str, float]]:
+    """按日期升序的 (日期, 值)。睡眠按「入睡那晚」记，今天能看到的最近一晚是昨晚。"""
+    if metric == "sleep":
+        from .pages import V2Pages
+        sp = V2Pages(tools).sleep(day)
+        yday = (day - timedelta(days=1)).isoformat()
+        return [(n["date"], float(n["actual"])) for n in sp.get("chart14") or []
+                if n.get("actual") is not None and n["date"] <= yday][-days:]
+    daily = tools.daily_series(SERIES[metric], day, days)
+    return [(d.isoformat(), float(v)) for d, v in sorted(daily.items()) if d <= day]
+
+
+def compare(tools, metric: str, day: date, recent: int = 7, baseline: str = "prev_week") -> dict:
+    if metric not in METRICS:
+        raise ValueError(f"metric 只能是 {list(METRICS)}")
+    if baseline not in BASELINES:
+        raise ValueError(f"baseline 只能是 {BASELINES}")
+    label, unit = METRICS[metric]
+    nd = 0 if metric in ("steps", "recovery", "resting_hr") else 1
+    vals = _values(tools, metric, day, 28)
+    if not vals:
+        return {"metric": metric, "label": label, "unit": unit, "ok": False, "reason": "这项最近没有数据"}
+    last_date = date.fromisoformat(vals[-1][0])
+    r_start = last_date - timedelta(days=recent - 1)
+    rec = [(d, v) for d, v in vals if d >= r_start.isoformat()]
+    out: dict[str, Any] = {"metric": metric, "label": label, "unit": unit, "ok": True,
+                           "recent": {"from": r_start.isoformat(), "to": last_date.isoformat(), "n": len(rec),
+                                      "avg": _round(sum(v for _, v in rec) / len(rec), nd)}}
+    if baseline == "prev_week":
+        b_end = r_start - timedelta(days=1)
+        b_start = b_end - timedelta(days=6)
+        base = [(d, v) for d, v in vals if b_start.isoformat() <= d <= b_end.isoformat()]
+        out["baseline"] = {"kind": "prev_week", "label": "上一周", "from": b_start.isoformat(), "to": b_end.isoformat(),
+                           "n": len(base), "avg": _round(sum(v for _, v in base) / len(base), nd) if base else None}
+    else:
+        b = tools.baseline(SERIES.get(metric, "whoop_hrv_rmssd")) if metric != "sleep" else {}
+        center = ((b or {}).get("baseline") or {}).get("center")
+        out["baseline"] = {"kind": "personal", "label": "个人基线（30 天）", "avg": _round(center, nd) if center else None}
+    a, bavg = out["recent"]["avg"], out["baseline"].get("avg")
+    if a is not None and bavg:
+        out["change"] = _round(a - bavg, nd)
+        out["change_pct"] = _round((a - bavg) / bavg * 100, 0)
+    if out["baseline"].get("n", 1) < 3 or out["recent"]["n"] < 3:
+        out["note"] = "样本少于 3 天，只能当参考"
+    return out

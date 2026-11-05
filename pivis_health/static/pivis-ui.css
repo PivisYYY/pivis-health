@@ -1,0 +1,344 @@
+/* pivis-ui · 组件样式（需求文档附录 14.2 原文提取）
+ * 只有深色主题（需求 §12）。所有颜色走 token，组件只引用 token。
+ * 布局：390pt 手机宽度，卡片左右 16，卡片内边距 14。
+ */
+.pv-root {
+  --pv-bg: #0F1217;
+  --pv-card: #181C23;
+  --pv-card-2: #1E232B;
+  --pv-text: #ECEEF1;
+  --pv-text-2: #9AA3AE;
+  --pv-text-3: #C3C9D1;
+  --pv-accent: #9DB4FF;
+  --pv-accent-ink: #0F1217;
+  --pv-data: #5B8DEF;
+  --pv-data-deep: #2F5FA8;
+  --pv-attn: #D9772E;
+  --pv-attn-bg: #3A2A1E;
+  --pv-shade: rgba(217, 119, 46, 0.18);
+  --pv-good: #2E9E7C;
+  --pv-muted: #4A515C;
+  --pv-muted-2: #6B7380;
+  --pv-band: #232934;
+  --pv-grid: #262B33;
+  --pv-border: #2A3039;
+  --pv-font: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+  position: relative;
+  box-sizing: border-box;
+  background: var(--pv-bg);
+  color: var(--pv-text);
+  font-family: var(--pv-font);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+.pv-root *, .pv-root *::before, .pv-root *::after { box-sizing: border-box; }
+.pv-root p, .pv-root h1, .pv-root h2, .pv-root h3 { margin: 0; }
+.pv-root button { font: inherit; color: inherit; cursor: pointer; }
+.pv-root button:focus-visible, .pv-root a:focus-visible, .pv-root input:focus-visible,
+.pv-root [tabindex]:focus-visible {
+  outline: 2px solid var(--pv-accent); outline-offset: 2px;
+}
+.pv-num { font-variant-numeric: tabular-nums; }
+/* ---------- 布局 ---------- */
+.pv-stack { display: flex; flex-direction: column; gap: 8px; }
+.pv-stack.pv-gap-10 { gap: 10px; }
+.pv-stack.pv-gap-12 { gap: 12px; }
+.pv-grid { display: grid; gap: 8px; }
+.pv-grid > * { min-width: 0; }
+.pv-pad { padding: 0 16px; }
+.pv-card { background: var(--pv-card); border-radius: 18px; padding: 14px; min-width: 0; }
+.pv-card.pv-tight { border-radius: 14px; padding: 10px 12px; }
+.pv-card.pv-mid { border-radius: 16px; padding: 12px 14px; }
+.pv-card-title { font-size: 14px; font-weight: 700; }
+.pv-section-label { font-size: 13px; font-weight: 500; color: var(--pv-text-2); padding: 8px 8px 0; }
+.pv-eyebrow { font-size: 12px; color: var(--pv-text-2); }
+.pv-sub { font-size: 12.5px; color: var(--pv-text-2); line-height: 1.55; }
+.pv-small { font-size: 11.5px; color: var(--pv-text-2); }
+.pv-text { font-size: 15px; line-height: 1.6; }
+.pv-text.pv-quiet { color: var(--pv-text-2); font-size: 13px; }
+/* ---------- 按钮 ---------- */
+.pv-btn {
+  height: 30px; padding: 0 12px; border-radius: 15px; font-size: 12.5px;
+  border: 1px solid var(--pv-border); background: transparent; color: var(--pv-text);
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  white-space: nowrap; flex: none; text-decoration: none;
+}
+.pv-btn.pv-primary { border: 0; background: var(--pv-accent); color: var(--pv-accent-ink); font-weight: 700; }
+.pv-btn.pv-lg { height: 40px; border-radius: 20px; font-size: 14px; padding: 0 16px; }
+.pv-btn.pv-md { height: 34px; border-radius: 17px; font-size: 13px; }
+.pv-btn.pv-block { flex: 1; }
+.pv-btn[disabled] { opacity: .45; cursor: default; }
+.pv-btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pv-chip {
+  height: 32px; min-width: 40px; padding: 0 12px; border-radius: 16px; font-size: 13px;
+  border: 1px solid var(--pv-border); background: transparent; color: var(--pv-text);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pv-chip[aria-pressed="true"] { background: var(--pv-accent); border-color: var(--pv-accent); color: var(--pv-accent-ink); font-weight: 700; }
+/* ---------- 页面骨架 ---------- */
+.pv-page { min-height: 100%; display: flex; flex-direction: column; padding-bottom: 92px; }
+.pv-nav { display: flex; gap: 22px; padding: 22px 24px 0; font-size: 15px; overflow-x: auto; scrollbar-width: none; }
+.pv-nav button { border: 0; background: none; padding: 0 0 6px; color: var(--pv-text-2); white-space: nowrap; }
+.pv-nav button[aria-current="page"] { color: var(--pv-text); font-weight: 700; box-shadow: inset 0 -2px 0 var(--pv-accent); }
+.pv-page-body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 0; }
+.pv-page-body > .pv-headline { margin: 4px 4px 4px; }
+.pv-headline { display: flex; gap: 10px; align-items: flex-start; }
+.pv-avatar {
+  width: 28px; height: 28px; border-radius: 14px; background: var(--pv-accent); color: var(--pv-accent-ink);
+  font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  flex: none; margin-top: 2px;
+}
+.pv-headline h1 { font-size: 20px; line-height: 1.4; font-weight: 700; margin-top: 2px; text-wrap: balance; }
+.pv-headline .pv-why { border: 0; background: none; padding: 0; color: var(--pv-accent); font-size: 12px; margin-top: 4px; }
+.pv-chatbar {
+  position: sticky; bottom: 0; z-index: 5; margin-top: auto;
+  padding: 12px 16px calc(22px + env(safe-area-inset-bottom, 0px));
+  background: var(--pv-bg);
+  display: flex; gap: 8px; align-items: center;
+}
+.pv-chatbar.pv-inline { position: static; padding: 0; background: none; }
+.pv-chatbar label { flex: 1; display: flex; align-items: center; background: var(--pv-card); border-radius: 22px; height: 46px; padding: 0 16px; min-width: 0; }
+.pv-chatbar input { border: 0; outline: 0; background: transparent; font: inherit; font-size: 15px; color: var(--pv-text); width: 100%; min-width: 0; }
+.pv-chatbar input::placeholder { color: var(--pv-text-2); }
+.pv-chatbar .pv-round { width: 46px; height: 46px; border-radius: 23px; border: 0; background: var(--pv-accent); color: var(--pv-accent-ink); display: flex; align-items: center; justify-content: center; flex: none; }
+.pv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* ---------- 分段切换 ---------- */
+.pv-seg { display: flex; gap: 4px; background: var(--pv-bg); border-radius: 10px; padding: 3px; }
+.pv-seg button { flex: 1; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--pv-text-2); font-size: 12.5px; white-space: nowrap; }
+.pv-seg button[aria-selected="true"] { background: var(--pv-card-2); color: var(--pv-text); font-weight: 700; }
+/* ---------- 数字 ---------- */
+.pv-hero-num { font-size: 52px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pv-hero-num .pv-unit { font-size: 24px; color: var(--pv-text-2); font-weight: 700; }
+.pv-hero-num.pv-is-attn { color: var(--pv-attn); }
+.pv-tile-value { font-size: 22px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.pv-tile-value .pv-unit { font-size: 13px; color: var(--pv-text-2); font-weight: 400; }
+.pv-tile-value.pv-is-attn { color: var(--pv-attn); }
+.pv-tile[role="button"] { cursor: pointer; }
+.pv-tile .pv-tile-sub { font-size: 11.5px; color: var(--pv-text-2); margin-top: 2px; }
+.pv-badge { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 9px; font-size: 11px; color: var(--pv-text-2); border: 1px dashed var(--pv-muted-2); margin-left: 6px; vertical-align: 3px; font-weight: 400; }
+.pv-status { display: flex; align-items: center; gap: 6px; color: var(--pv-text); font-size: 12px; }
+/* ---------- 范围条 ---------- */
+.pv-meter { position: relative; height: 8px; border-radius: 4px; background: var(--pv-band); }
+.pv-meter.pv-is-attn { background: var(--pv-attn-bg); }
+.pv-meter-fill { height: 8px; border-radius: 4px; background: var(--pv-data); }
+.pv-meter.pv-is-attn .pv-meter-fill { background: var(--pv-attn); }
+.pv-meter-tick { position: absolute; top: -3px; width: 1px; height: 14px; background: var(--pv-muted-2); }
+/* ---------- 图例 / 脚注 ---------- */
+.pv-legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--pv-text-2); }
+.pv-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.pv-sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.pv-sw.pv-dot { width: 9px; height: 9px; border-radius: 5px; }
+.pv-sw.pv-line { width: 12px; height: 2px; border-radius: 1px; }
+.pv-sw.pv-vline { width: 2px; height: 12px; border-radius: 1px; }
+.pv-sw.pv-band { width: 12px; height: 10px; border-radius: 0; }
+.pv-sw.pv-ring { width: 9px; height: 9px; border-radius: 5px; background: transparent !important; border: 1.5px solid var(--pv-good); }
+.pv-footnote { font-size: 11.5px; color: var(--pv-text-2); line-height: 1.5; }
+/* 色块（图例与 HTML 标记共用） */
+.pv-c-data { background: var(--pv-data); }
+.pv-c-deep { background: var(--pv-data-deep); }
+.pv-c-attn { background: var(--pv-attn); }
+.pv-c-good { background: var(--pv-good); }
+.pv-c-muted { background: var(--pv-muted); }
+.pv-c-muted2 { background: var(--pv-muted-2); }
+.pv-c-band { background: var(--pv-band); }
+.pv-c-shade { background: var(--pv-shade); }
+.pv-c-accent { background: var(--pv-accent); }
+/* ---------- SVG ---------- */
+.pv-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pv-svg text { font-family: var(--pv-font); }
+.pv-f-data { fill: var(--pv-data); } .pv-s-data { stroke: var(--pv-data); }
+.pv-f-attn { fill: var(--pv-attn); } .pv-s-attn { stroke: var(--pv-attn); }
+.pv-f-good { fill: var(--pv-good); } .pv-s-good { stroke: var(--pv-good); }
+.pv-f-muted { fill: var(--pv-muted); } .pv-s-muted { stroke: var(--pv-muted); }
+.pv-f-muted2 { fill: var(--pv-muted-2); } .pv-s-muted2 { stroke: var(--pv-muted-2); }
+.pv-f-band { fill: var(--pv-band); }
+.pv-f-shade { fill: var(--pv-shade); }
+.pv-f-accent { fill: var(--pv-accent); } .pv-s-accent { stroke: var(--pv-accent); }
+.pv-f-card { fill: var(--pv-card); } .pv-s-card { stroke: var(--pv-card); }
+.pv-s-grid { stroke: var(--pv-grid); }
+.pv-f-text { fill: var(--pv-text); } .pv-f-text2 { fill: var(--pv-text-2); }
+.pv-f-text3 { fill: var(--pv-text-3); }
+.pv-f-ink { fill: var(--pv-accent-ink); }
+.pv-hit { fill: transparent; cursor: pointer; }
+.pv-hit:hover + .pv-hl, .pv-hit:focus + .pv-hl { opacity: 1; }
+/* ---------- 提示框 ---------- */
+.pv-tip {
+  position: absolute; z-index: 20; pointer-events: none; max-width: 220px;
+  background: var(--pv-card-2); color: var(--pv-text); border: 1px solid var(--pv-border);
+  border-radius: 10px; padding: 6px 10px; font-size: 12px; line-height: 1.45; white-space: pre-line;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+/* ---------- 需求卡 ---------- */
+.pv-need { display: flex; flex-direction: column; gap: 8px; }
+.pv-need-top { display: flex; gap: 12px; align-items: center; }
+.pv-need-main { flex: 1; min-width: 0; }
+.pv-need-kind { font-size: 12px; color: var(--pv-text-2); display: flex; align-items: center; gap: 6px; }
+.pv-need h3 { font-size: 17px; font-weight: 700; margin-top: 2px; }
+.pv-need-mini { flex: none; width: 86px; }
+.pv-need.pv-is-closed { flex-direction: row; align-items: center; justify-content: space-between; }
+.pv-need.pv-is-closed h3 { font-size: 15px; color: var(--pv-text-2); font-weight: 500; text-decoration: none; }
+.pv-undo { border: 0; background: none; color: var(--pv-accent); font-size: 12.5px; padding: 4px 0; }
+.pv-empty { text-align: left; }
+/* ---------- 今晚计划 ---------- */
+.pv-plan-bar { display: flex; gap: 2px; height: 28px; }
+.pv-plan-seg { border-radius: 4px; color: var(--pv-accent-ink); font-size: 12px; font-weight: 700; display: flex; align-items: center; padding-left: 8px; min-width: 28px; overflow: hidden; white-space: nowrap; }
+.pv-plan-seg.pv-c-deep { color: #FFFFFF; }
+.pv-plan-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+/* ---------- 额度 ---------- */
+.pv-quota { display: flex; gap: 6px; align-items: center; }
+.pv-quota-dot { width: 18px; height: 18px; border-radius: 9px; background: var(--pv-good); flex: none; }
+.pv-quota-dot.pv-is-empty { background: transparent; border: 1.5px solid var(--pv-good); }
+.pv-quota-dot.pv-is-planned { background: transparent; border: 1.5px dashed var(--pv-accent); }
+/* ---------- 决策 ---------- */
+.pv-checks { display: flex; flex-direction: column; gap: 6px; }
+.pv-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pv-check .pv-check-v { margin-left: auto; color: var(--pv-text-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.pv-verdict { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+/* ---------- 选择卡 / 评分 / 确认 ---------- */
+.pv-options { display: flex; flex-direction: column; gap: 6px; }
+.pv-option {
+  text-align: left; width: 100%; border: 1px solid var(--pv-border); background: transparent;
+  border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: center;
+}
+.pv-option[aria-pressed="true"] { border-color: var(--pv-accent); background: rgba(157,180,255,.08); }
+.pv-option .pv-opt-main { flex: 1; min-width: 0; }
+.pv-option .pv-opt-title { font-size: 14.5px; font-weight: 700; }
+.pv-option .pv-opt-min { font-size: 13px; color: var(--pv-text-2); font-variant-numeric: tabular-nums; flex: none; }
+.pv-radio { width: 18px; height: 18px; border-radius: 9px; border: 1.5px solid var(--pv-muted-2); flex: none; display: flex; align-items: center; justify-content: center; }
+.pv-option[aria-pressed="true"] .pv-radio { border-color: var(--pv-accent); }
+.pv-option[aria-pressed="true"] .pv-radio::after { content: ""; width: 8px; height: 8px; border-radius: 4px; background: var(--pv-accent); }
+.pv-steps { display: flex; gap: 4px; }
+.pv-steps span { flex: 1; height: 3px; border-radius: 2px; background: var(--pv-border); }
+.pv-steps span.pv-on { background: var(--pv-accent); }
+.pv-rating { display: flex; gap: 6px; }
+.pv-rating .pv-chip { flex: 1; min-width: 0; padding: 0; }
+.pv-anchors { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--pv-text-2); }
+.pv-fields { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+.pv-fields dt { color: var(--pv-text-2); }
+.pv-fields dd { margin: 0; font-variant-numeric: tabular-nums; }
+.pv-input { width: 100%; height: 40px; border-radius: 12px; border: 1px solid var(--pv-border); background: var(--pv-bg); color: var(--pv-text); font: inherit; font-size: 14px; padding: 0 12px; }
+.pv-done-note { font-size: 13px; color: var(--pv-text-2); display: flex; align-items: center; gap: 6px; }
+/* ---------- 执行页 ---------- */
+.pv-player { display: flex; flex-direction: column; gap: 14px; }
+.pv-player-step { font-size: 24px; font-weight: 700; }
+.pv-timer { font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.pv-progress { height: 4px; border-radius: 2px; background: var(--pv-border); overflow: hidden; }
+.pv-progress > div { height: 100%; background: var(--pv-accent); }
+.pv-player-list { display: flex; flex-direction: column; gap: 6px; }
+.pv-player-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--pv-text-2); }
+.pv-player-list li.pv-on { color: var(--pv-text); font-weight: 700; }
+.pv-player-list li.pv-done { text-decoration: line-through; }
+.pv-player-list { list-style: none; margin: 0; padding: 0; }
+.pv-link { color: var(--pv-accent); font-size: 13px; text-decoration: none; }
+/* ---------- 内容卡 / 模块 ---------- */
+.pv-content { display: flex; flex-direction: column; gap: 6px; }
+.pv-content-meta { font-size: 12px; color: var(--pv-text-2); }
+.pv-module { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+/* ---------- 洞察 ---------- */
+.pv-insight { display: flex; flex-direction: column; gap: 10px; }
+.pv-insight.pv-pinned { box-shadow: inset 0 0 0 1.5px var(--pv-attn); }
+.pv-tag { font-size: 11.5px; color: var(--pv-text-2); display: inline-flex; align-items: center; gap: 6px; }
+/* ---------- 卡点格 ---------- */
+.pv-hq { display: grid; gap: 3px; font-size: 11px; color: var(--pv-text-2); }
+.pv-hq-cell { height: 22px; border-radius: 4px; background: var(--pv-muted); }
+.pv-hq-cell.pv-is-attn { background: var(--pv-attn); }
+.pv-hq-cell.pv-is-na { background: transparent; border: 1px dashed var(--pv-muted); }
+.pv-hq-label { display: flex; align-items: center; font-variant-numeric: tabular-nums; }
+.pv-hq-head { text-align: center; }
+/* ---------- 参数 / 向导（二期） ---------- */
+.pv-param { display: flex; align-items: center; gap: 10px; }
+.pv-param label { flex: 1; font-size: 14px; }
+.pv-param input { width: 96px; text-align: right; }
+/* ---------- 状态 ---------- */
+.pv-skeleton { border-radius: 16px; background: linear-gradient(90deg, var(--pv-card) 0%, var(--pv-card-2) 50%, var(--pv-card) 100%); background-size: 200% 100%; animation: pv-shimmer 1.4s linear infinite; }
+@keyframes pv-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .pv-skeleton { animation: none; } }
+.pv-fallback { background: var(--pv-card); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: var(--pv-text-2); border: 1px dashed var(--pv-border); }
+.pv-learning { display: flex; align-items: center; justify-content: center; min-height: 64px; border-radius: 10px; border: 1px dashed var(--pv-border); font-size: 12.5px; color: var(--pv-text-2); text-align: center; padding: 8px; }
+/* ---------- 底部胶囊栏（板块导航 + P 入口） ---------- */
+.pv-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(15, 18, 23, .82);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--pv-border);
+}
+.pv-tab-pills { flex: 1; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.pv-tab-pills::-webkit-scrollbar { display: none; }
+.pv-tab-pill, .pv-tab-pills button {
+  height: 36px; padding: 0 16px; border-radius: 18px; flex: none;
+  border: 1px solid var(--pv-border); background: transparent; color: var(--pv-text-2);
+  font-size: 14px; white-space: nowrap;
+}
+.pv-tab-pills button[aria-current="page"] {
+  background: var(--pv-accent); border-color: var(--pv-accent);
+  color: var(--pv-accent-ink); font-weight: 700;
+}
+.pv-p-btn {
+  width: 44px; height: 44px; border-radius: 22px; border: 0; flex: none;
+  background: var(--pv-accent); color: var(--pv-accent-ink);
+  font-size: 17px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+/* ---------- 对话抽屉（86%，遮罩模糊） ---------- */
+#drawer-mask {
+  display: none; position: fixed; inset: 0; z-index: 15;
+  background: rgba(0, 0, 0, .45);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  opacity: 0; transition: opacity .25s ease;
+}
+#drawer {
+  display: none; position: fixed; left: 0; right: 0; bottom: 0; height: 86%;
+  z-index: 20; flex-direction: column;
+  background: var(--pv-bg);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, .4);
+  transform: translateY(100%); transition: transform .25s ease;
+}
+#drawer-bar {
+  padding: 12px 16px 6px; display: flex; justify-content: space-between; align-items: center;
+  position: relative; touch-action: none;
+}
+.pv-grabber {
+  width: 36px; height: 4px; border-radius: 2px; background: var(--pv-muted);
+  position: absolute; left: 50%; top: 6px; transform: translateX(-50%);
+}
+#drawer-msgs {
+  flex: 1; overflow-y: auto; padding: 4px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#drawer-input {
+  padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 8px;
+}
+#drawer-input label {
+  flex: 1; display: flex; align-items: center; background: var(--pv-card);
+  border-radius: 20px; height: 40px; padding: 0 14px; min-width: 0;
+}
+#drawer-input input {
+  border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px;
+  color: var(--pv-text); width: 100%;
+}
+/* ---------- 生成式 UI 卡片 ---------- */
+.pv-gen {
+  border: 1px solid var(--pv-border); border-radius: 14px; padding: 10px 12px;
+  background: var(--pv-card-2);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.pv-gen-title { font-size: 14px; font-weight: 700; }
+/* ---------- 折叠依据 ---------- */
+.pv-details summary {
+  list-style: none; cursor: pointer; font-size: 13.5px; font-weight: 500;
+  color: var(--pv-text-2); display: flex; align-items: center; gap: 6px;
+}
+.pv-details summary::-webkit-details-marker { display: none; }
+.pv-details summary::before {
+  content: ""; width: 7px; height: 7px; border-right: 1.5px solid var(--pv-text-2);
+  border-bottom: 1.5px solid var(--pv-text-2); transform: rotate(-45deg); flex: none;
+  transition: transform .15s ease;
+}
+.pv-details[open] summary::before { transform: rotate(45deg); }

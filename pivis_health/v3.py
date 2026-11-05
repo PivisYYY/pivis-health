@@ -1,0 +1,650 @@
+"""v3 页面：主卡（Agent 发布）+ 生成式待办（实时）+ 依据 + 注脚。
+
+页面文档 = Agent 发布的 headline/hero/details/notices + 待办仓库里当天的待办。
+数字只来自 facts（内核确定性计算）；Agent 不能编造。
+"""
+from __future__ import annotations
+
+import json
+import re
+import threading
+import time
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+from . import content
+from .agent_context import AgentContextStore
+from .todos import BOARD_LABEL, BOARDS, PENDING, TodoError, TodoStore
+
+PAGES = ("now", "sleep", "sport", "stress")
+LEVELS = ("act", "watch", "steady")   # 「数据不足」不再做主卡：断更就换一个有数的指标
+LEVEL_LABEL = {"act": "需要处理", "watch": "留意", "steady": "平稳", "nodata": "数据不足"}
+DETAIL_KINDS = ("bars", "line", "list", "text")
+CONTEXT_OF_BOARD = {"sleep": "休息", "sport": "运动", "stress": "压力"}   # life（日常）走主对话
+PAGE_BOARDS = ("sleep", "sport", "stress")   # 能当主卡、能单独成页的板块
+
+
+# ---------------------------------------------------------------- facts
+def _round(v: Any, n: int = 1):
+    if v is None:
+        return None
+    return int(round(float(v))) if n == 0 else round(float(v), n)
+
+
+def facts(tools, day: date) -> dict:
+    """主卡与结论可引用的全部数字（内核确定性计算）。"""
+    from .pages import V2Pages
+    v2 = V2Pages(tools)
+    out: dict[str, Any] = {"date": day.isoformat(), "weekday": "一二三四五六日"[day.weekday()]}
+    try:
+        sp = v2.sleep(day)
+        # 睡眠记录按“入睡那晚”记日期：D 的条目是 D 晚到 D+1 早。今天能看到的“昨晚”是 D-1。
+        yday = (day - timedelta(days=1)).isoformat()
+        nights = [n for n in sp.get("chart14") or [] if n.get("date") <= yday]
+        out["sleep_nights"] = [{"night_of": n["date"], "slept_h": _round(n.get("actual")),
+                                "need_h": _round(n.get("need")),
+                                "short_h": _round((n.get("need") or 0) - (n.get("actual") or 0))}
+                               for n in nights[-7:]]
+        last5 = [n for n in nights[-5:] if n.get("actual") is not None]
+        if last5 and nights and nights[-1]["date"] == yday:
+            debt = sum(max(0.0, (n.get("need") or 0) - n["actual"]) for n in last5)
+            out["sleep_debt_5n_h"] = _round(debt)
+            out["sleep_avg_5n_h"] = _round(sum(n["actual"] for n in last5) / len(last5))
+            out["last_night"] = out["sleep_nights"][-1]
+        else:
+            out["last_night"] = None
+            # 数据断了几天：仍给出最近 5 晚的缺觉合计，并标明是哪天的数据，免得 Agent 自己去算
+            if last5:
+                debt = sum(max(0.0, (n.get("need") or 0) - n["actual"]) for n in last5)
+                out["sleep_debt_latest"] = {"h": _round(debt), "nights": len(last5),
+                                            "asof": nights[-1]["date"], "avg_slept_h": _round(sum(n["actual"] for n in last5) / len(last5))}
+        tiles = sp.get("tiles") or {}
+        if (tiles.get("latency") or {}).get("mean") is not None:
+            out["sleep_latency_difficulty"] = {"mean": tiles["latency"]["mean"], "target": tiles["latency"].get("target"),
+                                               "n": tiles["latency"].get("n")}
+    except Exception as exc:  # 缺数据不编
+        out["sleep_error"] = str(exc)
+    for metric, key, nd in (("whoop_recovery", "recovery_pct", 0), ("whoop_hrv_rmssd", "hrv_ms", 1),
+                            ("whoop_strain", "strain", 1), ("steps", "steps", 0)):
+        try:
+            ser = tools.series(metric, 7, day)
+            vals = [{"date": v["date"], "value": _round(v["value"], nd)} for v in ser.get("values") or []
+                    if v["date"] <= day.isoformat()]
+            out[key] = {"today": next((v["value"] for v in vals if v["date"] == day.isoformat()), None),
+                        "recent": vals[-7:]}
+        except Exception:
+            out[key] = {"today": None, "recent": []}
+    # 压力页用：静息心率、呼吸频率（带数据日期）和 HRV 近 3 天对比之前（个人范围没学满时自己和自己比）
+    for metric, key, nd in (("resting_heart_rate", "resting_hr", 0), ("respiratory_rate", "resp_rate", 1)):
+        try:
+            ser = tools.series(metric, 14, day)
+            vals = [(v["date"], float(v["value"])) for v in ser.get("values") or [] if v["date"] <= day.isoformat()]
+            if vals:
+                prev = [v for _, v in vals[:-1]][-7:]
+                out[key] = {"latest": _round(vals[-1][1], nd), "latest_date": vals[-1][0],
+                            "avg_prev7": _round(sum(prev) / len(prev), nd) if prev else None,
+                            "recent": [{"date": d, "value": _round(v, nd)} for d, v in vals[-7:]]}
+        except Exception:
+            pass
+    try:
+        ser = tools.series("whoop_hrv_rmssd", 14, day)
+        hv = [float(v["value"]) for v in ser.get("values") or [] if v["date"] <= day.isoformat()]
+        if len(hv) >= 6:
+            a, b = sum(hv[-3:]) / 3, sum(hv[:-3][-7:]) / len(hv[:-3][-7:])
+            out["hrv_trend"] = {"last3_avg": _round(a), "prev_avg": _round(b),
+                                "change_pct": _round((a - b) / b * 100, 0), "days": len(hv)}
+    except Exception:
+        pass
+    rec = (out.get("recovery_pct") or {}).get("today")
+    if rec is not None:
+        out["recovery_zone"] = "red" if rec < 34 else ("yellow" if rec < 67 else "green")
+    try:
+        st = v2.stress(day)
+        band = st.get("band") or {}
+        rng = band.get("range") or {}
+        out["hrv_range"] = {"ready": bool(rng.get("ready")), "learning_days": rng.get("learning_days"),
+                            "need_days": 14}
+    except Exception:
+        out["hrv_range"] = {"ready": False}
+    try:
+        from .params import Params
+        p = Params(tools.subj).all()
+        out["params"] = {k: p.get(k) for k in ("wake_target", "sport_name", "weekly_quota") if k in p}
+    except Exception:
+        pass
+    try:
+        w = tools.daily_series("weight", day, 60)   # 只看到今天为止
+        if w:
+            last = max(w)
+            out["weight_latest"] = {"date": last.isoformat(), "kg": round(w[last], 1)}
+    except Exception:
+        pass
+    return out
+
+
+def media_library() -> list[dict]:
+    def kind(url: str) -> str:
+        if url.endswith((".m4a", ".mp3")):
+            return "audio"
+        if url.endswith((".mp4", ".m4v", ".mov")) or "bilibili.com/video/" in url:
+            return "video"
+        return "link"
+    lib = [{"id": it["id"], "title": it["title"], "duration_min": it["duration_min"], "url": it["url"],
+            "kind": kind(it["url"])} for it in content.LIBRARY]
+    lib.append({"id": "bedtime-stretch-15", "title": "睡前拉伸（14:54）", "duration_min": 15,
+                "url": "/media/sleep-audio/01_%E7%9D%A1%E5%89%8D%E6%8B%89%E4%BC%B8.m4a", "kind": "audio"})
+    return lib
+
+
+# ---------------------------------------------------------------- 发布存储
+class V3PageStore:
+    def __init__(self, cfg) -> None:
+        self.path = cfg.data_dir / "pages_v3.json"
+
+    def all(self) -> dict:
+        try:
+            return json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def get(self, page: str) -> dict | None:
+        return self.all().get(page)
+
+    def save(self, page: str, doc: dict) -> dict:
+        data = self.all()
+        data[page] = doc
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(self.path)
+        return doc
+
+
+# ---------------------------------------------------------------- 校验
+def _numbers(obj: Any) -> list[float]:
+    out: list[float] = []
+    if isinstance(obj, bool):
+        return out
+    if isinstance(obj, (int, float)):
+        out.append(float(obj))
+    elif isinstance(obj, str):
+        out += [float(x) for x in re.findall(r"\d+(?:\.\d+)?", obj)]
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            out += _numbers(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            out += _numbers(v)
+    return out
+
+
+def _has_number(pool: list[float], value: float) -> bool:
+    return any(abs(p - value) <= max(0.051, abs(p) * 0.005) for p in pool)
+
+
+def _check_numbers(pool: list[float], text: str, where: str) -> None:
+    for num in re.findall(r"\d+(?:\.\d+)?", text):
+        if not _has_number(pool, float(num)):
+            raise ValueError(f"{where} 里的 {num} 在 facts 里找不到，数字只能抄 facts 里的值")
+
+
+def validate_page(page: str, doc: Any, evidence: dict) -> dict:
+    if not isinstance(doc, dict):
+        raise ValueError("输出必须是 JSON 对象")
+    pool = _numbers(evidence)
+    pool += [abs(p) for p in pool if p < 0]
+    head = doc.get("headline") or {}
+    if not isinstance(head, dict) or not str(head.get("text") or "").strip():
+        raise ValueError("headline.text 必填")
+    headline = str(head["text"]).strip()
+    hero = doc.get("hero") or {}
+    if hero.get("level") == "nodata":
+        raise ValueError("不要用 nodata（数据不足）做主卡：换一个 facts 里有数的指标，断更的在 note 里写数据日期")
+    if hero.get("level") not in LEVELS:
+        raise ValueError(f"hero.level 只能是 {LEVELS}")
+    if hero.get("board") not in PAGE_BOARDS:
+        raise ValueError(f"hero.board 只能是 {PAGE_BOARDS}")
+    if page != "now" and hero["board"] != page:
+        raise ValueError(f"{page} 页的主卡 board 必须是 {page}")
+    if not str(hero.get("label") or "").strip():
+        raise ValueError("hero.label 必填")
+    value = str(hero.get("value") or "")
+    _check_numbers(pool, value, "hero.value")
+    for num in re.findall(r"\d+(?:\.\d+)?", value):
+        if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
+            raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
+    fields = hero.get("fields") or []
+    if not isinstance(fields, list) or len(fields) > 3:
+        raise ValueError("hero.fields 最多 3 个")
+    out_fields = []
+    for f in fields:
+        if not isinstance(f, dict) or not str(f.get("label") or "").strip():
+            raise ValueError("hero.fields 每项要有 label 和 value")
+        _check_numbers(pool, str(f.get("value") or ""), "hero.fields")
+        out_fields.append({"label": str(f["label"]), "value": str(f.get("value") or ""), "unit": str(f.get("unit") or "")})
+    table = hero.get("table") or None
+    out_table = None
+    if table:
+        cols = table.get("columns") if isinstance(table, dict) else None
+        rows = table.get("rows") if isinstance(table, dict) else None
+        if not isinstance(cols, list) or not isinstance(rows, list) or not rows:
+            raise ValueError("hero.table 要有 columns 和 rows")
+        if len(cols) > 4 or len(rows) > 5:
+            raise ValueError("hero.table 最多 4 列 5 行")
+        for r in rows:
+            if not isinstance(r, list) or len(r) != len(cols):
+                raise ValueError("hero.table 每行的格数要和 columns 一样")
+            for cell in r[1:]:          # 第一列是日期或名目，不校验
+                _check_numbers(pool, str(cell), "hero.table")
+        out_table = {"columns": [str(c) for c in cols], "rows": [[str(c) for c in r] for r in rows]}
+    if out_fields and out_table:
+        raise ValueError("hero.fields 和 hero.table 二选一，不要两样都放")
+    out_viz = None
+    unit = str(hero.get("unit") or "")
+    if hero.get("viz"):
+        from . import viz as vizmod
+        out_viz = vizmod.normalize(hero["viz"])
+        m = out_viz["metric"]
+        vz = evidence.get("viz") if isinstance(evidence.get("viz"), dict) else (evidence.get("facts") or {}).get("viz")
+        avail = (vz or {}).get(m) or {}
+        if not avail.get("ok"):
+            raise ValueError(f"hero.viz 选的 {m} 现在画不了（{avail.get('reason') or '没有数据'}），换一个 facts.viz 里 ok 的")
+        if vizmod.METRICS[m]["board"] != hero["board"]:
+            raise ValueError(f"{m} 属于 {vizmod.METRICS[m]['board']} 板块，hero.board 要一致")
+        if out_fields or out_table:
+            raise ValueError("用了 hero.viz 就不要再放 fields/table：图里已经有支撑的数")
+        if avail.get("zone") == "act" and hero["level"] == "steady":
+            raise ValueError(f"{m} 已经过了警戒线（facts.viz.{m}.zone=act），level 不能写 steady")
+        value = str(avail.get("value_text") or value)     # 主卡数字以内核为准
+        unit = str(avail.get("unit") or unit)
+        for num in re.findall(r"\d+(?:\.\d+)?", value):
+            if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
+                raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
+    notices = doc.get("notices") or []
+    if len(notices) > 2:
+        raise ValueError("notices 最多 2 个")
+    return {
+        "headline": {"text": headline},
+        "hero": {"level": hero["level"], "board": hero["board"], "label": str(hero["label"]),
+                 "value": value, "unit": unit, "note": str(hero.get("note") or ""),
+                 "fields": out_fields, "table": out_table, "viz": out_viz, "others": []},
+        "details": [],   # 依据折叠区已去掉；旧客户端读到空数组
+        "notices": [{"text": str(n.get("text") if isinstance(n, dict) else n)} for n in notices],
+    }
+
+
+SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
+{"headline": {"text": "一句判断 + 接下来该做什么，口语化，≤30字；不重复主卡里的数字"},
+ "hero": {"level": "act|watch|steady", "board": "sleep|sport|stress",
+          "label": "指标名", "value": "数字（只能抄 facts）", "unit": "单位",
+          "note": "可选，≤20字；断更的指标写数据日期，没必要就留空",
+          "fields": [{"label": "需要", "value": "9.9", "unit": "小时"}],
+          "table": {"columns": ["", "睡了", "需要"], "rows": [["10-29", "6.2", "9.8"]]},
+          "viz": {"metric": "hrv", "kind": "trend", "days": 14, "show": ["band", "warn"]}},
+ "notices": [{"text": "授权缺失、数据断更超过 2 天才写，≤25字"}]}
+规则：
+- 一页只表达最主要的一个问题。主卡 = 这个问题的值 + 档位；支撑它的数放 fields（最多 3 个）或 table（最多 4 列 5 行，第一列写日期或名目），二选一，也可以都不放。
+- 主卡首选画图 hero.viz：你决定画哪项（metric）、怎么画（kind）、看几天（days）、显示哪些参照（show）；数字由内核按描述填，你不用写进去。
+  · metric 只能选 facts.viz 里 ok=true 的，且要属于本页板块（facts.viz.*.board）。用了 viz 就不放 fields/table。
+  · kind 不写就用默认画法：hrv/resp_rate=trend（折线+常态带+警戒线），resting_hr=range（区间刻度），recovery=gauge（半圆仪表），sleep=need（睡了 vs 需要的缺口条），sleep_debt=stack（每晚欠的叠起来），steps=progress（按此刻该走到的进度），weight=route（朝目标的计划路线）。每项能换的画法在 facts.viz.*.kinds；老大说喜欢折线就用 trend。
+  · days：trend 7/14/30，range 7/14，need 7/14，stack 5/7。show 从 band、warn、need、pace、goal、target、plan 里挑，不写就全显示。
+  · hero.value 写 facts.viz.<metric>.value_text；常态区间和警戒线是按老大自己 30 天的数算的（或他自己定的），不是医学标准，不要说成诊断。
+  · facts.viz.<metric>.zone 是内核按常态和警戒线算的位置：act=过了警戒线，watch=出了常态，steady=常态里。level 由你判断，但 zone=act 时不能写 steady。
+- level：act=需要处理；watch=留意；steady=平稳/没问题。客户端按 level 给动效：act 最强、watch 缓慢、steady 静止。
+- headline 说判断和接下来该做什么；数字只放主卡，不要在结论里重复主卡的 value。
+- 现在页（now）从三个板块里挑当前最需要关注的一项；专项页只挑本板块（hero.board 必须等于页面）。
+- 所有数字只能来自 facts，禁止自己加减乘除推算新数字；fields 和 table 里的每个数也一样。
+- 正在进行的项目由客户端显示在主卡下，不写进 hero；有进行中的项目时结论要体现计划，早上写成对昨晚执行的总结。
+- 压力页（stress）：从 hrv_trend（近 3 天对比之前）、hrv_ms、resting_hr（对比 avg_prev7）、resp_rate、recovery_pct 里挑最能说明当前生理压力信号的一个。HRV 个人范围没学满时就用这些自己和自己比。都在正常波动内就 level=steady，结论写「压力这块没问题」这类，主卡放最能说明没问题的那个数。不诊断、不推测情绪、不说「因为…所以压力大」。
+- 不用「数据不足」做主卡：某个指标断更就换一个有数的指标，note 里写数据日期（如「10-31 的数据」）。
+- sleep_nights 里的 short_h 是「每晚缺觉」，不是睡眠债（睡眠债是 sleep_debt_5n_h 一个数）。
+- 老大对某项图表定过的偏好（pref.viz.<metric>：画法、天数、警戒线、目标）和页面偏好（pref.page.<page>）优先于上面的默认值。
+- shared_context 里是老大定下的偏好，必须遵守。pref.* 是展示和对比偏好（例如图表用折线、跟上一周比）；facts 里有 compare 时，说「比…高/低」一律用 compare 里按老大指定基线算好的数（recent.avg、baseline.avg、change、change_pct），不要再拿别的时间段比。"""
+
+
+def evidence_for(tools, page: str) -> dict:
+    now = tools._now()
+    store = TodoStore(tools.cfg)
+    day = now.date()
+    projects = []
+    for p in store.projects(active_only=True):
+        start = date.fromisoformat(p["start"])
+        if start <= day < start + timedelta(days=p["days"]):
+            projects.append({"name": p["name"], "board": p["board"], "day": (day - start).days + 1,
+                             "days": p["days"], "rules": p.get("rules")})
+    todos = [{"title": t["title"], "when": t["when"], "board": t["board"], "status": t["status"],
+              "summary": t.get("summary")} for t in store.for_date(day)]
+    yesterday = [{"title": t["title"], "board": t["board"], "status": t["status"], "summary": t.get("summary")}
+                 for t in store.for_date(day - timedelta(days=1))]
+    fx = facts(tools, day)
+    # 老大指定了对比基线（pref.baseline）：按它把几个主要指标算好，页面只许用这里的对比
+    from . import prefs
+    bp = prefs.baseline_pref(tools.cfg)
+    if bp:
+        cmp = {}
+        for m in ("sleep", "hrv", "recovery", "resting_hr", "strain"):
+            try:
+                c = prefs.compare(tools, m, day, 7, bp)
+                if c.get("ok"):
+                    cmp[m] = c
+            except Exception:
+                pass
+        fx["compare"] = {"baseline": bp, "metrics": cmp}
+        # 只留老大指定的这一种对比，别的对比口径（近 3 天对之前、对近 7 天均值）拿掉，免得页面混用
+        fx.pop("hrv_trend", None)
+        for k in ("resting_hr", "resp_rate"):
+            if isinstance(fx.get(k), dict):
+                fx[k].pop("avg_prev7", None)
+    from . import viz as vizmod
+    try:
+        fx["viz"] = vizmod.available(tools, day)
+    except Exception as exc:
+        fx["viz"] = {"error": str(exc)}
+    return {"page": page, "now": now.isoformat(timespec="minutes"), "facts": fx,
+            "projects": projects, "todos_today": todos, "todos_yesterday": yesterday,
+            "shared_context": AgentContextStore(tools.cfg).snapshot()}
+
+
+def publish(tools, page: str, timeout: int = 420) -> dict:
+    from . import dsh_chat
+    from .publications import _ensure_composer, _new_assistant_text, _parse_json
+    if page not in PAGES:
+        raise ValueError(f"unknown page {page}")
+    evidence = evidence_for(tools, page)
+    run_id = f"v3{int(time.time() * 1000)}"
+    context = f"组件编排:{page}:{run_id}"
+    session = _ensure_composer(page, run_id)
+    from . import prefs
+    rules = [str((e.get("payload") or {}).get("rule") or "") for e in prefs.active_prefs(tools.cfg)]
+    pref_text = ("\n老大定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules if r)) if any(rules) else ""
+    prompt = ("你是 P-Health 的页面编排，不是聊天。根据真实证据为「" + {"now": "现在", "sleep": "休息", "sport": "运动",
+              "stress": "压力"}[page] + "」页写主卡和结论。\n" + SCHEMA + pref_text + "\n证据：\n"
+              + json.dumps(evidence, ensure_ascii=False, default=str))
+    before = len(dsh_chat.read_session_events(context))
+    dsh_chat.send_message(prompt, context)
+    deadline = time.time() + timeout
+    tries = 0
+    while time.time() < deadline:
+        time.sleep(2)
+        events = dsh_chat.read_session_events(context)
+        new = events[before:]
+        ended = [d for d in new if d.get("type") == "turn/end"]
+        if not ended:
+            continue
+        try:
+            doc = validate_page(page, _parse_json(_new_assistant_text(new)), evidence["facts"])
+            doc.update({"published_at": tools._now().isoformat(timespec="seconds"), "session": session,
+                        "producer": "P-Health Agent"})
+            return V3PageStore(tools.cfg).save(page, doc)
+        except ValueError as exc:
+            if tries >= 2:
+                raise
+            tries += 1
+            before = len(events)
+            dsh_chat.send_message(f"上一次输出没通过校验：{exc}。请按同样格式重新输出完整 JSON。", context)
+    raise TimeoutError(f"v3 publish timeout {page}")
+
+
+# ---------------------------------------------------------------- 页面文档
+def _auto_bedtime(tools, store: TodoStore, day: date) -> None:
+    """auto=bedtime 的待办：设备识别到入睡就自动打勾（可纠正）。"""
+    for t in store.for_date(day):
+        if t.get("auto") != "bedtime" or t["status"] not in ("scheduled", "proposed", "expired"):
+            continue
+        try:
+            rows = tools._rows(day)
+        except Exception:
+            continue
+        starts = []
+        for r in rows:
+            if r.get("type") != "sleep_analysis" or str(r.get("category_value")) in ("awake", "in_bed"):
+                continue
+            try:
+                s = datetime.fromisoformat(str(r["start_at"]).replace("Z", "+00:00")).astimezone(tools.tz)
+            except Exception:
+                continue
+            if datetime.combine(day, datetime.min.time(), tools.tz) + timedelta(hours=19) <= s <= \
+                    datetime.combine(day + timedelta(days=1), datetime.min.time(), tools.tz) + timedelta(hours=6):
+                starts.append(s)
+        if starts and tools._now() >= min(starts):
+            hhmm = min(starts).strftime("%H:%M")
+            store.auto_complete(t["id"], f"{hhmm} 入睡（WHOOP / Apple 健康）", {"bedtime": hhmm})
+
+
+def _expire(store: TodoStore, day: date, now: datetime | None = None) -> None:
+    """昨天没做的收起；今天设了 until 且已过点、还没动过的也收起（例如没回的午睡提议）。"""
+    stale = [t for t in store.for_date(day - timedelta(days=1))
+             if t["status"] in ("scheduled", "proposed", "in_progress") and not t.get("auto")]
+    if now is not None:
+        hm = now.strftime("%H:%M")
+        stale += [t for t in store.for_date(day)
+                  if t.get("until") and t["status"] in ("scheduled", "proposed") and hm > t["until"]]
+    for t in stale:
+        try:
+            store.update(t["id"], {"status": "expired"}, by="system")
+        except TodoError:
+            pass
+
+
+def republish_async(cfg) -> bool:
+    """后台跑一次 publish-v3 all。正在跑时再来一次请求：记一个「再跑一遍」，跑完接着跑，不丢改动。
+    跑完自己清掉锁；锁超过 15 分钟算卡死，可以重来。返回是否新启动了一轮。"""
+    import os
+    import shlex
+    import subprocess
+    import sys
+    lock = cfg.data_dir / "republish.lock"
+    again = cfg.data_dir / "republish.again"
+    try:
+        if lock.exists() and time.time() - lock.stat().st_mtime < 900:
+            again.write_text(str(time.time()))
+            return False
+        lock.write_text(str(os.getpid()))
+        py = shlex.quote(sys.executable)
+        run = f"{py} -m pivis_health.cli publish-v3 all"
+        script = (f"{run}; while [ -f {shlex.quote(str(again))} ]; do rm -f {shlex.quote(str(again))}; {run}; done; "
+                  f"rm -f {shlex.quote(str(lock))}")
+        log = open(cfg.data_dir / "republish.log", "a")
+        subprocess.Popen(["/bin/sh", "-c", script], stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                         start_new_session=True, env={**os.environ})
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def page_doc(tools, page: str) -> dict:
+    if page not in PAGES:
+        raise ValueError(f"unknown page {page}")
+    now = tools._now()
+    day = now.date()
+    store = TodoStore(tools.cfg)
+    store.materialize(day, now)
+    _auto_bedtime(tools, store, day - timedelta(days=1))
+    _auto_bedtime(tools, store, day)
+    _expire(store, day, now)
+    pub = V3PageStore(tools.cfg).get(page)
+    # 主卡是昨天（或更早）编排的：标记过期，后台重新编排；客户端显示「正在更新」
+    stale = (not pub) or str(pub.get("published_at", ""))[:10] < day.isoformat()
+    if stale:
+        republish_async(tools.cfg)
+    todos = store.for_date(day, None if page == "now" else page)
+    # 昨晚的“上床”这类跨午夜待办，今天早上在已完成里显示
+    carry = [t for t in store.for_date(day - timedelta(days=1), None if page == "now" else page)
+             if t.get("auto") == "bedtime" and t["status"] == "done"]
+    pending = [t for t in todos if t["status"] in PENDING]
+    done = [t for t in todos if t["status"] in ("done", "skipped")] + carry
+    hidden = 0
+    if page == "now" and len(pending) > 3:
+        keep = [t for t in pending if t["status"] == "processing"]
+        rest = [t for t in pending if t["status"] != "processing"]
+        hidden = len(pending) - max(3, len(keep))
+        pending = (keep + rest)[:max(3, len(keep))]
+        from .todos import sort_key
+        pending.sort(key=sort_key)
+    hero = (pub or {}).get("hero") or {"level": "nodata", "board": page if page in BOARDS else "sleep",
+                                       "label": "还没有判断", "value": "", "unit": "",
+                                       "note": "P-Health 下一次更新时生成", "others": []}
+    if hero.get("viz"):
+        from . import viz as vizmod
+        try:
+            live = vizmod.build(tools, hero["viz"], day, now)
+            hero = {**hero, "viz": live, "value": live["value_text"], "unit": live["unit"]}
+        except Exception:
+            hero = {**hero, "viz": None}      # 数据断了：退回只显示数字
+    board = hero.get("board") or (page if page in BOARDS else None)
+    proj = store.project_for_board(board, day) if board else None
+    handling = None
+    if proj:
+        n = (day - date.fromisoformat(proj["start"])).days + 1
+        clean = re.sub(r"\s*[·・]\s*\d+\s*天$", "", proj["name"])
+        handling = {"project": proj["id"], "name": clean, "day": n, "days": proj["days"],
+                    "label": f"{clean} · 第 {n} 天 / {proj['days']}"}
+    return {
+        "page": page, "now": now.isoformat(timespec="minutes"), "date": day.isoformat(),
+        "headline": (pub or {}).get("headline") or {"text": ""},
+        "hero": {**hero, "level_label": LEVEL_LABEL.get(hero.get("level"), ""), "board_label": BOARD_LABEL.get(board, ""),
+                 "handling": handling},
+        "todos": pending, "done": done, "hidden": hidden,
+        "details": (pub or {}).get("details") or [],
+        "notices": (pub or {}).get("notices") or [],
+        "projects": [{"id": p["id"], "name": p["name"], "board": p["board"], "rules": p.get("rules"),
+                      "start": p["start"], "days": p["days"], "reviews": p.get("reviews")}
+                     for p in store.projects(active_only=True) if page == "now" or p["board"] == page],
+        "publication": {k: v for k, v in (pub or {}).items() if k in ("published_at", "producer")},
+        "stale": stale,
+    }
+
+
+# ---------------------------------------------------------------- 用户提交
+def _agent_message(t: dict, values: dict, text: str) -> str:
+    parts = []
+    for inp in t.get("inputs") or []:
+        if inp["id"] in values:
+            v = values[inp["id"]]
+            if inp["type"] in ("options", "multi"):
+                labels = {o["id"]: o["label"] for o in inp.get("options") or []}
+                v = "、".join(labels.get(x, x) for x in (v if isinstance(v, list) else [v]))
+            if inp["type"] == "photo":
+                v = f"照片 {v}（用 read_image 看这张图）"
+            parts.append(f"{inp['label']}：{v}" if inp.get("label") else str(v))
+    if text:
+        parts.append(f"文字：{text}")
+    return (f"【待办提交】id={t['id']}｜{t['title']}（{BOARD_LABEL[t['board']]}，{t['date']} {t['when'] or ''}）\n"
+            f"用户在待办卡里提交：{'；'.join(parts) or '（无内容）'}\n"
+            "请理解用户意图后直接更新数据，不要只在对话里回复：\n"
+            f"- 改这条：./pivis-health todo-update --id {t['id']} --json '<改动 JSON>'（时间、标题、素材、inputs、状态都能改）\n"
+            "- 需要新增待办：todo-add；属于项目的长期改动（比如以后都换这一套）：project-set 更新模板\n"
+            f"- 必须追问用户才能做时：todo-update --id {t['id']} --json '{{\"escalate\":\"chat\"}}'，然后在本对话里用 phealth-ui question 卡追问\n"
+            "处理完后用一句话说清楚改了什么、什么时候生效。")
+
+
+def save_photo(tools, todo_id: str, data: bytes) -> dict:
+    """待办卡上拍的照片：存到运行目录 photos/，返回给 P-Health 读图用的绝对路径。"""
+    if TodoStore(tools.cfg).get(todo_id) is None:
+        raise KeyError(todo_id)
+    if not data or len(data) > 12 * 1024 * 1024:
+        raise ValueError("照片为空或超过 12 MB")
+    if not (data[:3] == b"\xff\xd8\xff" or data[:8] == b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("只收 JPEG / PNG")
+    folder = tools.cfg.data_dir / "photos"
+    folder.mkdir(parents=True, exist_ok=True)
+    ext = "png" if data[:4] == b"\x89PNG" else "jpg"
+    path = folder / f"{re.sub(r'[^A-Za-z0-9_-]', '-', todo_id)}-{int(time.time())}.{ext}"
+    path.write_bytes(data)
+    return {"photo": str(path)}
+
+
+def submit(tools, todo_id: str, body: dict) -> dict:
+    from . import dsh_chat
+    store = TodoStore(tools.cfg)
+    action = body.get("action") or "done"
+    values = body.get("values") or {}
+    text = (body.get("text") or "").strip()
+    now = tools._now()
+    photos = (tools.cfg.data_dir / "photos").resolve()
+    cur = store.get(todo_id) or {}
+    for inp in cur.get("inputs") or []:
+        if inp["type"] == "photo" and inp["id"] in values:
+            p = Path(str(values[inp["id"]])).resolve()
+            if photos not in p.parents or not p.is_file():
+                raise ValueError("照片路径无效")
+    t = store.user_submit(todo_id, action, values, text, body.get("summary"), now)
+    if action == "agent":
+        msg = _agent_message(t, values, text)
+        context = CONTEXT_OF_BOARD.get(t["board"], "")
+
+        def _send():
+            try:
+                before = len(dsh_chat.read_session_events(context))
+                dsh_chat.send_message(msg, context)
+                # 兜底：P-Health 这一轮结束了，卡片却还停在「处理中」（它说了要退回却没改），
+                # 就把卡片放回原来的状态，并打开对话让老大看到它说了什么
+                deadline = time.time() + 300
+                while time.time() < deadline:
+                    time.sleep(3)
+                    if any(e.get("type") == "turn/end" for e in dsh_chat.read_session_events(context)[before:]):
+                        break
+                time.sleep(2)
+                cur = store.get(todo_id)
+                if cur and cur["status"] == "processing":
+                    store.update(todo_id, {"status": (t.get("request") or {}).get("previous_status") or "scheduled",
+                                           "escalate": "chat"}, by="system")
+            except Exception as exc:
+                try:
+                    store.update(todo_id, {"status": t["request"].get("previous_status") or "scheduled",
+                                           "escalate": "error"}, by="system")
+                except Exception:
+                    pass
+                print("agent submit failed", exc)
+
+        threading.Thread(target=_send, daemon=True).start()
+    if action in ("done", "skip") and t.get("project"):
+        # 主观记录同时进入主观库，供后续计算
+        try:
+            tools.log_subjective("todo_record", {"todo": todo_id, "title": t["title"], "action": action,
+                                                 "values": values, "text": text})
+        except Exception:
+            pass
+    return t
+
+
+# ---- 每日整理：每天早上让各板块的 P-Health 看一眼数据和项目，决定要不要加 0–2 件待办 ----
+REVIEW_PREFIX = "【每日整理】"
+
+
+def _review_message(board: str, now: datetime) -> str:
+    label = BOARD_LABEL[board]
+    return (f"{REVIEW_PREFIX}{now.date().isoformat()} {now.strftime('%H:%M')}｜{label}\n"
+            f"这是系统每天早上的例行整理，老大不会看到这条。请：\n"
+            f"1. 运行 ./pivis-health facts、./pivis-health project-list、./pivis-health todo-list --board {board}，"
+            f"再看昨天做了什么、跳过了什么：./pivis-health todo-list --board {board} --date {(now.date() - timedelta(days=1)).isoformat()}\n"
+            "2. 昨天跳过的不要补到今天（不叠加），记在心里就行。判断今天要不要额外加待办。项目的每日待办系统已自动生成，不要重复。最多 2 件，没必要就不加。"
+            "需要老大拍板的用 kind=proposal（2–3 个选项，submit 用 agent），简单的用 done。\n"
+            "3. 红线照旧：数字只用 facts；不诊断；老大对同类事说过「算了」的今天不再提；"
+            "午睡不超过 20 分钟、15:00 前结束；"
+            "压力板块：HRV 个人范围没学满时，用 hrv_trend、resting_hr、resp_rate、recovery_pct 自己和自己比，有明确的压力信号才加减压待办。\n"
+            "4. 加完只回一句话，例如「今天加了：补觉提议」或「今天不加」，不要长文和卡片。")
+
+
+def daily_review(tools, boards: list[str] | None = None, force: bool = False) -> dict:
+    from . import dsh_chat
+    now = tools._now()
+    state_path = tools.cfg.data_dir / "daily_review.json"
+    try:
+        state = json.loads(state_path.read_text())
+    except (OSError, ValueError):
+        state = {}
+    out = {}
+    for b in boards or list(PAGE_BOARDS):
+        key = f"{b}:{now.date().isoformat()}"
+        if state.get(key) and not force:
+            out[b] = "already"
+            continue
+        try:
+            dsh_chat.send_message(_review_message(b, now), CONTEXT_OF_BOARD[b])
+            state[key] = now.isoformat(timespec="minutes")
+            out[b] = "sent"
+        except Exception as exc:  # noqa: BLE001
+            out[b] = f"error: {exc}"
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=1))
+    return out

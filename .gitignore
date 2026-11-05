@@ -55,3 +55,19 @@ dist/
 *.egg-info/
 DerivedData/
 xcuserdata/
+
+# Added 2026-11-04 baseline
+# APNs auth keys
+*.p8
+keys/
+# OTA build outputs
+*.ipa
+*.xcarchive
+# Stale iOS copy; the real project is ~/Documents/kimi/Workspaces/PHealth/pivis-health-ios/PivisHealth
+ios/
+# Timestamped manual backups (git history replaces them)
+*.bak-*
+
+# Added 2026-11-05: deployment copies that carry personal profile/health details stay local
+agent/AGENTS-real.md
+agent/dsbot-p-health-instructions.md

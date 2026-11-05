@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P-Health 安装</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; background:#0b0b0f; color:#f5f5f7; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background:#16161c; border-radius:24px; padding:40px 32px; max-width:420px; width:88%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .logo { font-size:56px; }
+  h1 { font-size:26px; margin:12px 0 4px; }
+  .ver { color:#8e8e96; font-size:14px; margin-bottom:28px; }
+  a.install { display:block; background:#30d158; color:#04160a; font-size:19px; font-weight:600; padding:16px; border-radius:16px; text-decoration:none; margin-bottom:14px; }
+  .note { color:#8e8e96; font-size:13px; line-height:1.8; text-align:left; }
+  .note b { color:#d7d7dc; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🌙</div>
+    <h1>P-Health</h1>
+    <div class="ver">v1.0 (23) · 已登记设备专用开发版</div>
+    <a class="install" href="itms-services://?action=download-manifest&amp;url=https%3A%2F%2F__HOST__%2Finstall%2Fmanifest.plist">安装 P-Health</a>
+    <div class="note">
+      1. 点击上方按钮，在弹窗中选择<b>「安装」</b>。<br>
+      2. 安装完成后，打开 设置 → 通用 → VPN与设备管理，信任<b>你自己 Apple 开发者账号</b>的证书。<br>
+      3. 首次打开 App 需保持手机 <b>Tailscale 开启</b>（连接 Bot 服务）。
+    </div>
+  </div>
+</body>
+</html>
