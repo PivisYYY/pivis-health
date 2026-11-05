@@ -45,7 +45,7 @@ def baseline_pref(cfg) -> str | None:
     return None
 
 
-def render_block(prefs: list[dict]) -> str:
+def render_block(prefs: list[dict], known: list[dict] | None = None) -> str:
     lines = [START, "## 老大定下的偏好（必须遵守；老大改口就用 context-record 覆盖同一个 scope）"]
     if not prefs:
         lines.append("- 暂无")
@@ -53,8 +53,49 @@ def render_block(prefs: list[dict]) -> str:
         rule = str((e.get("payload") or {}).get("rule") or "").strip() or str(e.get("payload"))
         when = str(e.get("recorded_at") or "")[:10]
         lines.append(f"- {rule}（{e['scope']}，{when}）")
+    if known:
+        lines.append("")
+        lines.append("## 你已经了解到的老大（profile.* / learn.*；回答专业问题、排计划前先对照，变了就覆盖同一个 scope）")
+        for e in known[-30:]:
+            rule = _fact_line(e.get("payload") or {})
+            if not rule:
+                continue
+            when = str(e.get("recorded_at") or "")[:10]
+            lines.append(f"- {rule[:120]}（{e['scope']}，{when}）")
     lines.append(END)
     return "\n".join(lines)
+
+
+def _fact_line(p: dict) -> str:
+    """一条 profile./learn. 记忆的一句话：优先 rule / summary；实验列出还在试的；其余取前几个文字字段。"""
+    if not isinstance(p, dict):
+        return str(p or "").strip()
+    rule = str(p.get("rule") or p.get("summary") or "").strip()
+    if rule:
+        return rule
+    items = p.get("items")
+    if isinstance(items, list):
+        open_ = [str(i.get("change") or i.get("id") or "") for i in items
+                 if isinstance(i, dict) and not i.get("result")]
+        open_ = [x for x in open_ if x]
+        return ("在试：" + "；".join(open_)) if open_ else ""
+    parts = []
+    for k, v in p.items():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, str) and v.strip():
+            parts.append(v.strip())
+        elif isinstance(v, list) and v and all(isinstance(x, str) for x in v):
+            parts.append("、".join(v))
+        if len("；".join(parts)) > 100:
+            break
+    return "；".join(parts)
+
+
+def known_facts(cfg) -> list[dict]:
+    from .agent_context import AgentContextStore
+    return [e for e in AgentContextStore(cfg).snapshot()["entries"]
+            if str(e.get("scope", "")).startswith(("profile.", "learn."))]
 
 
 def agents_md_path() -> Path:
@@ -68,7 +109,7 @@ def sync_agents_md(cfg, path: Path | None = None) -> dict:
     if not path.is_file() or path.is_symlink():
         return {"ok": False, "reason": f"{path} 不是普通文件"}
     text = path.read_text(encoding="utf-8")
-    block = render_block(active_prefs(cfg))
+    block = render_block(active_prefs(cfg), known_facts(cfg))
     if START in text and END in text:
         head, rest = text.split(START, 1)
         tail = rest.split(END, 1)[1]

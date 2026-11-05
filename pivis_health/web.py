@@ -475,6 +475,15 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 self._json(v3mod.save_photo(tools, todo_id, self.rfile.read(n)))
                 return
             body = self._read_body_json() if int(self.headers.get("Content-Length") or 0) else {}
+            if u.path == "/api/v3/canvas":
+                # 对话里的画布卡：校验 + 现算，App 拿到就画
+                from . import canvas
+                try:
+                    lay = canvas.validate(body.get("layout"), str(body.get("slot") or "chat"))
+                    self._json({"layout": canvas.resolve(tools, lay, board=body.get("board"))})
+                except canvas.CanvasError as exc:
+                    self._json({"error": "invalid", "message": str(exc)}, 422)
+                return
             if u.path.startswith("/api/v3/todo/"):
                 self._json(v3mod.submit(tools, u.path.rsplit("/", 1)[-1], body))
             elif u.path == "/api/v3/clock":

@@ -76,6 +76,10 @@ def _session_id(context: str = "") -> str:
         if page in ("now", "sleep", "sport", "stress", "relax"):
             base = f"{DSH_PREFIX or 'phealth-'}component-composer-v3-{page}"
             return f"{base}-{suffix}" if suffix else base
+    if context.startswith("验收:"):
+        # 验收用例：每个用例一个独立会话（只在模拟 / 演示工作区用），互不串话
+        slug = re.sub(r"[^A-Za-z0-9_-]+", "-", context.split(":", 1)[1]).strip("-")[:48]
+        return f"{DSH_PREFIX or 'phealth-'}accept-{slug}"
     return SESSION_BY_CONTEXT.get(context, SESSION_MAIN)
 
 

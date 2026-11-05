@@ -111,6 +111,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--level", choices=["notice", "alert", "see_doctor"], default="notice")
     sp.add_argument("--kind", help="当日去重 key，默认按内容生成")
 
+    sp = sub.add_parser("project-stats", help="近 N 天某个项目每天做了没、执行率（周复盘用，数字直接抄）")
+    sp.add_argument("--id", required=True); sp.add_argument("--days", type=int, default=7)
+    sp = sub.add_parser("sleep-week", help="近 N 晚睡眠：时长、需要、效率、入睡 / 起床时间、效率分档（CBT-I 周复盘调窗口用）")
+    sp.add_argument("--nights", type=int, default=7)
+    sp = sub.add_parser("media-add", help="把核对过的公开素材收进老大的素材库：--json '{\"title\":…,\"url\":\"https://…\",\"duration_min\":15,\"type\":\"身体扫描\"}'")
+    sp.add_argument("--json", required=True)
+    sp = sub.add_parser("canvas", help="预览 / 校验一张画布卡（主卡 layout 或对话里的 layout 卡）：返回内核现算后的样子，不合规范就报原因")
+    sp.add_argument("--json", required=True, help="零件树 JSON"); sp.add_argument("--slot", default="chat", choices=["hero", "chat"])
+    sp.add_argument("--board")
     sp = sub.add_parser("serve"); sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8943); sp.add_argument("--tls-cert"); sp.add_argument("--tls-key")
 
     # WHOOP 官方 API 同步（凭据/令牌在 cfg.whoop_auth_dir，不进仓库）
@@ -232,6 +241,9 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("pref.* 的 payload 要带一句人话 rule，例如 {\"rule\": \"图表一律用折线\"}")
             entry = AgentContextStore(tools.cfg).record(
                 args.scope, payload, source_session=args.source_session, reason=args.reason)
+            if args.scope.startswith(("profile.", "learn.")):
+                from . import prefs
+                entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}   # 了解到的老大，所有会话都看得到
             if args.scope.startswith("pref."):
                 from . import prefs
                 entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}
@@ -243,6 +255,20 @@ def main(argv: list[str] | None = None) -> int:
             from . import prefs
             day = date.fromisoformat(args.date) if args.date else tools._now().date()
             _json(prefs.compare(tools, args.metric, day, args.recent, args.baseline))
+        elif args.cmd == "project-stats":
+            from .coach import project_stats
+            _json(project_stats(tools, args.id, args.days))
+        elif args.cmd == "sleep-week":
+            from .coach import sleep_week
+            _json(sleep_week(tools, args.nights))
+        elif args.cmd == "media-add":
+            from .coach import media_add
+            _json(media_add(tools, json.loads(args.json)))
+        elif args.cmd == "canvas":
+            from . import canvas
+            lay = canvas.validate(json.loads(args.json), args.slot)
+            _json({"ok": True, "height": canvas.estimate(lay), "max_height": canvas.SLOTS[args.slot]["h"],
+                   "layout": canvas.resolve(tools, lay, board=args.board)})
         elif args.cmd == "viz":
             from . import viz
             if not args.metric:
@@ -307,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
                 _json({"projects": store.projects()})
         elif args.cmd == "media-library":
             from .v3 import media_library
-            _json({"items": media_library()})
+            _json({"items": media_library(tools)})
         elif args.cmd == "facts":
             from .v3 import facts
             _json(facts(tools, _day(args.date) or tools._now().date()))

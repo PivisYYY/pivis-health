@@ -126,7 +126,7 @@ def facts(tools, day: date) -> dict:
     return out
 
 
-def media_library() -> list[dict]:
+def media_library(tools=None) -> list[dict]:
     def kind(url: str) -> str:
         if url.endswith((".m4a", ".mp3")):
             return "audio"
@@ -137,6 +137,9 @@ def media_library() -> list[dict]:
             "kind": kind(it["url"])} for it in content.LIBRARY]
     lib.append({"id": "bedtime-stretch-15", "title": "睡前拉伸（14:54）", "duration_min": 15,
                 "url": "/media/sleep-audio/01_%E7%9D%A1%E5%89%8D%E6%8B%89%E4%BC%B8.m4a", "kind": "audio"})
+    if tools is not None:
+        from .coach import user_media
+        lib += [{**m, "source": "老大的素材库"} for m in user_media(tools)]
     return lib
 
 
@@ -263,17 +266,41 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
         for num in re.findall(r"\d+(?:\.\d+)?", value):
             if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
                 raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
+    out_layout = None
+    if hero.get("layout"):
+        # 开放画布：主卡标题行（label + 档位）由 App 画，下面整块由 P-Health 用零件拼
+        from . import canvas
+        if out_viz or out_fields or out_table:
+            raise ValueError("用了 hero.layout 就不要再放 viz / fields / table：图、字段都放进 layout 里")
+        try:
+            out_layout = canvas.validate(hero["layout"], "hero", pool, _has_number)
+        except canvas.CanvasError as exc:
+            raise ValueError(f"hero.layout：{exc}") from exc
+        for num in _layout_bound_numbers(out_layout):
+            if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
+                raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
     notices = doc.get("notices") or []
     if len(notices) > 2:
         raise ValueError("notices 最多 2 个")
     return {
         "headline": {"text": headline},
         "hero": {"level": hero["level"], "board": hero["board"], "label": str(hero["label"]),
-                 "value": value, "unit": unit, "note": str(hero.get("note") or ""),
-                 "fields": out_fields, "table": out_table, "viz": out_viz, "others": []},
+                 "value": "" if out_layout else value, "unit": "" if out_layout else unit,
+                 "note": str(hero.get("note") or ""),
+                 "fields": out_fields, "table": out_table, "viz": out_viz, "layout": out_layout, "others": []},
         "details": [],   # 依据折叠区已去掉；旧客户端读到空数组
         "notices": [{"text": str(n.get("text") if isinstance(n, dict) else n)} for n in notices],
     }
+
+
+def _layout_bound_numbers(node: dict) -> list[str]:
+    """layout 里手写的数字（用来检查结论有没有重复主卡的数）。"""
+    out: list[str] = []
+    if node.get("t") in ("value", "stat") and node.get("value"):
+        out += re.findall(r"\d+(?:\.\d+)?", str(node["value"]))
+    for k in node.get("children") or []:
+        out += _layout_bound_numbers(k)
+    return out
 
 
 SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
@@ -294,6 +321,20 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
   · hero.value 写 facts.viz.<metric>.value_text；常态区间和警戒线是按老大自己 30 天的数算的（或他自己定的），不是医学标准，不要说成诊断。
     结论和 note 里说「比你平时高 / 低」「出了你自己的常态」，**不要写「正常范围」「超标」「异常」**（老大会以为是医学上的不正常）。
   · facts.viz.<metric>.zone 是内核按常态和警戒线算的位置：act=过了警戒线，watch=出了常态，steady=常态里。level 由你判断，但 zone=act 时不能写 steady。
+- **主卡也可以自己排（hero.layout，开放画布）**：主卡标题行（label + 档位）App 会画，标题行下面整块（宽 354、高最多 400）由你用零件拼，替代 value/viz/fields/table（用了 layout 就别再放这三样）。零件只有这些，样式没法写，只能选档位：
+  · v / h：竖排 / 横排 {"t":"v","gap":12,"children":[…]}；h 最多 4 个，可加 "justify":"between"
+  · text：{"t":"text","text":"…","role":"title|body|caption|label","tone":1|2|3}（title≤18 字，body≤60，caption≤40，label≤14；tone 1 白 2 灰 3 浅灰）
+  · value：大数字 {"t":"value","bind":"sleep","size":"xl|l|m"}；stat：小字段 {"t":"stat","label":"HRV","bind":"hrv"}
+  · chart：主卡同款图 {"t":"chart","metric":"hrv","kind":"trend","days":14,"show":["band","warn"],"height":"s|m|l"}
+  · dots：一排点 {"t":"dots","bind":"sleep.nights|steps.week|project:<项目id>","days":7}
+  · bar：进度条 {"t":"bar","bind":"sleep|steps|weight"}；ring：圆环 {"t":"ring","bind":"recovery|steps|project:<项目id>"}
+  · level：档位点 {"t":"level","level":"act|watch|steady"}；rule：细线；spacer：留白 {"t":"spacer","size":8|16|24}
+  · list：清单 {"t":"list","items":["…"],"style":"dot|number"}（1–5 条，每条≤30 字）；timeline：接下来的待办 {"t":"timeline","n":1–3}
+  · bind 能用：指标 hrv/resp_rate/resting_hr/recovery/sleep/sleep_debt/steps/weight，或 <指标>.need/.goal/.target/.short/.pace/.warn/.prev。
+    数字优先用 bind（内核现算，永远是最新的）；手写的数字（text、value 的 value）也只能抄 facts。
+  · 页面主卡下面已经列了「接下来」的待办和「坚持习惯」那一行：layout 里别放 timeline、别重复项目名，除非老大的偏好里明确要。
+  · 什么时候用 layout：一个数 + 一张图就够时用 viz；要把两三样拼在一起讲一件事（睡了多久 + 一排每晚点 + 坚持习惯进度；恢复圆环 + HRV/静息心率两个字段；步数进度条 + 今天还差多少 + 接下来去走的那件事）时用 layout。
+  · 例：{"t":"v","gap":12,"children":[{"t":"h","justify":"between","align":"baseline","children":[{"t":"value","bind":"sleep","size":"xl"},{"t":"stat","label":"需要","bind":"sleep.need"}]},{"t":"bar","bind":"sleep"},{"t":"dots","bind":"sleep.nights","days":7}]}
 - level：act=需要处理；watch=留意；steady=平稳/没问题。客户端按 level 给动效：act 最强、watch 缓慢、steady 静止。
 - headline 说判断和接下来该做什么；数字只放主卡，不要在结论里重复主卡的 value。
 - 现在页（now）从三个板块里挑当前最需要关注的一项；专项页只挑本板块（hero.board 必须等于页面）。
@@ -359,8 +400,15 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
     context = f"组件编排:{page}:{run_id}"
     session = _ensure_composer(page, run_id)
     from . import prefs
-    rules = [str((e.get("payload") or {}).get("rule") or "") for e in prefs.active_prefs(tools.cfg)]
+    active = prefs.active_prefs(tools.cfg)
+    rules = [str((e.get("payload") or {}).get("rule") or "") for e in active]
     pref_text = ("\n老大定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules if r)) if any(rules) else ""
+    # 老大在对话里确认过的主卡样子：照这个零件树排（bind 的数会现算成最新的）
+    for e in active:
+        lay = (e.get("payload") or {}).get("layout")
+        if e.get("scope") == f"pref.page.{page}" and lay:
+            pref_text += ("\n老大确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
+                          + json.dumps(lay, ensure_ascii=False))
     prompt = ("你是 P-Health 的页面编排，不是聊天。根据真实证据为「" + {"now": "现在", "sleep": "休息", "sport": "运动",
               "stress": "压力"}[page] + "」页写主卡和结论。\n" + SCHEMA + pref_text + "\n证据：\n"
               + json.dumps(evidence, ensure_ascii=False, default=str))
@@ -495,6 +543,13 @@ def page_doc(tools, page: str) -> dict:
             hero = {**hero, "viz": live, "value": live["value_text"], "unit": live["unit"]}
         except Exception:
             hero = {**hero, "viz": None}      # 数据断了：退回只显示数字
+    if hero.get("layout"):
+        from . import canvas
+        try:
+            hero = {**hero, "layout": canvas.resolve(tools, hero["layout"], day, now,
+                                                     hero.get("board") or (page if page in BOARDS else None))}
+        except Exception:  # noqa: BLE001
+            hero = {**hero, "layout": None}
     board = hero.get("board") or (page if page in BOARDS else None)
     proj = store.project_for_board(board, day) if board else None
     handling = None
@@ -722,7 +777,8 @@ def daily_review(tools, boards: list[str] | None = None, force: bool = False) ->
             out[b] = "already"
             continue
         try:
-            dsh_chat.send_message(_review_message(b, now), CONTEXT_OF_BOARD[b])
+            from .coach import weekly_review_note
+            dsh_chat.send_message(_review_message(b, now) + weekly_review_note(tools, b, now.date()), CONTEXT_OF_BOARD[b])
             state[key] = now.isoformat(timespec="minutes")
             out[b] = "sent"
         except Exception as exc:  # noqa: BLE001

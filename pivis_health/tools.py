@@ -152,7 +152,8 @@ class HealthTools:
             return self._apple_daily(canonical, end_day, days)
         if canonical in WHOOP_SERIES:
             return self._whoop_daily(canonical, end_day, days)
-        raise KeyError(f"unknown metric: {canonical}")
+        raise KeyError(f"没有 {canonical} 这条序列。能用的：{', '.join(list(APPLE_SERIES) + list(WHOOP_SERIES))}；"
+                       f"睡眠时长看 ./pivis-health viz --metric sleep 或 facts 里的 sleep_nights")
 
     # =========================================================
     # 命令实现
@@ -175,7 +176,8 @@ class HealthTools:
             "subjective_schema": 1,
         }
 
-    def sleep_day(self, day: date) -> dict:
+    def sleep_day(self, day: date | None = None) -> dict:
+        day = day or (self._now().date() - timedelta(days=1))   # 不给日期就是昨晚（按入睡那天记日期）
         result = sleep_from_rows(self._rows(day), day, self.cfg.timezone)
         views = self._whoop_views()
         w_sleep = views["sleep"].get(day)

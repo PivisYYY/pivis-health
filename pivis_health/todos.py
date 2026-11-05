@@ -254,6 +254,10 @@ class TodoStore:
             t["id"] = todo_id
             if by == "agent" and cur.get("status") == "processing":
                 t["request"] = None
+            # P-Health 重写 record 时，老大提交过的历史（submitted）保留
+            kept = (cur.get("record") or {}).get("submitted")
+            if kept:
+                t["record"] = {**(t.get("record") or {}), "submitted": (t.get("record") or {}).get("submitted") or kept}
             data["todos"][todo_id] = t
             data["log"].append({"at": _now_iso(), "op": "update", "id": todo_id, "by": by})
             return t
@@ -276,13 +280,17 @@ class TodoStore:
 
     # ---- 项目 ----
     def project_set(self, project: dict, today: date, now: datetime | None = None) -> dict:
-        if not project.get("id") or not project.get("name"):
-            raise TodoError("project 需要 id 和 name")
-        if project.get("board") not in BOARDS:
-            raise TodoError(f"project.board 只能是 {BOARDS}")
+        if not project.get("id"):
+            raise TodoError("project 需要 id")
         with self._locked() as data:
             cur = data["projects"].get(project["id"]) or {}
-            merged = {**cur, **project}
+            merged = {**cur, **project}      # 已有的项目可以只传要改的字段（比如 {"id":"strength","status":"paused"}）
+            if not merged.get("name"):
+                raise TodoError("新项目需要 name")
+            if merged.get("board") not in BOARDS:
+                raise TodoError(f"project.board 只能是 {BOARDS}")
+            if merged.get("status") not in (None, "active", "paused", "done"):
+                raise TodoError("project.status 只能是 active / paused / done")
             merged.setdefault("start", today.isoformat())
             date.fromisoformat(merged["start"])
             merged["days"] = int(merged.get("days") or 30)
@@ -311,8 +319,35 @@ class TodoStore:
             data["projects"][merged["id"]] = merged
             data["log"].append({"at": _now_iso(), "op": "project_set", "id": merged["id"],
                                 "revision": merged["revision"]})
+            # 已经展开到今天及以后的实例：项目暂停或结束就撤掉还没开始的；模板改了就在那几天重新展开
+            later = sorted({t["date"] for t in data["todos"].values()
+                            if t.get("project") == merged["id"] and t.get("source") == "project"
+                            and t["date"] >= today.isoformat()})
+            if merged["status"] != "active":
+                for tid, t in list(data["todos"].items()):
+                    if (t.get("project") == merged["id"] and t.get("source") == "project"
+                            and t["date"] >= today.isoformat() and t["status"] in ("scheduled", "proposed")):
+                        data["todos"].pop(tid)
+                later = []
         self.materialize(today, now)
+        for d in later:
+            if d > today.isoformat():
+                self._refresh_day(merged["id"], date.fromisoformat(d))
         return self._read()["projects"][project["id"]]
+
+    def _refresh_day(self, project_id: str, day: date) -> None:
+        """项目模板改了以后，以后某天已经展开的实例跟着改：不在项目日期范围内或模板里删掉的项撤掉，其余按新模板重新展开。"""
+        with self._locked() as data:
+            p = data["projects"].get(project_id)
+            start = date.fromisoformat(p["start"])
+            inside = start <= day < start + timedelta(days=p["days"])
+            if not inside:
+                for tid, t in list(data["todos"].items()):
+                    if (t.get("project") == project_id and t["date"] == day.isoformat()
+                            and t.get("source") == "project" and t["status"] in ("scheduled", "proposed")):
+                        data["todos"].pop(tid)
+        if inside:
+            self.materialize(day)
 
     def projects(self, active_only: bool = False) -> list[dict]:
         ps = list(self._read()["projects"].values())
@@ -397,6 +432,12 @@ class TodoStore:
                 t["request"] = {"values": values, "text": text or "", "at": now.isoformat(timespec="seconds"),
                                 "previous_status": t["status"]}
                 t["status"] = "processing"
+                # 老大提交的内容同时存进 record（带最近 10 次的历史）：P-Health 改完这条时 request 会清掉，答案不能跟着丢
+                rec = dict(t.get("record") or {})
+                subs = list(rec.get("submitted") or [])[-9:]
+                subs.append({"values": values, "text": text or "", "at": now.isoformat(timespec="seconds")})
+                rec.update({"values": values, "text": text or "", "at": now.isoformat(timespec="seconds"), "submitted": subs})
+                t["record"] = rec
             elif action == "correct":
                 t["record"] = {**(t.get("record") or {}), "corrected": values, "text": text or ""}
                 t["summary"] = summary or t["summary"]
