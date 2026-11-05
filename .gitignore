@@ -35,6 +35,8 @@ Health/
 *.jpg
 *.jpeg
 *.png
+# README 截图（只放合成演示数据的截图）
+!docs/images/*.png
 *.heic
 *.webp
 *.pdf
@@ -63,7 +65,7 @@ keys/
 # OTA build outputs
 *.ipa
 *.xcarchive
-# Stale iOS copy; the real project is ~/Documents/kimi/Workspaces/PHealth/pivis-health-ios/PivisHealth
+# Stale iOS copy; the iOS client lives in its own repository
 ios/
 # Timestamped manual backups (git history replaces them)
 *.bak-*
