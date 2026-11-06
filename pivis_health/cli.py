@@ -120,6 +120,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("canvas", help="预览 / 校验一张画布卡（主卡 layout 或对话里的 layout 卡）：返回内核现算后的样子，不合规范就报原因")
     sp.add_argument("--json", required=True, help="零件树 JSON"); sp.add_argument("--slot", default="chat", choices=["hero", "chat"])
     sp.add_argument("--board")
+    sp = sub.add_parser("parts", help="画布零件说明书：默认每个一行（名字、中文名、什么时候用、输入示例），--name 看全文")
+    sp.add_argument("--group", choices=["基础", "占比", "时间", "趋势", "进度"]); sp.add_argument("--name")
+    sp = sub.add_parser("todo-forms", help="待办卡的 14 种形式：默认列出名字、用途、kind；--form 看那一种的模板 JSON")
+    sp.add_argument("--form")
     sp = sub.add_parser("serve"); sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8943); sp.add_argument("--tls-cert"); sp.add_argument("--tls-key")
 
     # WHOOP 官方 API 同步（凭据/令牌在 cfg.whoop_auth_dir，不进仓库）
@@ -148,6 +152,22 @@ def main(argv: list[str] | None = None) -> int:
                         "系统会在后台按新要求重排页面，几分钟后生效。"})
         return 2
     try:
+        if args.cmd == "parts":                 # 只读说明书，不碰数据
+            from . import canvas
+            _json(canvas.parts_doc(args.group, args.name))
+            return 0
+        if args.cmd == "todo-forms":            # 只读说明书，不碰数据
+            from .todos import TODO_FORMS
+            if args.form:
+                f = next((x for x in TODO_FORMS if x["form"] == args.form), None)
+                if not f:
+                    _json({"error": "unknown_form", "message": "没有这种形式，能用的：" + " / ".join(x["form"] for x in TODO_FORMS)})
+                    return 2
+                _json(f)
+            else:
+                _json({"forms": [{"form": x["form"], "name": x["name"], "kind": x["kind"], "use": x["use"]} for x in TODO_FORMS],
+                       "hint": "加 --form <名字> 看模板；写法规矩见 todo-cards skill"})
+            return 0
         cfg: Config = load_config(getattr(args, "config", None))
         if args.cmd == "serve":
             from .web import serve

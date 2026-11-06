@@ -10,7 +10,7 @@
 
 组件类型（v1 目录，客户端 switch 实现）：
   headline      板块头部（kicker + 结论句，点击进 session）
-  hero_status   现在页大状态卡（大数字）
+  hero_status   此刻页大状态卡（大数字）
   hero_risk     专项页主风险卡（大数值 + 内嵌 viz）
   quiet_note    安静说明（无异常时）
   tiles         数据位组（items ≤ TILES_MAX，每个 stat_tile）

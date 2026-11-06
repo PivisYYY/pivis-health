@@ -57,6 +57,21 @@ def bedtime(back: int) -> datetime:
     return datetime.combine(d, time(0, 0), tzinfo=CN) + timedelta(minutes=minutes)
 
 
+ZONE_KEYS = ("zone_zero_milli", "zone_one_milli", "zone_two_milli", "zone_three_milli", "zone_four_milli",
+             "zone_five_milli")
+
+
+def zone_durations(back: int, minutes: int = 90) -> dict:
+    """WHOOP-style heart-rate zone split for a tennis session (mostly Z2–Z3, a few hard rallies in Z4–Z5)."""
+    shares = [0.09, 0.24, 0.33, 0.21, 0.10, 0.03]
+    wobble = 0.04 * math.sin(back * 1.7)
+    shares[2] -= wobble
+    shares[3] += wobble
+    mins = [round(minutes * s) for s in shares]
+    mins[2] += minutes - sum(mins)
+    return {k: m * 60_000 for k, m in zip(ZONE_KEYS, mins)}
+
+
 def build_vault(path: Path) -> None:
     if path.exists():
         path.unlink()
@@ -149,7 +164,8 @@ def build_whoop(path: Path) -> None:
             snap["collections"]["workout"].append({
                 "id": f"demo-wk-{back}", "start": iso(ws), "end": iso(ws + timedelta(minutes=90)), "timezone_offset": "+08:00",
                 "sport_name": "tennis", "score_state": "SCORED",
-                "score": {"strain": 12.6, "average_heart_rate": 138, "max_heart_rate": 172, "kilojoule": 2900}})
+                "score": {"strain": 12.6, "average_heart_rate": 138, "max_heart_rate": 172, "kilojoule": 2900,
+                          "zone_durations": zone_durations(back)}})
     path.write_text(json.dumps(snap, ensure_ascii=False, indent=1), encoding="utf-8")
 
 

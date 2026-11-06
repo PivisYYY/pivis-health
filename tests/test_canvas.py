@@ -51,6 +51,10 @@ def test_validate_page_accepts_layout_and_forbids_mixing(monkeypatch):
     doc["hero"]["fields"] = [{"label": "需要", "value": "6.7"}]
     with pytest.raises(ValueError, match="layout"):
         v3.validate_page("sleep", doc, evidence)
+    doc["hero"].pop("fields")
+    doc["hero"]["layout"]["children"].append({"t": "timeline", "n": 2})     # 主卡里放「接下来」会和页面下面重复
+    with pytest.raises(ValueError, match="timeline"):
+        v3.validate_page("sleep", doc, evidence)
 
 
 class FakeTools:
@@ -78,3 +82,28 @@ def test_resolve_falls_back_per_part(monkeypatch):
     assert kids[1]["t"] == "text" and "算不出来" in kids[1]["text"]          # HRV 断了只影响这一格
     assert kids[2]["left"] == "睡了 6.7 小时" and kids[2]["fraction"] == round(6.7 / 9.4, 3)
     assert kids[3]["caption"] == "近 1 晚 · 1 晚没睡够"
+
+
+def test_columns_validates_metric_days_and_height():
+    n = canvas.validate({"t": "columns", "metric": "steps", "days": 30, "height": "xl"}, "chat")
+    assert n == {"t": "columns", "metric": "steps", "days": 14, "height": "s"}
+    assert canvas.estimate(n) == canvas.CHART_H["s"] + 36
+    with pytest.raises(CanvasError, match="columns 的 metric"):
+        canvas.validate({"t": "columns", "metric": "sleep_debt"}, "chat")
+
+
+def test_columns_resolve_sleep_marks_need_and_steps_goal():
+    def vz(metric, kind=None, days=None):
+        if metric == "sleep":
+            return {"nights": [{"night_of": "2026-11-03", "slept": 7.9, "need": 8.0, "ok": True},
+                               {"night_of": "2026-11-04", "slept": 6.7, "need": 9.4, "ok": False}]}
+        if kind == "trend":
+            return {"series": [{"date": "2026-11-04", "value": 9354}, {"date": "2026-11-05", "value": 6240}]}
+        return {"goal": 8000}
+    from datetime import date
+    s = canvas._columns("sleep", 7, date(2026, 11, 5), vz)
+    assert [(i["text"], i["ref"], i["on"]) for i in s["items"]] == [("7.9", 8.0, True), ("6.7", 9.4, False)]
+    assert s["ref_label"] == "需要 9.4" and s["max"] == 9.4 and s["caption"] == "近 2 晚 · 1 晚没睡够"
+    st = canvas._columns("steps", 7, date(2026, 11, 5), vz)
+    assert st["ref"] == 8000 and [i["on"] for i in st["items"]] == [True, False]
+    assert st["caption"] == "前 1 天 1 天走够 · 今天还在走"

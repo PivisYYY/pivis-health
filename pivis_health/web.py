@@ -424,6 +424,11 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             if u.path == "/api/v3/clock":
                 self._json({"now": tools._now().isoformat(timespec="seconds"), "sim": cfg.sim_mode})
                 return True
+            if u.path == "/api/v3/truth":
+                # 开屏：一条反直觉、但是对的健康观（点开看解释和依据）
+                from . import truths
+                self._json(truths.pick(cfg))
+                return True
             if u.path == "/api/v3/status":
                 self._json(v3mod.sync_status(tools))
                 return True
@@ -483,6 +488,10 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                     self._json({"layout": canvas.resolve(tools, lay, board=body.get("board"))})
                 except canvas.CanvasError as exc:
                     self._json({"error": "invalid", "message": str(exc)}, 422)
+                return
+            if u.path == "/api/v3/sync-health":
+                # 下拉刷新：拉一次 WHOOP（Apple 健康由 App 自己同时上传）
+                self._json(v3mod.sync_health(tools))
                 return
             if u.path.startswith("/api/v3/todo/"):
                 self._json(v3mod.submit(tools, u.path.rsplit("/", 1)[-1], body))

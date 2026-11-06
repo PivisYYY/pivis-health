@@ -1,0 +1,1923 @@
+[
+ {
+  "id": "no-catch-up",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "没睡好，第二天反而别补觉",
+  "lead": "想把睡眠调规律，每天同一时间起床，比多睡一会儿更有用。",
+  "body": [
+   "睡意来自两股力：醒着越久，大脑里积累的「睡眠压力」越大；生物钟则按起床和见光的时间来定时。",
+   "早上赖床、下午睡很久，会把攒下的睡眠压力提前用掉，生物钟也被往后推，当晚更难睡着，第二天又想补，就成了循环。",
+   "所以失眠的认知行为治疗（CBT-I）把「固定起床、白天不补觉」当作基本规则。偶尔熬夜的健康人多睡一点没关系；但如果目标是把作息调回来，就别补。"
+  ],
+  "do": "明早照常时间起床，拉开窗帘见光；实在困，15:00 前小睡最多 20 分钟。",
+  "sources": [
+   "美国睡眠医学会（AASM）慢性失眠行为与心理治疗临床实践指南，2021",
+   "中国睡眠研究会《中国失眠症诊断和治疗指南》，2017"
+  ]
+ },
+ {
+  "id": "get-out-of-bed",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "睡不着的时候，下床比躺着强",
+  "lead": "在床上翻来覆去，会让大脑把床和「清醒、着急」绑在一起。",
+  "body": [
+   "同一个地方反复发生同一件事，大脑会把两者连起来。床上常常醒着焦虑，以后一躺下就容易清醒。",
+   "刺激控制的做法：困了才上床；躺下大约 20 分钟还睡不着（凭感觉，不看钟），就起来去别的房间做点安静、无聊的事，困了再回去。",
+   "这是 CBT-I 的核心做法之一，指南推荐使用。头几晚可能更累，坚持一两周，入睡通常会明显变快。"
+  ],
+  "do": "今晚躺下觉得清醒、烦躁时，起来去客厅坐着，暗光下看点纸质书，困了再回床。",
+  "sources": [
+   "美国睡眠医学会（AASM）慢性失眠行为与心理治疗临床实践指南，2021",
+   "Bootzin, 刺激控制疗法（1972）"
+  ]
+ },
+ {
+  "id": "less-bed-better-sleep",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "失眠时少躺一会儿，反而睡得更好",
+  "lead": "把在床上的时间压到接近真正睡着的时间，睡眠会变得更连贯。",
+  "body": [
+   "很多失眠的人为了多睡，早早上床、很晚才起，结果在床上醒着的时间越来越长，睡得更碎。",
+   "睡眠限制的做法：按最近实际睡着的平均时长定一个「睡眠窗口」（不少于 5.5 小时），只在窗口里躺床。睡眠压力集中起来，入睡更快、夜醒更少；睡眠效率上来后，每周再加 15 分钟。",
+   "头一两周白天可能更困，开车要格外小心；有双相情感障碍、癫痫、睡眠呼吸暂停等情况，要在医生指导下做。"
+  ],
+  "do": "先记一周睡眠日记，再定窗口；P-Health 会按你的数据算。",
+  "sources": [
+   "美国睡眠医学会（AASM）慢性失眠行为与心理治疗临床实践指南，2021",
+   "Spielman 等, 睡眠限制疗法（Sleep, 1987）"
+  ]
+ },
+ {
+  "id": "alcohol-sleep",
+  "topic": "sleep",
+  "tags": [
+   "sleep"
+  ],
+  "headline": "睡前喝点酒，睡得反而更差",
+  "lead": "酒能让人更快睡着，但会把后半夜的睡眠打碎。",
+  "body": [
+   "酒精有镇静作用，刚喝完容易睡着；几小时后酒精代谢掉，身体出现「反跳」：更容易醒、梦多、睡得浅。",
+   "研究汇总显示，睡前饮酒会减少前半夜的快速眼动睡眠，下半夜睡眠更不稳定，喝得越多越明显。",
+   "想睡得好，最好睡前 3 小时内不喝酒。"
+  ],
+  "do": "今晚如果要喝，放在晚饭时，睡前几小时停下。",
+  "sources": [
+   "Ebrahim 等, Alcohol and Sleep I（Alcoholism: Clinical and Experimental Research, 2013）"
+  ]
+ },
+ {
+  "id": "weekend-jetlag",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "周末睡懒觉，等于给自己倒时差",
+  "lead": "工作日和周末作息差两小时，身体的感受和跨两个时区差不多。",
+  "body": [
+   "生物钟靠起床时间和早上的光来校准。周末晚睡晚起，生物钟往后挪；周一按时起床，就像刚从别的时区飞回来。",
+   "研究把这种差叫「社会时差」，它和白天疲倦、情绪差、体重增加都有关联。",
+   "不用分毫不差，但周末起床尽量别比平时晚超过 1 小时。"
+  ],
+  "do": "这周末的闹钟，定在平时起床后 1 小时以内。",
+  "sources": [
+   "Wittmann 等, Social Jetlag（Chronobiology International, 2006）",
+   "Roenneberg 等, Social Jetlag and Obesity（Current Biology, 2012）"
+  ]
+ },
+ {
+  "id": "trying-harder",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "越用力想睡着，越睡不着",
+  "lead": "睡眠是放松以后自己来的，用力只会让大脑更警觉。",
+  "body": [
+   "「必须马上睡着」的念头会提高心率和警觉，这叫睡眠努力：越在意，越清醒。",
+   "CBT-I 里有个反直觉的方法叫矛盾意向：躺下后不强迫自己睡，而是安静地「保持清醒」。压力一松，睡意反而更容易来。",
+   "配合下床规则：真的清醒烦躁了，就起来，不在床上较劲。"
+  ],
+  "do": "今晚躺下时告诉自己：不用马上睡着，闭眼休息也算休息。",
+  "sources": [
+   "Morgenthaler 等, 失眠心理与行为治疗实践参数（Sleep, 2006）",
+   "Espie 等, 注意—意图—努力通路模型（Sleep Medicine Reviews, 2006）"
+  ]
+ },
+ {
+  "id": "clock-watching",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "半夜看时间，会让你更难再睡着",
+  "lead": "看一眼钟，脑子就开始算「还能睡几小时」，人就醒了。",
+  "body": [
+   "研究让失眠的人在入睡时能看到钟，结果他们更担心，入睡也更慢。",
+   "半夜看手机还多了屏幕的光和信息，清醒得更快。",
+   "把闹钟转过去或放远，醒了不看时间；判断「20 分钟」靠感觉就行。"
+  ],
+  "do": "今晚把手机放在伸手够不到的地方，闹钟背对着床。",
+  "sources": [
+   "Tang, Schmidt & Harvey, Effects of clock monitoring on sleep（Journal of Behavior Therapy and Experimental Psychiatry, 2007）"
+  ]
+ },
+ {
+  "id": "afternoon-coffee",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "caffeine",
+   "food"
+  ],
+  "headline": "下午那杯咖啡，会偷走一部分睡眠",
+  "lead": "很多人觉得喝完照样睡得着，但睡眠其实变短了。",
+  "body": [
+   "咖啡因的半衰期大约 5 小时，因人而异，2 到 10 小时都有可能。下午喝下去，到睡觉时体内还剩不少。",
+   "一项研究让人在睡前 6 小时摄入 400 毫克咖啡因（相当于两三杯咖啡），仪器测得总睡眠少了 1 小时以上，而本人的感觉变化并不明显。",
+   "对睡眠敏感的人，睡前 8 小时内最好不碰咖啡、浓茶和能量饮料。"
+  ],
+  "do": "下午想喝的时候，换成低因咖啡或麦茶。",
+  "sources": [
+   "Drake 等, Caffeine Effects on Sleep Taken 0, 3, or 6 Hours before Going to Bed（Journal of Clinical Sleep Medicine, 2013）"
+  ]
+ },
+ {
+  "id": "evening-exercise",
+  "topic": "sport",
+  "tags": [
+   "sport",
+   "sleep"
+  ],
+  "headline": "晚上运动，不一定影响睡眠",
+  "lead": "只要在上床前 1 小时以上结束、强度不过高，晚练对睡眠几乎没有坏处。",
+  "body": [
+   "一项汇总 23 项研究的分析发现：傍晚做中等强度运动，并不会让入睡变慢，深睡还略多一点。",
+   "真正影响睡眠的是睡前 1 小时内的高强度训练：心率和体温还没降下来，入睡就慢。",
+   "所以下班后的锻炼可以留着，只是把最累的部分放早一点，练完留出放松的时间。"
+  ],
+  "do": "晚上练的话，安排在上床前 2 小时结束，最后 10 分钟慢下来。",
+  "sources": [
+   "Stutz 等, Effects of Evening Exercise on Sleep in Healthy Participants（Sports Medicine, 2019）"
+  ]
+ },
+ {
+  "id": "rest-makes-stronger",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "变强发生在休息时，不在练的时候",
+  "lead": "训练只是给身体一个刺激，长力气、长耐力是在恢复期完成的。",
+  "body": [
+   "一次训练会让肌肉和神经系统暂时疲劳、能力下降；休息够了，身体修复，并且比原来强一点，这叫训练适应。",
+   "恢复不够就接着练，疲劳一层层叠上去，表现下降，受伤和生病的风险都会上升。",
+   "睡眠是恢复里最重要的一环。恢复分数低、睡眠债高的日子，降强度比硬练更有效。"
+  ],
+  "do": "恢复低的那天，把高强度换成散步或轻松活动。",
+  "sources": [
+   "美国运动医学会（ACSM）抗阻训练进阶模型立场声明，2009",
+   "Kellmann 等, Recovery and Performance in Sport: Consensus Statement（IJSPP, 2018）"
+  ]
+ },
+ {
+  "id": "soreness",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "第二天不酸，也可能练得很好",
+  "lead": "肌肉酸痛说明动作新、下放阶段多，不代表练得更有效。",
+  "body": [
+   "延迟性肌肉酸痛（练后 24 到 72 小时）主要和不熟悉的动作、离心收缩有关，比如深蹲往下放的那段。",
+   "同一套动作练几次，酸痛会明显变轻，但力量和肌肉照样在长。用酸不酸来判断效果并不可靠。",
+   "看进步，要看重量、次数、动作质量和疲劳感。"
+  ],
+  "do": "记下每次的重量和次数，比较这个更有用。",
+  "sources": [
+   "Schoenfeld & Contreras, Is Postexercise Muscle Soreness a Valid Indicator of Muscular Adaptations?（Strength and Conditioning Journal, 2013）"
+  ]
+ },
+ {
+  "id": "slow-to-go-far",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "想跑得更远，多数时候要跑得更慢",
+  "lead": "耐力练得好的人，大约八成训练都是能说整句话的轻松强度。",
+  "body": [
+   "低强度有氧能充分刺激心肺和肌肉的耐力适应，疲劳小、恢复快，可以积累更多训练量。",
+   "每次都跑到上气不接下气，看起来更努力，但疲劳大、容易受伤，总训练量反而上不去。",
+   "常见做法是「八二分」：大部分轻松跑，少量高强度。新手先跑走结合、保持能说话的速度。"
+  ],
+  "do": "下次跑步把速度降到能说完整句子，时长比速度重要。",
+  "sources": [
+   "Seiler, What is Best Practice for Training Intensity and Duration Distribution in Endurance Athletes?（IJSPP, 2010）"
+  ]
+ },
+ {
+  "id": "strength-beats-stretching",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "防受伤，力量训练比拉伸更管用",
+  "lead": "运动前静态拉伸并不能明显减少受伤，规律的力量训练可以。",
+  "body": [
+   "一项汇总 25 项随机对照试验、两万六千多人的分析发现：拉伸几乎不降低运动损伤，力量训练能把损伤风险降到原来的三分之一左右。",
+   "运动前更合适的是动态热身：慢跑、摆腿、弓步走，把体温和关节活动度带起来。",
+   "拉伸本身没坏处，适合放在运动后或单独做，用来改善活动度和放松。"
+  ],
+  "do": "每周加两次简单的力量训练：深蹲、臀桥、平板支撑。",
+  "sources": [
+   "Lauersen 等, The effectiveness of exercise interventions to prevent sports injuries（British Journal of Sports Medicine, 2014）"
+  ]
+ },
+ {
+  "id": "break-up-sitting",
+  "topic": "sport",
+  "tags": [
+   "sport",
+   "life"
+  ],
+  "headline": "每天健身一小时，也要常起来走走",
+  "lead": "连续久坐的影响，很难只靠一次锻炼完全抵消。",
+  "body": [
+   "研究发现，久坐时每 20 到 30 分钟起来轻松走几分钟，饭后的血糖和胰岛素反应明显更低。",
+   "大样本分析显示，每天中高强度活动够多（约 60 到 75 分钟）的人，久坐带来的风险基本被抵消；但大多数人达不到这个量。",
+   "更实际的做法是：照常锻炼，同时把久坐切碎。"
+  ],
+  "do": "每坐 45 到 60 分钟，起来走两三分钟，或去接杯水。",
+  "sources": [
+   "Dunstan 等, Breaking Up Prolonged Sitting Reduces Postprandial Glucose and Insulin Responses（Diabetes Care, 2012）",
+   "Ekelund 等（The Lancet, 2016）"
+  ]
+ },
+ {
+  "id": "slow-exhale",
+  "topic": "stress",
+  "tags": [
+   "stress"
+  ],
+  "headline": "想快点平静，关键是慢慢呼气",
+  "lead": "深吸一口气不一定让人放松，把呼气拉长才是关键。",
+  "body": [
+   "呼气时心率会自然慢下来；把呼气拉得比吸气长，身体更快从紧张状态里退出来。",
+   "一项随机研究比较了几种每天 5 分钟的练习，以呼气为主的「循环叹息」（吸两口、长长呼一口）改善情绪的效果最好，好过同样时长的正念冥想。",
+   "带屏气的呼吸法不适合有胸闷、心脏问题的人，不舒服就停。"
+  ],
+  "do": "现在试 1 分钟：鼻子吸气，再补吸一小口，然后用嘴慢慢把气呼完。",
+  "sources": [
+   "Balban 等, Brief structured respiration practices enhance mood and reduce physiological arousal（Cell Reports Medicine, 2023）"
+  ]
+ },
+ {
+  "id": "detach-to-rest",
+  "topic": "stress",
+  "tags": [
+   "stress"
+  ],
+  "headline": "躺着刷手机，不算真正的休息",
+  "lead": "恢复精力的关键是在心里和工作断开，不是身体不动。",
+  "body": [
+   "工作心理学研究发现：下班后能在心理上脱离工作（不想、不回、不查），第二天精力和情绪更好；人坐着不动、脑子还在工作，恢复效果差。",
+   "刷工作群、看邮件，大脑还在工作模式；短视频一直拽着注意力，也很难真正放松。",
+   "有效的恢复包括：心理脱离、放松、学点和工作无关的东西、自己做主的安排。"
+  ],
+  "do": "今晚定一个收工时间，之后工作消息只看急事。",
+  "sources": [
+   "Sonnentag & Fritz, The Recovery Experience Questionnaire（Journal of Occupational Health Psychology, 2007）"
+  ]
+ },
+ {
+  "id": "weight-fluctuates",
+  "topic": "food",
+  "tags": [
+   "weight",
+   "food"
+  ],
+  "headline": "体重一天涨一斤，不代表胖了",
+  "lead": "一天之内上下一两斤很常见，大多是水分和肠道里的食物。",
+  "body": [
+   "盐吃多了、碳水多了（身体储存糖原时会带上约 3 倍重的水）、晚饭吃得晚、排便情况，都会让第二天早上的体重上下波动。",
+   "研究也看到有规律的周内波动：周末后偏高，工作日慢慢回落。",
+   "看减重效果要看一周的平均或趋势线，单天的数只当参考。"
+  ],
+  "do": "每天固定时间称一次（起床上完厕所、吃喝之前），看一周的走势。",
+  "sources": [
+   "Turicchi 等, Weekly, seasonal and holiday body weight fluctuation patterns among individuals engaged in a European multi-centre behavioural weight loss maintenance intervention（PLOS ONE, 2020）"
+  ]
+ },
+ {
+  "id": "protein-when-cutting",
+  "topic": "food",
+  "tags": [
+   "weight",
+   "food",
+   "sport"
+  ],
+  "headline": "减重时多吃蛋白质，掉的更多是脂肪",
+  "lead": "只是少吃，掉的体重里会有不少肌肉；吃够蛋白质加上力量训练，能把肌肉留住。",
+  "body": [
+   "热量缺口时，身体既分解脂肪，也分解肌肉。蛋白质不够、又不练力量，肌肉流失更多，基础代谢跟着下降，更容易反弹。",
+   "国际运动营养学会建议：规律运动的人每天每公斤体重 1.4 到 2.0 克蛋白质，减重期间取偏高的一端，分到每餐。",
+   "有肾脏疾病的人，蛋白质摄入要听医生的。"
+  ],
+  "do": "每餐先保证一掌心大小的蛋白质：鱼、蛋、豆腐、瘦肉或奶。",
+  "sources": [
+   "国际运动营养学会（ISSN）立场声明：蛋白质与运动（Jäger 等, 2017）"
+  ]
+ },
+ {
+  "id": "s-light-morning",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "早上晒太阳，晚上更容易困",
+  "lead": "起床后见到的光，决定了你今晚几点开始犯困。",
+  "body": [
+   "体内生物钟靠光来校准。早上见到明亮的光，会把生物钟往前拨，褪黑素分泌提前，晚上更早犯困；夜里的强光则会把它往后推。",
+   "人体光反应曲线研究（Khalsa 等，2003）显示：同样的强光，在清晨照射会让节律提前，在傍晚和夜间照射会让节律推迟。户外即使是阴天，光照也远强于室内灯光。",
+   "适合入睡偏晚、早上起不来的人。如果你本来就醒得太早、傍晚就犯困，情况正好相反，应多晒傍晚的光，必要时咨询睡眠科医生。"
+  ],
+  "do": "起床后1小时内，到户外或窗边待15分钟以上。",
+  "sources": [
+   "Khalsa 等, A phase response curve to single bright light pulses in human subjects（Journal of Physiology, 2003）",
+   "Blume 等, Effects of light on human circadian rhythms, sleep and mood（Somnologie, 2019）"
+  ]
+ },
+ {
+  "id": "s-cool-bedroom",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "卧室凉一点，睡得更深",
+  "lead": "入睡需要核心体温下降，太热的房间会妨碍这一步。",
+  "body": [
+   "入睡前后，人的核心体温会自然下降，这是身体进入睡眠的信号之一。卧室太热，身体散热受阻，更容易醒，深睡也会变少。",
+   "综述研究（Okamoto-Mizuno 和 Mizuno，2012）总结：环境偏热会增加夜间清醒，减少慢波睡眠和快速眼动睡眠；在有被褥的情况下，偏凉的环境对睡眠影响较小。",
+   "没有适合所有人的“最佳温度”，以盖着被子不冷不热、手脚温暖为准。老人和婴儿对温度更敏感，不宜过冷。"
+  ],
+  "do": "今晚把卧室调凉一点，用被子来保暖。",
+  "sources": [
+   "Okamoto-Mizuno, Mizuno, Effects of thermal environment on sleep and circadian rhythm（Journal of Physiological Anthropology, 2012）"
+  ]
+ },
+ {
+  "id": "s-warm-shower",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "睡前热水澡，助眠靠的是降温",
+  "lead": "洗完热水澡体温回落，正好帮身体进入睡眠状态。",
+  "body": [
+   "热水让皮肤和手脚的血管扩张，洗完后热量更快从体表散出，核心体温随之下降，这正是身体准备入睡时的变化。手脚温暖本身也与入睡更快有关。",
+   "一项系统综述和荟萃分析（Haghayegh 等，2019）纳入17项研究：睡前1到2小时用约40到42.5℃的水洗澡或泡澡，哪怕只有10分钟，入睡也更快，自评睡眠质量更好。",
+   "关键在时间：临睡前才洗，体温还没降下来，效果不明显。有心脏病、低血压的人和老人，水温不宜过高，泡澡时间不宜过长。"
+  ],
+  "do": "今晚把洗澡时间挪到睡前1到2小时。",
+  "sources": [
+   "Haghayegh 等, Before-bedtime passive body heating by warm shower or bath to improve sleep: A systematic review and meta-analysis（Sleep Medicine Reviews, 2019）",
+   "Kräuchi 等, Warm feet promote the rapid onset of sleep（Nature, 1999）"
+  ]
+ },
+ {
+  "id": "s-night-waking",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "夜里醒几次，是正常的",
+  "lead": "睡眠由几个周期组成，周期之间短暂醒来很常见。",
+  "body": [
+   "一夜通常有4到6个睡眠周期，每个约90分钟。周期交替时睡眠变浅，人很容易短暂醒来，大多数几分钟内又睡着，第二天甚至记不得。",
+   "一项汇总65项研究、覆盖儿童到老人的荟萃分析（Ohayon 等，2004）显示：入睡后的清醒时间随年龄增长而增加，健康老人夜里醒得比年轻人多，属于正常变化。",
+   "醒来后能较快再睡着、白天精神尚可，就不必担心。如果长期醒来后很难再睡、白天明显受影响，或伴有憋醒、胸闷，应去看医生。"
+  ],
+  "do": "夜里醒来时，提醒自己这是睡眠周期的正常交替。",
+  "sources": [
+   "Ohayon 等, Meta-analysis of quantitative sleep parameters from childhood to old age in healthy individuals: developing normative sleep values across the human lifespan（Sleep, 2004）"
+  ]
+ },
+ {
+  "id": "s-orthosomnia",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti",
+   "stress"
+  ],
+  "headline": "盯着睡眠分数，可能越睡越差",
+  "lead": "手环的睡眠数据并不精确，过分在意反而让人焦虑。",
+  "body": [
+   "担心“睡得不够好”会提高大脑的警觉，让人更难入睡。如果每天早上先看分数再决定心情，数据就成了新的压力来源。",
+   "研究者把这种现象称为“完美睡眠焦虑”（orthosomnia），最早见于病例报告（Baron 等，2017）。另一项与多导睡眠图的对比研究（Chinoy 等，2021）发现，消费级设备判断睡眠分期并不稳定，普遍高估浅睡。",
+   "手环适合看长期趋势，比如作息是否规律。如果你发现看数据让自己更紧张，可以先停用一两周，以白天的精神状态为准。"
+  ],
+  "do": "这周先别每天早上查看睡眠评分。",
+  "sources": [
+   "Baron 等, Orthosomnia: Are Some Patients Taking the Quantified Self Too Far?（Journal of Clinical Sleep Medicine, 2017）",
+   "Chinoy 等, Performance of seven consumer sleep-tracking devices compared with polysomnography（Sleep, 2021）"
+  ]
+ },
+ {
+  "id": "s-nap-short",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "午睡别太久，短一点更提神",
+  "lead": "睡得太久会进入深睡，醒来反而昏昏沉沉。",
+  "body": [
+   "小睡超过约30分钟，容易进入深睡。从深睡中醒来，会有一段头脑发沉、反应变慢的“睡眠惯性”，通常持续十几分钟到半小时。",
+   "一项实验（Brooks 和 Lack，2006）让前一晚睡眠不足的人分别小睡5、10、20、30分钟：10分钟小睡醒来马上提神，效果持续约2.5小时；30分钟小睡醒后反而先变差一阵。",
+   "失眠的人白天最好不睡或少睡，以免影响晚上入睡。如果每天都要长时间午睡才撑得住，可能是夜间睡眠不足或有睡眠问题，值得就医评估。"
+  ],
+  "do": "午睡定个20分钟闹钟，下午3点前结束。",
+  "sources": [
+   "Brooks, Lack, A brief afternoon nap following nocturnal sleep restriction: which nap duration is most recuperative?（Sleep, 2006）"
+  ]
+ },
+ {
+  "id": "s-sleep-need",
+  "topic": "sleep",
+  "tags": [
+   "sleep"
+  ],
+  "headline": "8小时不是每个人的标准",
+  "lead": "成年人需要的睡眠因人而异，7到9小时都在正常范围。",
+  "body": [
+   "睡眠需求受基因、年龄和身体状况影响，就像身高一样有个体差异。与其盯着某个固定数字，不如看白天是否清醒、精力是否够用。",
+   "美国睡眠医学会与睡眠研究学会的共识（Watson 等，2015）建议成年人规律睡眠不少于7小时；美国国家睡眠基金会同年给出的推荐范围是7到9小时。",
+   "这不代表少睡没关系。长期睡不到6小时、却觉得“习惯了”的人，往往低估了自己的缺觉程度，真正天生只需短睡的人非常少见。"
+  ],
+  "do": "记录一周：睡多久时，白天不靠咖啡也有精神。",
+  "sources": [
+   "Watson 等, Recommended Amount of Sleep for a Healthy Adult: A Joint Consensus Statement of the American Academy of Sleep Medicine and Sleep Research Society（Sleep, 2015）",
+   "Hirshkowitz 等, National Sleep Foundation's sleep time duration recommendations: methodology and results summary（Sleep Health, 2015）"
+  ]
+ },
+ {
+  "id": "s-teen-delay",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "青少年晚睡，不全是因为贪玩",
+  "lead": "青春期的生物钟会自然后移，晚上不困、早上起不来。",
+  "body": [
+   "进入青春期后，褪黑素开始分泌的时间会推迟，困意积累得也更慢，所以孩子晚上真的不容易困，早上却很难清醒。",
+   "一项经典研究（Carskadon 等，1998）发现，学生升入更早上课的学校后，生物钟并没有跟着提前，早晨嗜睡明显增加。美国儿科学会（2014）因此建议初高中上课不早于8:30。",
+   "青少年每晚需要8到10小时睡眠，单靠命令“早点睡”很难奏效。更有效的做法是早上让孩子多见光，晚上调暗灯光、减少电子设备。"
+  ],
+  "do": "让孩子起床后先拉开窗帘，在明亮处吃早餐。",
+  "sources": [
+   "Carskadon 等, Adolescent sleep patterns, circadian timing, and sleepiness at a transition to early school days（Sleep, 1998）",
+   "美国儿科学会（AAP）, School Start Times for Adolescents（Pediatrics, 2014）"
+  ]
+ },
+ {
+  "id": "s-snoring",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "weight"
+  ],
+  "headline": "鼾声如雷，不等于睡得香",
+  "lead": "响亮的鼾声可能意味着气道反复堵塞，睡眠被一次次打断。",
+  "body": [
+   "打鼾是气流通过变窄的上气道时引起的振动。如果气道反复塌陷，呼吸会暂停或变浅，大脑被迫短暂醒来恢复呼吸，这就是阻塞性睡眠呼吸暂停。",
+   "一项全球估算（Benjafield 等，2019）认为，30到69岁成年人中约有9.36亿人患阻塞性睡眠呼吸暂停，中国人数最多，而多数人并未被诊断。肥胖是重要的危险因素之一。",
+   "偶尔轻微打鼾通常无碍。如果鼾声响亮、被人发现夜里憋气，或白天总犯困、早上头痛，应去睡眠专科检查，不要自行判断。"
+  ],
+  "do": "问问家人，你打鼾时有没有停顿或憋气。",
+  "sources": [
+   "Benjafield 等, Estimation of the global prevalence and burden of obstructive sleep apnoea: a literature-based analysis（Lancet Respiratory Medicine, 2019）",
+   "Kapur 等, Clinical Practice Guideline for Diagnostic Testing for Adult Obstructive Sleep Apnea: An American Academy of Sleep Medicine Clinical Practice Guideline（Journal of Clinical Sleep Medicine, 2017）"
+  ]
+ },
+ {
+  "id": "s-night-mode",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "开了夜间模式，照样会晚睡",
+  "lead": "把屏幕调暖，并不能抵消睡前刷手机的影响。",
+  "body": [
+   "夜里的亮光会抑制褪黑素、推迟生物钟。但睡前用手机的问题不只是光：内容让人兴奋，一刷就停不下来，直接挤占了睡觉的时间。",
+   "一项实验（Chang 等，2015）发现，连续5晚睡前读4小时平板，入睡比读纸质书平均慢约10分钟。另一项随机试验（Duraccio 等，2021）中，开不开夜间模式，睡眠结果没有差别。",
+   "偶尔看一会儿影响不大。如果你经常一拿起手机就错过睡点，比起调屏幕颜色，更有用的是给手机定一个“下班时间”。"
+  ],
+  "do": "睡前30分钟，把手机放到伸手够不着的地方。",
+  "sources": [
+   "Chang 等, Evening use of light-emitting eReaders negatively affects sleep, circadian timing, and next-morning alertness（PNAS, 2015）",
+   "Duraccio 等, Does iPhone night shift mitigate negative effects of smartphone use on sleep outcomes in emerging adults?（Sleep Health, 2021）"
+  ]
+ },
+ {
+  "id": "s-sleep-misperception",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti",
+   "stress"
+  ],
+  "headline": "你睡着的时间，可能比感觉的多",
+  "lead": "失眠的人常常低估自己的睡眠，这本身会加重焦虑。",
+  "body": [
+   "浅睡时大脑仍有一定活动，醒来后容易把这段时间记成“没睡着”。越担心失眠，越容易注意到清醒的片段，对睡眠的估计也越悲观。",
+   "一篇系统综述（Harvey 和 Tang，2012）总结：与多导睡眠图相比，失眠者普遍低估总睡眠时间、高估入睡所需时间，这种偏差与担忧和注意力偏向有关。",
+   "这不是说失眠是“想出来的”，白天的疲惫和痛苦是真实的。但了解这一点能减少灾难化的想法，这也是失眠认知行为治疗的一部分。"
+  ],
+  "do": "别再对自己说“我一夜没睡”，换成“我睡得比较浅”。",
+  "sources": [
+   "Harvey, Tang, (Mis)perception of sleep in insomnia: a puzzle and a resolution（Psychological Bulletin, 2012）"
+  ]
+ },
+ {
+  "id": "s-wake-time-anchor",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti",
+   "life"
+  ],
+  "headline": "想早睡，先固定起床时间",
+  "lead": "入睡没法强迫，但起床时间能掌控，它会带着入睡时间走。",
+  "body": [
+   "你无法命令自己几点睡着，但每天同一时间起床，能稳定生物钟，让白天清醒的时长固定，晚上的困意就会按时到来。",
+   "美国睡眠医学会2021年失眠行为治疗指南中，刺激控制和睡眠限制都以固定起床时间为基础。一项约6万人的队列研究（Windred 等，2024）发现，作息越规律，全因死亡风险越低。",
+   "后者是观察性研究，只说明关联。适合入睡困难、作息不规律的人，头几天可能更困，坚持一两周通常会改善。倒班工作者情况不同，最好咨询医生。"
+  ],
+  "do": "定一个起床闹钟，连续两周每天准时起床。",
+  "sources": [
+   "Edinger 等, Behavioral and psychological treatments for chronic insomnia disorder in adults: an American Academy of Sleep Medicine clinical practice guideline（Journal of Clinical Sleep Medicine, 2021）",
+   "Windred 等, Sleep regularity is a stronger predictor of mortality risk than sleep duration: A prospective cohort study（Sleep, 2024）"
+  ]
+ },
+ {
+  "id": "s-weekend-metabolic",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "weight",
+   "food"
+  ],
+  "headline": "周末补觉，补不回代谢的亏",
+  "lead": "工作日缺觉、周末猛睡，血糖调节能力照样会下降。",
+  "body": [
+   "睡眠不足会降低身体对胰岛素的敏感性，血糖更难被处理，也让人更想吃夜宵。周末多睡几小时能缓解困倦，却不能把这些变化一并抹掉。",
+   "一项随机对照实验（Depner 等，2019）模拟「工作日每晚睡 5 小时、周末随便睡」：周末补觉后，受试者的胰岛素敏感性仍然明显下降，体重也有所增加。",
+   "偶尔一次周末补觉不必担心。真正有用的是把工作日的睡眠补上来，比如每天早睡半小时，而不是把欠账留到周末。"
+  ],
+  "do": "本周工作日，每晚提前20分钟上床。",
+  "sources": [
+   "Depner 等, Ad libitum Weekend Recovery Sleep Fails to Prevent Metabolic Dysregulation during a Repeating Pattern of Insufficient Sleep and Weekend Recovery Sleep（Current Biology, 2019）"
+  ]
+ },
+ {
+  "id": "s-short-sleep-hunger",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "food",
+   "weight"
+  ],
+  "headline": "睡得少，第二天吃得多",
+  "lead": "缺觉会改变食欲激素，让你更饿，更想吃高热量食物。",
+  "body": [
+   "睡眠不足时，促进饥饿的胃饥饿素升高，传递饱腹信号的瘦素下降，大脑对美食的奖赏反应也更强，所以“嘴馋”不全是意志力问题。",
+   "一项小型实验（Spiegel 等，2004）中，年轻男性连续两晚只睡4小时，饥饿感上升24%。一项荟萃分析（Al Khatib 等，2017）显示，部分缺觉后人们每天平均多摄入约385千卡。",
+   "想控制体重的人，睡眠和饮食同样重要。缺觉的日子里，可以提前备好健康的食物，避免夜里饿了临时找吃的。"
+  ],
+  "do": "缺觉的日子，提前备好水果或坚果，别等饿了再找。",
+  "sources": [
+   "Spiegel 等, Brief communication: Sleep curtailment in healthy young men is associated with decreased leptin levels, elevated ghrelin levels, and increased hunger and appetite（Annals of Internal Medicine, 2004）",
+   "Al Khatib 等, The effects of partial sleep deprivation on energy balance: a systematic review and meta-analysis（European Journal of Clinical Nutrition, 2017）"
+  ]
+ },
+ {
+  "id": "s-sleep-loss-emotion",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "stress"
+  ],
+  "headline": "少睡一晚，情绪更容易失控",
+  "lead": "缺觉时，大脑给情绪“踩刹车”的能力会变弱。",
+  "body": [
+   "睡眠不足后，处理威胁和负面情绪的杏仁核反应变强，而前额叶对它的调节减弱，一点小事也更容易让人烦躁、焦虑。",
+   "脑成像研究（Yoo 等，2007）发现，一夜不睡后，杏仁核对负面图片的反应比正常睡眠时高约60%。涵盖154项研究的荟萃分析（Palmer 等，2024）显示，缺觉会减少积极情绪、增加焦虑。",
+   "缺觉后发脾气，未必是关系或工作真出了大问题。重要的决定和争执，可以等睡够之后再处理。如果长期情绪低落或焦虑，应寻求专业帮助。"
+  ],
+  "do": "没睡好的日子，推迟做重要决定和处理争执。",
+  "sources": [
+   "Yoo 等, The human emotional brain without sleep: a prefrontal amygdala disconnect（Current Biology, 2007）",
+   "Palmer 等, Sleep loss and emotion: A systematic review and meta-analysis of over 50 years of experimental research（Psychological Bulletin, 2024）"
+  ]
+ },
+ {
+  "id": "s-sleep-debt-unnoticed",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "长期少睡，你会感觉不到自己变差",
+  "lead": "困意会慢慢“习惯”，但注意力和反应仍在持续下滑。",
+  "body": [
+   "连续几天睡眠不足后，主观的困倦感会趋于平稳，人以为自己适应了。但大脑的注意力和反应速度，仍随缺觉天数不断累积下降。",
+   "一项实验（Van Dongen 等，2003）让受试者连续14天每晚只睡6小时，注意力测试中的失误增加到相当于整夜不睡1到2晚的水平，而他们自评的困倦只略有上升。",
+   "适用于长期睡6小时左右、觉得“习惯了”的人，开车等需要专注的场合尤其要留意。可以连续一周多睡一些，看看白天状态有没有变化。"
+  ],
+  "do": "本周试着每晚多睡30分钟，观察白天的专注力。",
+  "sources": [
+   "Van Dongen 等, The cumulative cost of additional wakefulness: dose-response effects on neurobehavioral functions and sleep physiology from chronic sleep restriction and total sleep deprivation（Sleep, 2003）"
+  ]
+ },
+ {
+  "id": "s-awake-like-drunk",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "醒着17小时，反应像喝了酒",
+  "lead": "长时间不睡，判断力的下降程度可以和饮酒相比。",
+  "body": [
+   "从早上起床算起，清醒的时间越长，大脑的睡眠压力越大，注意力会出现短暂的“掉线”，而本人常常察觉不到。",
+   "一项实验（Williamson 和 Feyer，2000）发现，连续清醒17到19小时后，部分测试表现相当于血液酒精浓度0.05%，已超过我国饮酒驾车的标准；更久不睡则接近0.1%。",
+   "早上7点起床，到半夜就已清醒17小时。熬夜后开车、做精细工作要格外小心，困了就停下来休息，别靠意志硬撑。"
+  ],
+  "do": "熬夜或通宵之后，当天不要自己开车。",
+  "sources": [
+   "Williamson, Feyer, Moderate sleep deprivation produces impairments in cognitive and motor performance equivalent to legally prescribed levels of alcohol intoxication（Occupational and Environmental Medicine, 2000）",
+   "Dawson, Reid, Fatigue, alcohol and performance impairment（Nature, 1997）"
+  ]
+ },
+ {
+  "id": "s-cbti-first-line",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "治慢性失眠，首选不是吃药",
+  "lead": "国内外指南都把失眠认知行为治疗列为首选方法。",
+  "body": [
+   "失眠认知行为治疗（CBT-I）通过调整作息、纠正对睡眠的误解和放松训练，处理让失眠持续下去的原因，而不只是暂时压下症状。",
+   "美国医师协会指南（Qaseem 等，2016）建议把CBT-I作为成人慢性失眠的初始治疗；《中国成人失眠诊断与治疗指南（2017版）》也把它列为一线方法。",
+   "这不是说药物没用，是否用药需要医生评估。正在服药的人不要自行停药或减量，可以和医生讨论是否结合CBT-I，再逐步调整。"
+  ],
+  "do": "失眠超过3个月，去睡眠门诊问问CBT-I。",
+  "sources": [
+   "Qaseem 等, Management of Chronic Insomnia Disorder in Adults: A Clinical Practice Guideline From the American College of Physicians（Annals of Internal Medicine, 2016）",
+   "中华医学会神经病学分会睡眠障碍学组, 中国成人失眠诊断与治疗指南（2017版）（中华神经科杂志, 2018）"
+  ]
+ },
+ {
+  "id": "s-sleep-hygiene-limited",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti"
+  ],
+  "headline": "只靠睡眠卫生，治不好失眠",
+  "lead": "少喝咖啡、按时熄灯这些建议有用，但单独用效果有限。",
+  "body": [
+   "睡眠卫生指的是避免咖啡因、保持卧室安静等通用建议。它能减少干扰，但慢性失眠往往由过度警觉和不良睡眠习惯维持，光靠这些很难打破循环。",
+   "美国睡眠医学会2021年指南建议，不要把睡眠卫生作为单独的失眠治疗；推荐的是包含刺激控制、睡眠限制和认知调整的多成分CBT-I。",
+   "偶尔睡不好的人，调整睡眠卫生通常就够了。如果你已经很注意这些，失眠仍持续3个月以上，就该考虑系统的CBT-I治疗。"
+  ],
+  "do": "列出你试过的助眠小技巧，带去和医生讨论。",
+  "sources": [
+   "Edinger 等, Behavioral and psychological treatments for chronic insomnia disorder in adults: an American Academy of Sleep Medicine clinical practice guideline（Journal of Clinical Sleep Medicine, 2021）"
+  ]
+ },
+ {
+  "id": "s-dream-recall",
+  "topic": "sleep",
+  "tags": [
+   "sleep"
+  ],
+  "headline": "多梦，不等于没睡好",
+  "lead": "每个人每晚都做梦，记得住往往只是因为中途醒过。",
+  "body": [
+   "做梦是正常的睡眠活动，快速眼动睡眠每晚会出现好几次，其他阶段也会做梦。梦能不能被记住，关键在于梦后有没有短暂醒来，把它存进记忆。",
+   "法国一项研究（Eichenlaub 等，2014）比较了常记得梦和很少记得梦的健康人：前者睡眠中对声音的大脑反应更强，夜间清醒的时间也更长。",
+   "所以“多梦”本身不是病。如果频繁做噩梦、惊醒后心慌难以再睡，或白天明显疲惫，才需要去睡眠门诊评估。"
+  ],
+  "do": "醒来记得梦时，别急着认定昨晚没睡好。",
+  "sources": [
+   "Eichenlaub 等, Brain reactivity differentiates subjects with high and low dream recall frequencies during both sleep and wakefulness（Cerebral Cortex, 2014）",
+   "Koulack, Goodenough, Dream recall and dream recall failure: an arousal-retrieval model（Psychological Bulletin, 1976）"
+  ]
+ },
+ {
+  "id": "s-deep-sleep-timing",
+  "topic": "sleep",
+  "tags": [
+   "sleep"
+  ],
+  "headline": "深睡看睡了多久，不看几点",
+  "lead": "深睡集中在入睡后的前几个周期，不是只在11点前。",
+  "body": [
+   "深睡的多少主要取决于你之前醒了多久，所以无论几点睡着，最初几个睡眠周期的深睡都最多。以做梦为主的快速眼动睡眠，则更多集中在后半夜和清晨。",
+   "经典的强制去同步实验（Dijk 和 Czeisler，1995）把睡眠安排在生物钟的不同时段，发现慢波睡眠主要由此前清醒的时长决定，快速眼动睡眠则更受生物钟时段影响。",
+   "但长期很晚睡、早上又必须早起，总睡眠和后半夜的快速眼动睡眠都会被砍掉。比起执着几点前入睡，规律作息和睡够时长更要紧。"
+  ],
+  "do": "按能保证睡够7小时的时间，来定你的上床时间。",
+  "sources": [
+   "Dijk, Czeisler, Contribution of the circadian pacemaker and the sleep homeostat to sleep propensity, sleep structure, electroencephalographic slow waves, and sleep spindle activity in humans（Journal of Neuroscience, 1995）"
+  ]
+ },
+ {
+  "id": "s-drowsy-driving",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "caffeine",
+   "life"
+  ],
+  "headline": "开车犯困，开窗吹风没用",
+  "lead": "冷风和音乐只能撑一小会儿，真正有效的是停车小睡。",
+  "body": [
+   "犯困说明大脑的睡眠压力已经很高。冷风、大声音乐只带来短暂刺激，睡眠压力并没有解除，很快又会出现短暂打盹，自己往往察觉不到。",
+   "驾驶模拟实验（Reyner 和 Horne，1998）发现，开冷风和听广播都没有显著减少车道偏离。同一团队的研究（1997）显示，喝咖啡后小睡约15分钟，能明显减少困倦和驾驶失误。",
+   "一旦哈欠不断、眼皮发沉、记不清刚开过的路段，就该尽快找安全的地方停车。这只是应急办法，经常开车犯困需要查找原因。"
+  ],
+  "do": "开车一犯困，就近安全停车，休息15到20分钟再走。",
+  "sources": [
+   "Reyner, Horne, Evaluation of 'in-car' countermeasures to sleepiness: cold air and radio（Sleep, 1998）",
+   "Reyner, Horne, Suppression of sleepiness in drivers: combination of caffeine with a short nap（Psychophysiology, 1997）"
+  ]
+ },
+ {
+  "id": "s-older-adults-need",
+  "topic": "sleep",
+  "tags": [
+   "sleep"
+  ],
+  "headline": "老了觉少，需要的睡眠没少",
+  "lead": "老人不是需要的睡眠变少，而是更难睡得深、睡得久。",
+  "body": [
+   "随着年龄增长，深睡减少，夜里更容易醒，生物钟也会提前，于是早睡早醒、总睡眠变短。这更多是“睡的能力”下降，而不是身体不再需要。",
+   "美国国家睡眠基金会（2015）建议65岁以上老人每晚睡7到8小时，只比年轻成人略少。一篇综述（Mander 等，2017）指出，老年人睡眠变差与记忆减退等健康问题相关。",
+   "老人夜里多醒是常见变化，但长期睡不着、白天总打瞌睡，可能与疼痛、夜尿、睡眠呼吸暂停或药物有关，值得就医查找原因。"
+  ],
+  "do": "白天多陪家里老人出门晒晒太阳、走一走。",
+  "sources": [
+   "Hirshkowitz 等, National Sleep Foundation's sleep time duration recommendations: methodology and results summary（Sleep Health, 2015）",
+   "Mander, Winer, Walker, Sleep and Human Aging（Neuron, 2017）"
+  ]
+ },
+ {
+  "id": "s-light-during-sleep",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "开着灯睡，身体没休息好",
+  "lead": "睡着了也能感受到光，夜间光线会影响心率和血糖。",
+  "body": [
+   "闭着眼时，光线仍能透过眼睑被感知，激活交感神经，让心率在睡眠中保持偏高，身体没有真正进入“低速运转”的状态。",
+   "一项随机实验（Mason 等，2022）让健康年轻人在约100勒克斯的室内灯光下睡一晚：与暗光相比，夜间心率更高、心率变异性更低，第二天早上胰岛素抵抗增加。",
+   "这是单晚的小样本研究，长期影响仍在研究中。需要起夜的人，可以用靠近地面、偏暖色的弱光夜灯，比开大灯更合适。"
+  ],
+  "do": "今晚关掉大灯和电视，挡住窗外的路灯光。",
+  "sources": [
+   "Mason 等, Light exposure during sleep impairs cardiometabolic function（PNAS, 2022）"
+  ]
+ },
+ {
+  "id": "s-insomnia-hyperarousal",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "cbti",
+   "stress"
+  ],
+  "headline": "失眠不是太困，而是太清醒",
+  "lead": "很多失眠的人白天也睡不着，问题在于大脑停不下来。",
+  "body": [
+   "慢性失眠者常处在过度警觉状态：代谢和心率偏高，脑电中的快波活动更多。所以他们晚上睡不着，白天虽然疲惫，想小睡也睡不着。",
+   "两篇综述（Riemann 等，2010；Bonnet 和 Arand，2010）汇总了生理、脑电和影像证据，支持“过度觉醒”模型。多数失眠者在白天的小睡测试中，入睡并不比常人更快。",
+   "所以治疗重点不是多躺多补，而是降低警觉，这正是CBT-I中放松训练和认知调整的作用。如果你白天一坐下就睡着，应考虑其他睡眠问题，及时就医。"
+  ],
+  "do": "睡前1小时停下工作，把明天的待办写在纸上。",
+  "sources": [
+   "Riemann 等, The hyperarousal model of insomnia: a review of the concept and its evidence（Sleep Medicine Reviews, 2010）",
+   "Bonnet, Arand, Hyperarousal and insomnia: state of the science（Sleep Medicine Reviews, 2010）"
+  ]
+ },
+ {
+  "id": "s-sleep-memory",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "考前通宵，记住的反而更少",
+  "lead": "睡眠负责把学到的东西存好，也为第二天的学习腾出空间。",
+  "body": [
+   "睡眠中，大脑会重放并巩固白天的记忆，把它从临时存储转入长期存储。缺觉不仅妨碍巩固，还会让负责记忆的海马体第二天难以接收新信息。",
+   "一项脑成像研究（Yoo 等，2007）发现，一夜不睡后，人记住新内容的能力明显下降，学习时海马体的活动也减弱。一篇综述（Diekelmann 和 Born，2010）总结了睡眠巩固记忆的大量证据。",
+   "适用于学生和需要学习新技能的人。临考前与其熬夜多看两小时，不如保证睡眠，第二天头脑更清楚，记得也更牢。"
+  ],
+  "do": "考试或汇报的前一晚，按平时的时间上床。",
+  "sources": [
+   "Yoo 等, A deficit in the ability to form new human memories without sleep（Nature Neuroscience, 2007）",
+   "Diekelmann, Born, The memory function of sleep（Nature Reviews Neuroscience, 2010）"
+  ]
+ },
+ {
+  "id": "s-sleep-paralysis",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "stress"
+  ],
+  "headline": "醒了却动不了，多半不危险",
+  "lead": "俗称“鬼压床”的睡眠瘫痪很常见，是睡眠阶段交接出了差错。",
+  "body": [
+   "做梦时，身体肌肉处于“关机”状态，防止人把梦演出来。如果意识先醒了、肌肉还没恢复，就会出现几秒到几分钟动不了，有时伴有幻觉和压迫感。",
+   "一篇系统综述（Sharpless 和 Barber，2011）汇总35项研究，估计约7.6%的普通人一生中经历过睡眠瘫痪，学生中约为28%。另一篇综述发现，睡眠不足、压力大时更常见。",
+   "偶尔发生不必担心，规律作息、睡够觉就能减少。如果频繁发作，或伴有白天难以控制的嗜睡、大笑时突然腿软，应到睡眠专科排查发作性睡病。"
+  ],
+  "do": "最近常遇到的话，先保证几晚规律、充足的睡眠。",
+  "sources": [
+   "Sharpless, Barber, Lifetime prevalence rates of sleep paralysis: a systematic review（Sleep Medicine Reviews, 2011）",
+   "Denis, French, Gregory, A systematic review of variables associated with sleep paralysis（Sleep Medicine Reviews, 2018）"
+  ]
+ },
+ {
+  "id": "s-white-noise",
+  "topic": "sleep",
+  "tags": [
+   "sleep",
+   "life"
+  ],
+  "headline": "白噪音助眠，证据其实很弱",
+  "lead": "很多人靠白噪音入睡，但研究并没有证实它普遍有效。",
+  "body": [
+   "持续的声音可以掩盖突然出现的噪音，让环境声更平稳，这是白噪音被认为能助眠的原因。但它本身也是一种整夜的声音刺激，可能干扰睡眠。",
+   "一篇纳入38项研究的系统综述（Riedy 等，2021）发现结果互相矛盾，有的显示改善，有的显示变差；按GRADE标准，“持续噪音能改善睡眠”的证据质量很低。",
+   "如果你用着觉得舒服，不必立刻放弃，但音量宜低，最好设置定时关闭。如果只是为了隔绝外界噪音，也可以试试耳塞。"
+  ],
+  "do": "用白噪音的话，把音量调低，并设置定时关闭。",
+  "sources": [
+   "Riedy 等, Noise as a sleep aid: A systematic review（Sleep Medicine Reviews, 2021）"
+  ]
+ },
+ {
+  "id": "b-steps-not-10000",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "每天一万步，并不是神奇数字",
+  "lead": "走路的好处，在一万步之前就开始趋于平缓。",
+  "body": [
+   "从很少走到多走一些，收益最大；越往上，每多一千步带来的额外好处越小。一万步的说法源自上世纪六十年代日本计步器的宣传，并不是研究得出的。",
+   "2022年一项汇总15个队列、约4.7万人的荟萃分析发现：60岁及以上的人，死亡风险的下降在每天约6000到8000步趋于平稳；60岁以下的人约在8000到10000步。",
+   "所以不必为凑满一万步焦虑。如果你现在每天只有三四千步，多走两三千步收益最明显。走得更多也没有坏处，只是不必强求。"
+  ],
+  "do": "看看你最近一周的平均步数，在此基础上每天多走2000步。",
+  "sources": [
+   "Paluch 等, Daily steps and all-cause mortality: a meta-analysis of 15 international cohorts（Lancet Public Health, 2022）"
+  ]
+ },
+ {
+  "id": "b-back-pain-stay-active",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "腰痛时卧床，反而好得慢",
+  "lead": "大多数急性腰痛，保持日常活动比躺着休息恢复得更好。",
+  "body": [
+   "长时间卧床会让肌肉变僵、力量下降，也会让人越来越担心动作引起疼痛，越不敢动越难恢复。在能忍受的范围内慢慢活动，有助于维持循环和关节灵活。",
+   "Cochrane系统综述比较了“卧床休息”和“保持活动”两种建议：对急性腰痛，保持活动的人疼痛和功能恢复略好。英国NICE指南也建议鼓励尽量维持正常活动，不推荐卧床。",
+   "这适用于没有明显外伤的普通腰痛。如果伴有腿部麻木无力、大小便异常、发热、外伤后疼痛，或夜间疼痛持续加重，应尽快就医。"
+  ],
+  "do": "腰痛时也起身慢慢走几分钟，以疼痛不明显加重为度。",
+  "sources": [
+   "Dahm 等, Advice to rest in bed versus advice to stay active for acute low-back pain and sciatica（Cochrane Database of Systematic Reviews, 2010）",
+   "英国国家卫生与临床优化研究所（NICE）, Low back pain and sciatica in over 16s: assessment and management（NG59），2016"
+  ]
+ },
+ {
+  "id": "b-imaging-not-pain",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "腰椎片子有问题，不等于会痛",
+  "lead": "很多完全不腰痛的人，做核磁也能看到椎间盘退变或膨出。",
+  "body": [
+   "椎间盘退变、膨出有点像皮肤的皱纹，会随年龄自然出现。疼痛受组织状态、神经敏感程度、情绪和活动习惯等多种因素影响，片子只能看到其中一部分。",
+   "一项汇总3000多名无症状者影像的系统综述发现：20岁的人里约37%有椎间盘退变，80岁时约96%；椎间盘膨出的比例从约30%升到84%。",
+   "所以报告上的“退变”“膨出”未必是你疼痛的原因，也不一定需要处理。是否需要进一步检查或治疗，应由医生结合症状和体检判断。"
+  ],
+  "do": "拿到影像报告时，请医生说明哪些发现和你的症状真正相关。",
+  "sources": [
+   "Brinjikji 等, Systematic literature review of imaging features of spinal degeneration in asymptomatic populations（American Journal of Neuroradiology, 2015）"
+  ]
+ },
+ {
+  "id": "b-posture-move-often",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "最好的坐姿，是经常换姿势",
+  "lead": "研究并没有证实“不标准”的坐姿会导致腰背痛。",
+  "body": [
+   "身体不怕某个姿势，怕的是长时间一动不动。任何姿势保持太久，同一处组织持续受压，都可能不舒服；换个姿势，压力就会分散到别处。",
+   "一项汇总41篇系统综述的伞形综述发现，坐姿、弯腰等姿势与腰痛之间的关联并不一致，无法证明因果关系。物理治疗领域的学者也撰文指出，“坐直”并不比放松的坐姿更能防止疼痛。",
+   "这不是说姿势完全无关，已经疼痛时调整姿势可能让你舒服些。但与其一直紧绷着“坐正”，不如在觉得僵硬时随时换个姿势。"
+  ],
+  "do": "坐着觉得僵了就换个姿势，不必一直刻意挺直。",
+  "sources": [
+   "Swain 等, No consensus on causality of spine postures or physical exposure and low back pain: a systematic review of systematic reviews（Journal of Biomechanics, 2020）",
+   "Slater 等, \"Sit up straight\": time to re-evaluate（Journal of Orthopaedic & Sports Physical Therapy, 2019）"
+  ]
+ },
+ {
+  "id": "b-muscle-any-age",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "八九十岁练力量，也能变强",
+  "lead": "肌肉对训练的反应，不会因为年纪大而消失。",
+  "body": [
+   "肌肉受到足够负荷后，会合成更多蛋白，神经也会更有效地调动肌纤维。这种适应在老年人身上依然存在，而且因为起点低，进步往往更明显。",
+   "1994年发表在《新英格兰医学杂志》的随机试验中，平均87岁的养老院老人做了10周渐进式力量训练，腿部力量提高约113%，走路速度和爬楼能力也有改善。",
+   "Cochrane综述也确认，力量训练能改善老年人的身体功能。有心脏病、血压控制不佳或骨关节问题的人，开始前应咨询医生，最好在指导下从轻重量做起。"
+  ],
+  "do": "今天做10次从椅子上站起再坐下，尽量不用手撑。",
+  "sources": [
+   "Fiatarone 等, Exercise training and nutritional supplementation for physical frailty in very elderly people（New England Journal of Medicine, 1994）",
+   "Liu 与 Latham, Progressive resistance strength training for improving physical function in older adults（Cochrane Database of Systematic Reviews, 2009）"
+  ]
+ },
+ {
+  "id": "b-weekend-warrior",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "只在周末运动，也能明显获益",
+  "lead": "一周集中练一两次，健康收益接近规律运动的人。",
+  "body": [
+   "身体对运动的很多长期适应，主要取决于一周的总量，而不是每天是否都练。把运动集中在一两天完成，心肺和代谢依然能得到锻炼。",
+   "2017年一项纳入约6.4万名英国成年人的队列研究发现，与不运动的人相比，每周只运动一两次、但总量达标的“周末战士”，全因死亡风险低约30%，与规律运动者相近。",
+   "这是观察性研究，不能完全排除其他因素。平时很少动的人周末突然高强度运动，受伤风险更高，宜循序渐进。即使达不到推荐量，有运动也比完全不动好。"
+  ],
+  "do": "工作日没空，就在周末安排两次各40分钟以上的快走或骑行。",
+  "sources": [
+   "O'Donovan 等, Association of \"weekend warrior\" and other leisure time physical activity patterns with risks for all-cause, cardiovascular disease, and cancer mortality（JAMA Internal Medicine, 2017）"
+  ]
+ },
+ {
+  "id": "b-light-load-growth",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "轻重量练到快力竭，也能长肌肉",
+  "lead": "增肌的关键是练得足够累，不一定要举很重。",
+  "body": [
+   "肌肉生长需要让大部分肌纤维参与工作。重量轻时，随着次数增加、疲劳累积，身体会逐步调动更多肌纤维，接近力竭时，刺激就和大重量相近。",
+   "2017年一项荟萃分析比较了低负荷（约60%最大重量以下）和高负荷训练：只要每组做到接近力竭，两者的肌肉增长相近；但最大力量的提升，大重量更明显。",
+   "这对在家训练、关节不适或刚入门的人很有用。轻重量需要做更多次，每组可能要20次以上，过程会比较累。想提高最大力量，仍需要逐步加重。"
+  ],
+  "do": "用弹力带或水瓶做一组动作，做到只剩两三次余力为止。",
+  "sources": [
+   "Schoenfeld 等, Strength and hypertrophy adaptations between low- vs. high-load resistance training: a systematic review and meta-analysis（Journal of Strength and Conditioning Research, 2017）"
+  ]
+ },
+ {
+  "id": "b-running-knees",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "跑步通常不会跑坏膝盖",
+  "lead": "普通跑者的膝髋关节炎比例，反而低于久坐的人。",
+  "body": [
+   "关节软骨靠反复的挤压和放松获得营养，适度负荷会让它和周围的肌肉、骨骼一起变得更能承受压力。长期不动，关节反而缺少这种刺激。",
+   "2017年一项荟萃分析汇总了约11万人的数据：休闲跑者的髋膝骨关节炎比例约3.5%，久坐人群约10.2%，长年高强度训练的竞技跑者约13.3%。",
+   "这类研究不能证明因果，但至少说明普通量的跑步不必担心伤膝。已有膝关节疾病、旧伤或体重较大的人，加跑量要更慢；跑后膝盖持续肿痛，应就医。"
+  ],
+  "do": "想开始跑步，可以先跑走交替，每周跑量不要加得太快。",
+  "sources": [
+   "Alentorn-Geli 等, The association of recreational and competitive running with hip and knee osteoarthritis: a systematic review and meta-analysis（Journal of Orthopaedic & Sports Physical Therapy, 2017）"
+  ]
+ },
+ {
+  "id": "b-knee-oa-exercise",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "膝关节炎，更需要动起来",
+  "lead": "运动是膝骨关节炎的一线治疗，不是需要回避的事。",
+  "body": [
+   "大腿肌肉越有力，越能分担膝关节承受的冲击，关节也更稳；活动还能减少僵硬。完全不动会让肌肉萎缩，疼痛反而更明显。",
+   "Cochrane系统综述纳入50多项随机试验，发现运动能减轻膝骨关节炎的疼痛、改善功能，效果大小与常用止痛药相当。国际骨关节炎研究学会（OARSI）指南把运动列为核心治疗。",
+   "力量训练、快走、骑车、水中运动都适合，强度以运动后疼痛不明显加重、第二天能恢复为准。关节明显红肿发热时，应先就医。"
+  ],
+  "do": "坐在椅子上伸直一条腿，保持5秒再放下，每侧做10次。",
+  "sources": [
+   "Fransen 等, Exercise for osteoarthritis of the knee（Cochrane Database of Systematic Reviews, 2015）",
+   "Bannuru 等, OARSI guidelines for the non-surgical management of knee, hip, and polyarticular osteoarthritis（Osteoarthritis and Cartilage, 2019）"
+  ]
+ },
+ {
+  "id": "b-stretch-no-soreness",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "练后拉伸，几乎不能减轻酸痛",
+  "lead": "无论练前还是练后拉伸，对第二天的肌肉酸痛帮助都很小。",
+  "body": [
+   "延迟性肌肉酸痛主要来自不熟悉的动作，尤其是肌肉被拉长时发力（如下坡、下蹲）造成的微小损伤和之后的修复反应。拉伸改变不了这个过程。",
+   "Cochrane系统综述汇总了相关随机试验：练前或练后拉伸，在100分的酸痛评分上平均只降低约0.5到4分，作者认为没有实际意义。",
+   "如果拉伸让你放松，或者你需要提高柔韧性，照样可以做。想减少酸痛，更有效的是新动作从小量开始，练过几次后身体就会适应。"
+  ],
+  "do": "尝试新动作时，第一次只做你预想组数的一半。",
+  "sources": [
+   "Herbert 等, Stretching to prevent or reduce muscle soreness after exercise（Cochrane Database of Systematic Reviews, 2011）"
+  ]
+ },
+ {
+  "id": "b-hrv-own-baseline",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "心率变异性，别跟别人比",
+  "lead": "HRV的个体差异很大，有意义的是你自己的变化趋势。",
+  "body": [
+   "心率变异性（HRV）反映心跳间隔的细微波动，受年龄、性别、遗传和测量方式影响很大。两个同样健康的人，数值可以相差一倍以上，单看高低意义有限。",
+   "方法学综述指出，HRV的正常范围随年龄等因素差异很大。针对耐力运动员的研究建议，用早晨固定条件下测得的7天滚动平均值，和本人的长期基线比较，来判断恢复情况。",
+   "单天偏低可能只是饮酒、睡得晚或身体不适，不必紧张。连续多天明显低于你的基线时，可以考虑减量休息。可穿戴设备的数值只作参考，不用于诊断。"
+  ],
+  "do": "看HRV时，把今天的数值和你过去一个月的平均水平比较。",
+  "sources": [
+   "Plews 等, Training adaptation and heart rate variability in elite endurance athletes: opening the door to effective monitoring（Sports Medicine, 2013）",
+   "Shaffer 与 Ginsberg, An overview of heart rate variability metrics and norms（Frontiers in Public Health, 2017）"
+  ]
+ },
+ {
+  "id": "b-short-bouts-count",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "每次一两分钟的爬楼，也算数",
+  "lead": "零碎的短时间活动也有健康收益，不必凑够整段时间。",
+  "body": [
+   "心肺和代谢系统对每一次心率明显升高都会有反应。几次短暂而费力的活动加起来，同样能带来锻炼效果，关键在累计量和强度。",
+   "世界卫生组织2020年指南取消了“每次至少10分钟才算”的要求。英国一项研究用手环追踪约2.5万名不健身的成年人，每天约3次、每次1到2分钟的费力活动，与死亡风险低约40%相关。",
+   "后者是观察性研究，不能证明因果，但提示没有整块时间的人，可以把爬楼梯、快步赶路、拎重物当作运动。有心脏病的人，运动强度应遵医嘱。"
+  ],
+  "do": "今天把一次坐电梯换成走楼梯，走到微微喘气。",
+  "sources": [
+   "世界卫生组织（WHO）身体活动和久坐行为指南，2020",
+   "Stamatakis 等, Association of wearable device-measured vigorous intermittent lifestyle physical activity with mortality（Nature Medicine, 2022）"
+  ]
+ },
+ {
+  "id": "b-no-spot-reduction",
+  "topic": "sport",
+  "tags": [
+   "sport",
+   "weight"
+  ],
+  "headline": "练哪里瘦哪里，基本做不到",
+  "lead": "局部训练能让那块肌肉变强，但脂肪是全身一起减少的。",
+  "body": [
+   "运动消耗的脂肪，是从全身的脂肪储存中动员、经血液运到需要的地方，并不优先取自正在用力的肌肉附近。哪里先瘦，主要由遗传和性别决定。",
+   "一项随机试验让受试者连续6周做腹部训练，腹部脂肪与对照组相比没有明显减少。另一项研究让受试者只练一条腿12周，脂肪减少主要出现在上半身，被训练的腿没有明显变化。",
+   "想减腰围，需要全身运动加上饮食调整，形成整体的热量缺口。练腹肌仍有价值，能增强躯干力量，只是代替不了减脂。"
+  ],
+  "do": "把单练腹肌的时间，分一部分给深蹲、快走等全身运动。",
+  "sources": [
+   "Vispute 等, The effect of abdominal exercise on abdominal fat（Journal of Strength and Conditioning Research, 2011）",
+   "Ramírez-Campillo 等, Regional fat changes induced by localized muscle endurance resistance training（Journal of Strength and Conditioning Research, 2013）"
+  ]
+ },
+ {
+  "id": "b-lactate-not-soreness",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "第二天的酸痛，不是乳酸造成的",
+  "lead": "乳酸在运动后一小时左右就基本清除，酸痛却在一两天后最重。",
+  "body": [
+   "乳酸是运动时的能量中间产物，会被心脏、肌肉和肝脏再利用，运动结束后很快回落。延迟性酸痛来自肌肉被拉长时发力造成的微小损伤和修复，通常在24到72小时达到高峰。",
+   "一项经典研究让受试者分别平地跑和下坡跑45分钟：下坡跑耗能更少，却引起了明显的腿部酸痛和肌酸激酶升高；平地跑则没有明显酸痛。",
+   "所以练后不必想办法“排乳酸”。如果酸痛异常剧烈、肌肉明显肿胀，或者尿色变深像浓茶，可能是横纹肌溶解，需要立即就医。"
+  ],
+  "do": "练后不必刻意“排乳酸”，正常活动、好好吃饭睡觉就行。",
+  "sources": [
+   "Cheung 等, Delayed onset muscle soreness: treatment strategies and performance factors（Sports Medicine, 2003）",
+   "Schwane 等, Delayed-onset muscular soreness and plasma CPK and LDH activities after downhill running（Medicine and Science in Sports and Exercise, 1983）"
+  ]
+ },
+ {
+  "id": "b-strength-for-runners",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "想跑得更轻松，去练力量",
+  "lead": "力量训练能改善跑步经济性，同样配速跑起来更省力。",
+  "body": [
+   "腿部肌肉和肌腱更有力、更有弹性后，每一步落地时储存和释放弹性能量的效率更高，维持同样速度需要的氧气更少，这叫跑步经济性。",
+   "一项针对训练有素跑者的荟萃分析发现，每周2到3次、持续8到12周的力量训练能改善跑步经济性。另一篇系统综述也认为，重量训练和跳跃训练能提升中长跑表现。",
+   "业余跑者同样适用。可以从深蹲、弓步、提踵开始，每周两次，再逐步加重。担心体重增加的话，研究中这类训练并没有让跑者明显变重。"
+  ],
+  "do": "今天跑完后加3组提踵，每组15次。",
+  "sources": [
+   "Balsalobre-Fernández 等, Effects of strength training on running economy in highly trained runners: a systematic review with meta-analysis of controlled trials（Journal of Strength and Conditioning Research, 2016）",
+   "Blagrove 等, Effects of strength training on the physiological determinants of middle- and long-distance running performance: a systematic review（Sports Medicine, 2018）"
+  ]
+ },
+ {
+  "id": "b-dynamic-warmup",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "运动前长时间压腿，会暂时变弱",
+  "lead": "每个部位静态拉伸超过一分钟，力量和爆发力会暂时下降。",
+  "body": [
+   "长时间静态拉伸会让肌肉和肌腱暂时变“松”，神经对肌肉的驱动也会减弱，短时间内发力变慢、变弱。动态热身则能升高肌肉温度、激活神经。",
+   "2016年一项系统综述发现，每个肌群静态拉伸60秒以上，随后的力量和爆发力平均下降约4.6%；短于60秒时约下降1.1%，影响很小。动态拉伸则有小幅提升。",
+   "舞蹈、体操等需要柔韧性的运动，热身时短时间拉伸仍有必要，拉完再做些动态动作即可。需要爆发力的运动，热身以慢跑和动态动作为主。"
+  ],
+  "do": "运动前做5分钟慢跑，加上高抬腿和弓步走，代替长时间压腿。",
+  "sources": [
+   "Behm 等, Acute effects of muscle stretching on physical performance, range of motion, and injury incidence in healthy active individuals: a systematic review（Applied Physiology, Nutrition, and Metabolism, 2016）",
+   "Simic 等, Does pre-exercise static stretching inhibit maximal muscular performance? A meta-analytical review（Scandinavian Journal of Medicine & Science in Sports, 2013）"
+  ]
+ },
+ {
+  "id": "b-fitness-vs-smoking",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "心肺耐力差，风险堪比吸烟",
+  "lead": "心肺耐力是预测寿命最有力的指标之一，却很少被测量。",
+  "body": [
+   "心肺耐力反映心脏、肺、血管和肌肉协同输送、利用氧气的能力，常用最大摄氧量衡量。它综合了多个器官的状态，所以能很好地反映整体健康。",
+   "一项对12万多名做过跑步机运动测试者的研究发现，心肺耐力低与死亡风险的关联，和吸烟、糖尿病相当甚至更强。荟萃分析显示，心肺耐力每高1个代谢当量，全因死亡风险约低13%。",
+   "这些是观察性研究，但好消息是心肺耐力可以练：规律的有氧运动和间歇训练都能提高它。手表估算的最大摄氧量有误差，看趋势比看绝对值更有意义。"
+  ],
+  "do": "这周安排两次让你呼吸明显加快的运动，每次20分钟以上。",
+  "sources": [
+   "Mandsager 等, Association of cardiorespiratory fitness with long-term mortality among adults undergoing exercise treadmill testing（JAMA Network Open, 2018）",
+   "Kodama 等, Cardiorespiratory fitness as a quantitative predictor of all-cause mortality and cardiovascular events in healthy men and women: a meta-analysis（JAMA, 2009）"
+  ]
+ },
+ {
+  "id": "b-grip-strength",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "握力，是被低估的健康指标",
+  "lead": "在大型研究中，握力预测死亡风险的能力甚至强过血压。",
+  "body": [
+   "握力不只是手上的力气，它和全身肌肉量、神经功能、营养状况都相关。握力下降，往往意味着整体肌肉在流失，这在中老年人身上尤其常见。",
+   "2015年发表在《柳叶刀》的PURE研究追踪了17个国家约14万名成年人：握力每低5公斤，全因死亡风险高约16%；在预测全因死亡和心血管死亡上，握力比收缩压更有效。",
+   "这是关联，单练握力不一定能延长寿命，重要的是保持全身肌肉力量。如果握力短期内明显下降，或伴有不明原因的消瘦，应就医检查。"
+  ],
+  "do": "每周做两次全身力量训练，其中加入拎重物走路的动作。",
+  "sources": [
+   "Leong 等, Prognostic value of grip strength: findings from the Prospective Urban Rural Epidemiology (PURE) study（Lancet, 2015）"
+  ]
+ },
+ {
+  "id": "b-visceral-fat-scale",
+  "topic": "sport",
+  "tags": [
+   "sport",
+   "weight"
+  ],
+  "headline": "体重没怎么掉，内脏脂肪可能少了",
+  "lead": "运动减少内脏脂肪的效果，体重秤往往反映不出来。",
+  "body": [
+   "运动在消耗脂肪的同时，可能增加肌肉和水分，体重变化就被抵消了。而腹部深处的内脏脂肪对运动反应明显，这类脂肪与糖尿病、心血管病的关系更密切。",
+   "2016年一项纳入117项研究的荟萃分析比较了运动和节食：节食减重更多；但在体重几乎没变的情况下，运动仍让内脏脂肪减少约6%，节食几乎没有变化。",
+   "所以开始运动后体重不动，不代表白练。腰围比体重更能反映内脏脂肪的变化。如果也想减体重，仍需要配合饮食调整。"
+  ],
+  "do": "今天量一次腰围记下来，一个月后再量一次对比。",
+  "sources": [
+   "Verheggen 等, A systematic review and meta-analysis on the effects of exercise training versus hypocaloric diet: distinct effects on body weight and visceral adipose tissue（Obesity Reviews, 2016）"
+  ]
+ },
+ {
+  "id": "b-balance-falls",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "防跌倒，练平衡比多走路管用",
+  "lead": "预防老年人跌倒，有效的是挑战平衡的训练，单纯散步帮助不大。",
+  "body": [
+   "跌倒往往发生在身体来不及调整重心的一瞬间。平衡训练和下肢力量训练能提升这种快速反应能力；平地散步对平衡的挑战较小，练不到这一点。",
+   "Cochrane系统综述纳入108项试验：以平衡和功能训练为主的运动可使跌倒率降低约24%，加上力量训练效果更大。另一项荟萃分析发现，平衡挑战大、总量足的方案效果最好，单纯步行没有显示出防跌倒作用。",
+   "走路对心肺和整体健康仍然有益，只是代替不了平衡训练。平衡较差的人练习时，身边要有扶手或有人看护；经常跌倒应就医查找原因。"
+  ],
+  "do": "刷牙时扶着洗手台单脚站立，左右各30秒。",
+  "sources": [
+   "Sherrington 等, Exercise for preventing falls in older people living in the community（Cochrane Database of Systematic Reviews, 2019）",
+   "Sherrington 等, Exercise to prevent falls in older adults: an updated systematic review and meta-analysis（British Journal of Sports Medicine, 2017）"
+  ]
+ },
+ {
+  "id": "b-bone-impact",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "游泳骑车虽好，却不太强骨",
+  "lead": "骨骼靠负重和冲击变强，水里和车上的运动刺激不够。",
+  "body": [
+   "骨骼会根据承受的力调整自己：跳跃、跑步、举重带来的冲击和负荷，会促使骨骼增加密度。游泳有水的浮力，骑车时体重由车座承担，骨骼受到的刺激较小。",
+   "一项纳入64项研究的系统综述发现，游泳者的骨密度通常与不运动的人相近，低于从事高冲击运动的人。另一项随机试验中，骨量偏低的绝经后女性在指导下做8个月高强度力量和冲击训练，骨密度有所改善。",
+   "游泳和骑车对心肺依然很好，只需每周再加上力量训练或适量跳跃。已有骨质疏松或骨折史的人，应在医生或康复师指导下开始。"
+  ],
+  "do": "如果你主要游泳或骑车，每周加两次深蹲、提踵等力量训练。",
+  "sources": [
+   "Gómez-Bruton 等, Is bone tissue really affected by swimming? A systematic review（PLoS One, 2013）",
+   "Watson 等, High-intensity resistance and impact training improves bone mineral density and physical function in postmenopausal women with osteopenia and osteoporosis: the LIFTMOR randomized controlled trial（Journal of Bone and Mineral Research, 2018）"
+  ]
+ },
+ {
+  "id": "b-strength-hour-week",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "每周练力量一小时，就有明显好处",
+  "lead": "力量训练的健康收益，在每周30到60分钟时就接近最大。",
+  "body": [
+   "力量训练能改善血糖调节，维持肌肉和骨骼，这些好处不需要很大的训练量。对健康来说，从“不练”到“每周练一点”的提升最大。",
+   "2022年一项汇总16项队列研究的荟萃分析发现，做力量训练的人全因死亡、心血管病、癌症和糖尿病风险低约10%到17%；每周约30到60分钟时降幅最大，再往上没有看到更多好处。",
+   "这是观察性研究，结论针对健康，而不是增肌或比赛。世界卫生组织建议每周至少2天做力量训练，可以把一小时拆成两三次完成。"
+  ],
+  "do": "这周安排两次20到30分钟的力量训练，深蹲、俯卧撑都可以。",
+  "sources": [
+   "Momma 等, Muscle-strengthening activities are associated with lower risk and mortality in major non-communicable diseases: a systematic review and meta-analysis of cohort studies（British Journal of Sports Medicine, 2022）"
+  ]
+ },
+ {
+  "id": "b-maintain-once-week",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "每周练一次，就能大体保住力量",
+  "lead": "忙的时候少练一些，只要强度不降，力量可以维持好几个月。",
+  "body": [
+   "建立力量需要较多训练，维持它所需的量却少得多。只要定期给肌肉足够重的刺激，身体就会认为这些肌肉还用得上，不会急着让它流失。",
+   "一项随机试验让受试者先练16周，之后32周每周只练1次。年轻人每个动作只做1组，力量和肌肉量就基本保住；老年人则需要更多组数才能保住肌肉量。",
+   "关键是重量不要降。耐力也类似，强度保持时，每周练两次可以维持数周到数月。完全停练几周后，力量和耐力都会开始下降。"
+  ],
+  "do": "这周再忙，也留出30分钟，用平时的重量练几个主要动作。",
+  "sources": [
+   "Bickel 等, Exercise dosing to retain resistance training adaptations in young and older adults（Medicine & Science in Sports & Exercise, 2011）",
+   "Spiering 等, Maintaining physical performance: the minimal dose of exercise needed to preserve endurance and strength over time（Journal of Strength and Conditioning Research, 2021）"
+  ]
+ },
+ {
+  "id": "b-max-hr-formula",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "220减年龄，常算不准最大心率",
+  "lead": "同龄人的最大心率可以相差二三十次，公式只给出平均值。",
+  "body": [
+   "最大心率主要由遗传和年龄决定，和体能关系不大。“220减年龄”只是粗略的平均线，具体到个人，误差常在每分钟10次以上，按它划的心率区间也会跟着偏。",
+   "2001年一项汇总351项研究、约1.9万人的荟萃分析，结合实验室测试，得出更准确的平均公式“208减0.7乘以年龄”，并发现“220减年龄”会低估中老年人的最大心率。",
+   "按心率区间训练时，可以结合主观感受：中等强度大约是能说完整句子、但唱不了歌。有心脏病或服用影响心率药物的人，运动强度应由医生确定。"
+  ],
+  "do": "下次运动时用说话来判断强度：能说话，但唱不了歌。",
+  "sources": [
+   "Tanaka 等, Age-predicted maximal heart rate revisited（Journal of the American College of Cardiology, 2001）"
+  ]
+ },
+ {
+  "id": "b-exertion-mi-trigger",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "越少运动，突然剧烈运动越危险",
+  "lead": "规律运动的人，剧烈运动诱发心梗的风险要低得多。",
+  "body": [
+   "剧烈运动时血压和心率骤升，可能诱发血管里已有的斑块破裂。经常运动的人，心血管系统已经适应这种负荷，同样的强度对他们的冲击更小。",
+   "1993年《新英格兰医学杂志》的研究分析了1228名心梗患者：每周运动不到1次的人，剧烈运动后1小时内的心梗风险约为不运动时的107倍；每周运动5次以上的人只有约2.4倍。",
+   "这不是不运动的理由，长期规律运动的人总体心脏风险更低。很久没运动的人应从中低强度起步。运动中出现胸痛、胸闷、心悸或头晕，应立即停下并就医。"
+  ],
+  "do": "很久没运动的话，先从快走开始，两三周后再慢慢加强度。",
+  "sources": [
+   "Mittleman 等, Triggering of acute myocardial infarction by heavy physical exertion: protection against triggering by regular exertion（New England Journal of Medicine, 1993）",
+   "Albert 等, Triggering of sudden death from cardiac causes by vigorous exertion（New England Journal of Medicine, 2000）"
+  ]
+ },
+ {
+  "id": "b-cardio-no-muscle-loss",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "有氧运动不会“吃掉”你的肌肉",
+  "lead": "有氧和力量一起练，肌肉增长和最大力量基本不受影响。",
+  "body": [
+   "过去认为有氧训练会抑制力量训练带来的肌肉合成信号，称为“干扰效应”。但在常见训练量下，这种干扰对肌肉生长的影响很小，有氧还能改善恢复能力和心肺健康。",
+   "2022年一项纳入43项研究的荟萃分析发现，同时做有氧和力量训练，肌肉增长和最大力量的提升与只练力量相当；只有爆发力的提升会受一定影响，尤其是两者在同一次训练里进行时。",
+   "如果你追求跳跃、冲刺等爆发力，可以把有氧和力量分在不同的日子。普通健身者两种都练，对健康更全面。"
+  ],
+  "do": "担心掉肌肉的话，有氧照常练，力量训练每周保持两次。",
+  "sources": [
+   "Schumann 等, Compatibility of concurrent aerobic and strength training for skeletal muscle size and function: an updated systematic review and meta-analysis（Sports Medicine, 2022）"
+  ]
+ },
+ {
+  "id": "b-kids-strength",
+  "topic": "sport",
+  "tags": [
+   "sport"
+  ],
+  "headline": "孩子练力量，不会长不高",
+  "lead": "在指导下进行的力量训练，对儿童青少年安全且有益。",
+  "body": [
+   "担心力量训练会伤到骨骺、影响长高，并没有证据支持。适当的负荷反而会让骨骼更结实，也能提高协调性，帮助减少运动损伤。",
+   "2014年由多个国际专业组织共同认可的青少年力量训练共识指出：在合格指导下、动作正确的力量训练，没有证据显示会损伤生长板或影响身高，受伤风险也不高于许多常见运动。",
+   "关键在于有人指导、动作规范、循序渐进，从自重和轻重量开始，不追求极限重量。孩子出现关节疼痛等不适时，应停止并咨询医生。"
+  ],
+  "do": "和孩子一起做一组深蹲或平板支撑，先把动作学标准。",
+  "sources": [
+   "Lloyd 等, Position statement on youth resistance training: the 2014 International Consensus（British Journal of Sports Medicine, 2014）",
+   "Faigenbaum 等, Youth resistance training: updated position statement paper from the National Strength and Conditioning Association（Journal of Strength and Conditioning Research, 2009）"
+  ]
+ },
+ {
+  "id": "m-bedtime-todo-list",
+  "topic": "stress",
+  "tags": [
+   "stress",
+   "sleep"
+  ],
+  "headline": "睡前写下明天待办，入睡更快",
+  "lead": "把没做完的事写到纸上，脑子就不必一直替你记着。",
+  "body": [
+   "躺下后反复惦记明天要做什么，大脑会保持警觉。把待办写下来，相当于把这件事交给纸，思绪更容易停下来。",
+   "Scullin 等 2018 年的多导睡眠研究中，睡前花5分钟写明日待办的人，比写当天已完成事项的人入睡快约9分钟，写得越具体入睡越快。",
+   "这项研究只有57位年轻人，效果不大，但成本很低。如果长期失眠、担忧停不下来，建议找医生或心理咨询师。"
+  ],
+  "do": "今晚睡前花5分钟，在纸上写下明天要做的三到五件事。",
+  "sources": [
+   "Scullin 等, The effects of bedtime writing on difficulty falling asleep: A polysomnographic study comparing to-do lists and completed activity lists（Journal of Experimental Psychology: General, 2018）"
+  ]
+ },
+ {
+  "id": "m-thought-suppression",
+  "topic": "stress",
+  "tags": [
+   "stress"
+  ],
+  "headline": "越逼自己别想，越会想起来",
+  "lead": "刻意压住一个念头，过后它往往会更频繁地冒出来。",
+  "body": [
+   "压抑念头时，大脑要不停检查「我有没有在想它」，这个检查本身就会一次次提起它。一旦放松，念头还会反弹。",
+   "Wegner 1987 年的经典实验中，被要求别想白熊的人，之后想到白熊的次数反而更多。2020 年一项汇总31项研究的荟萃分析确认了这种反弹效应。",
+   "更好用的做法是允许念头出现，不评判，再把注意力放回手上的事。如果某些想法反复纠缠、影响生活，可以寻求心理咨询。"
+  ],
+  "do": "念头冒出来时，对自己说「我注意到了」，再回到手上的事。",
+  "sources": [
+   "Wegner 等, Paradoxical effects of thought suppression（Journal of Personality and Social Psychology, 1987）",
+   "Wang, Hagger, Chatzisarantis, Ironic effects of thought suppression: A meta-analysis（Perspectives on Psychological Science, 2020）"
+  ]
+ },
+ {
+  "id": "m-nature-walk-rumination",
+  "topic": "stress",
+  "tags": [
+   "stress",
+   "life"
+  ],
+  "headline": "在绿地散步，比街边更少钻牛角尖",
+  "lead": "同样走路，在有树有草的地方走，反复纠结的念头会少一些。",
+  "body": [
+   "反复咀嚼负面想法，心理学上叫反刍，是抑郁和焦虑的风险因素。自然环境能温和地吸引注意力，让人从自我纠结里抽离出来。",
+   "Bratman 等 2015 年让38名城市居民随机在自然区或繁忙街道步行90分钟。只有自然组的反刍自评下降，与反刍相关的脑区活动也降低。",
+   "研究样本较小，看的是短期效果，不能替代治疗。城市里的公园、河边、校园绿地都可以，不必去远方。"
+  ],
+  "do": "今天找一片附近的绿地，放下手机，走上二三十分钟。",
+  "sources": [
+   "Bratman 等, Nature experience reduces rumination and subgenual prefrontal cortex activation（PNAS, 2015）"
+  ]
+ },
+ {
+  "id": "m-exercise-depression",
+  "topic": "stress",
+  "tags": [
+   "stress",
+   "sport"
+  ],
+  "headline": "快走慢跑，对抑郁症状真有帮助",
+  "lead": "在随机试验的汇总里，运动减轻抑郁症状的效果达到中等水平。",
+  "body": [
+   "运动能改善睡眠、带来成就感和与人接触的机会，也会影响大脑里与情绪有关的调节系统。这些作用叠加起来，能减轻情绪低落。",
+   "2024 年 BMJ 一项网状荟萃分析纳入218项随机试验、1.4万多人，发现步行或慢跑、瑜伽、力量训练都能明显减轻抑郁症状，强度稍高效果更好。",
+   "运动可以作为治疗的一部分，但不能替代正规诊疗。情绪低落持续两周以上，或出现伤害自己的念头，请尽快就医或联系心理援助热线。"
+  ],
+  "do": "今天出门快走20分钟，走到微微出汗、还能说话的程度。",
+  "sources": [
+   "Noetel 等, Effect of exercise for depression: systematic review and network meta-analysis of randomised controlled trials（BMJ, 2024）"
+  ]
+ },
+ {
+  "id": "m-multitasking-cost",
+  "topic": "stress",
+  "tags": [
+   "stress",
+   "life"
+  ],
+  "headline": "同时做几件事，每件都更慢",
+  "lead": "大脑其实是在快速切换，每切一次都要付出时间和注意力。",
+  "body": [
+   "人很难真正同时处理两件需要思考的事。所谓多任务，是在任务之间来回切换，每次都要重新调出规则和进度，这叫切换成本。",
+   "Rubinstein 等 2001 年的实验发现，任务切换会明显拖慢反应，任务越复杂代价越大。Monsell 2003 年的综述总结了大量重复验证的结果。",
+   "单次切换只损失零点几秒，但频繁被消息打断时会累积，也更容易出错。走路听歌这类不需要思考的组合，影响不大。"
+  ],
+  "do": "今天挑一段45分钟只做一件事，先关掉消息提醒。",
+  "sources": [
+   "Rubinstein, Meyer, Evans, Executive control of cognitive processes in task switching（Journal of Experimental Psychology: Human Perception and Performance, 2001）",
+   "Monsell, Task switching（Trends in Cognitive Sciences, 2003）"
+  ]
+ },
+ {
+  "id": "m-name-the-feeling",
+  "topic": "stress",
+  "tags": [
+   "stress"
+  ],
+  "headline": "说出「我很焦虑」，焦虑会轻一点",
+  "lead": "用词语准确描述情绪，本身就是一种温和的情绪调节。",
+  "body": [
+   "把感受转成语言，需要调动大脑负责思考和组织的区域，这会削弱情绪中枢的激活，情绪强度随之降下来一些。",
+   "Lieberman 等 2007 年的脑成像实验发现，给情绪图片配上情绪词时，杏仁核的反应比只看图片更弱。后续多项研究也观察到类似的降温效果。",
+   "效果温和、短暂，用词越具体越好，比如「委屈」比「不好」更有用。持续的焦虑或低落，需要专业帮助。"
+  ],
+  "do": "下次心里不舒服，用一个具体的词说出它，比如「委屈」或「担心」。",
+  "sources": [
+   "Lieberman 等, Putting feelings into words: Affect labeling disrupts amygdala activity in response to affective stimuli（Psychological Science, 2007）",
+   "Torre, Lieberman, Putting feelings into words: Affect labeling as implicit emotion regulation（Emotion Review, 2018）"
+  ]
+ },
+ {
+  "id": "m-venting-anger",
+  "topic": "stress",
+  "tags": [
+   "stress"
+  ],
+  "headline": "砸东西发泄，火气反而更大",
+  "lead": "让身体更激动的发泄方式，通常不能让怒气消下去。",
+  "body": [
+   "打枕头、摔东西会让心跳和唤醒水平继续升高，同时反复回味惹你生气的事，愤怒反而被维持住了。",
+   "Bushman 2002 年的实验中，边想冒犯者边打沙袋的人比安静坐着的人更愤怒。2024 年汇总154项研究的荟萃分析发现，放松类方法能减轻愤怒，激烈发泄基本无效。",
+   "运动本身对健康有益，只是不适合当灭火手段。生气时先让身体慢下来，再处理事情。如果常常难以控制怒气，可以寻求心理咨询。"
+  ],
+  "do": "下次发火前，先离开现场几分钟，等心跳慢下来再开口。",
+  "sources": [
+   "Bushman, Does venting anger feed or extinguish the flame? Catharsis, rumination, distraction, anger, and aggressive responding（Personality and Social Psychology Bulletin, 2002）",
+   "Kjærvik, Bushman, A meta-analytic review of anger management activities that increase or decrease arousal: What fuels or douses rage?（Clinical Psychology Review, 2024）"
+  ]
+ },
+ {
+  "id": "m-acts-of-kindness",
+  "topic": "stress",
+  "tags": [
+   "stress",
+   "life"
+  ],
+  "headline": "帮别人一个小忙，自己也会好受",
+  "lead": "做一件善意的小事，对自己的情绪有小而真实的好处。",
+  "body": [
+   "帮助别人能带来掌控感和与人联结的感觉，也会把注意力从自己的烦恼上暂时移开。",
+   "Curry 等 2018 年汇总27项研究、约4000人的荟萃分析发现，做善意行为能提升行为者的幸福感，效应为小到中等，大约相当于10分制幸福量表上不到1分。",
+   "这是温和的补充，不能替代对抑郁或焦虑的治疗。量力而行就好，勉强自己去讨好别人不算在内。"
+  ],
+  "do": "今天为身边的人做一件小事，比如顺手帮同事带杯水。",
+  "sources": [
+   "Curry 等, Happy to help? A systematic review and meta-analysis of the effects of performing acts of kindness on the well-being of the actor（Journal of Experimental Social Psychology, 2018）"
+  ]
+ },
+ {
+  "id": "m-avoidance-anxiety",
+  "topic": "stress",
+  "tags": [
+   "stress"
+  ],
+  "headline": "越躲着害怕的事，越会更怕它",
+  "lead": "回避能让你立刻轻松，却让恐惧一直保留下来。",
+  "body": [
+   "每次回避，紧张都会马上下降，大脑把这记成「躲开才安全」，下次就更想躲。你也失去了发现「其实没那么可怕」的机会。",
+   "包含逐步暴露的认知行为治疗，是英国 NICE 等指南推荐的焦虑障碍首选心理治疗之一。Craske 等 2014 年的综述解释了暴露为何有效。",
+   "关键是循序渐进，从有点紧张但做得到的一步开始。惊恐、强迫或创伤相关的恐惧，建议在专业人员指导下进行。"
+  ],
+  "do": "挑一件一直拖着不敢做的小事，今天先做最容易的一步。",
+  "sources": [
+   "Craske 等, Maximizing exposure therapy: An inhibitory learning approach（Behaviour Research and Therapy, 2014）",
+   "NICE, Generalised anxiety disorder and panic disorder in adults: management（CG113, 2011）"
+  ]
+ },
+ {
+  "id": "m-skip-breakfast",
+  "topic": "food",
+  "tags": [
+   "food",
+   "weight"
+  ],
+  "headline": "不吃早餐，并不会因此变胖",
+  "lead": "随机试验里，吃早餐的人一天的总热量反而略高。",
+  "body": [
+   "「不吃早餐代谢会变慢、午饭会暴食」的说法很流行。但体重取决于一整天的吃进和消耗，跳过的早餐通常不会被午饭完全补回来。",
+   "Sievert 等 2019 年 BMJ 荟萃分析纳入13项随机试验，吃早餐的一组每天多摄入约260千卡，体重也略高约0.44公斤。",
+   "这不是说早餐不好，吃不吃按自己的感受来。用降糖药的糖尿病患者、孕妇、儿童青少年不要随意不吃早餐，有疑问先问医生。"
+  ],
+  "do": "早上不饿就别硬吃；要吃，就选有蛋白质和全谷物的。",
+  "sources": [
+   "Sievert 等, Effect of breakfast on weight and energy intake: systematic review and meta-analysis of randomised controlled trials（BMJ, 2019）"
+  ]
+ },
+ {
+  "id": "m-ultra-processed-overeating",
+  "topic": "food",
+  "tags": [
+   "food",
+   "weight"
+  ],
+  "headline": "超加工食品会让你不知不觉多吃",
+  "lead": "营养素配得一样，吃超加工饮食的人每天多吃了约500千卡。",
+  "body": [
+   "超加工食品多半软、好嚼、能量密度高，吃得快，饱腹信号还没跟上，就已经吃下不少。口味设计也让人更难停下。",
+   "Hall 等 2019 年的住院随机交叉试验中，20名成人各吃两周超加工和少加工饮食，想吃多少吃多少。超加工期每天多吃约500千卡，两周体重增加约0.9公斤。",
+   "样本小、时间短，但结果与大量观察研究一致。不必一口不碰，把零食、甜饮、加工肉换成原样食物，就是好的开始。"
+  ],
+  "do": "今天把一份包装零食换成一个水果。",
+  "sources": [
+   "Hall 等, Ultra-processed diets cause excess calorie intake and weight gain: An inpatient randomized controlled trial of ad libitum food intake（Cell Metabolism, 2019）"
+  ]
+ },
+ {
+  "id": "m-eat-slowly",
+  "topic": "food",
+  "tags": [
+   "food",
+   "weight"
+  ],
+  "headline": "吃慢一点，同样一顿会吃得更少",
+  "lead": "放慢进食速度，通常能少吃一些，而且不会因此更饿。",
+  "body": [
+   "胃肠把「吃饱了」的信号传到大脑需要时间。吃得太快，信号到达前已经吃多了；放慢速度，就给饱腹感留出了时间。",
+   "Robinson 等 2014 年汇总多项对照实验的荟萃分析发现，吃得慢的一组摄入的热量明显更少，饭后的饥饿感并没有因此增加。",
+   "这些多是单餐的短期实验，对长期体重的作用证据有限。细嚼慢咽、放下筷子再夹菜，是简单可行的做法。"
+  ],
+  "do": "今天吃饭时每吃一口放下筷子，一顿饭吃够20分钟。",
+  "sources": [
+   "Robinson 等, A systematic review and meta-analysis examining the effect of eating rate on energy intake and hunger（American Journal of Clinical Nutrition, 2014）"
+  ]
+ },
+ {
+  "id": "m-weight-plateau",
+  "topic": "food",
+  "tags": [
+   "weight",
+   "food"
+  ],
+  "headline": "越减越慢，是身体在正常适应",
+  "lead": "体重下降后，身体每天需要的能量也会跟着变少。",
+  "body": [
+   "人变轻后，搬动身体消耗的能量变少；身体还会略微压低代谢、增加饥饿感，这叫适应性产热。原来的热量缺口就被慢慢抵消了。",
+   "Hall 等 2011 年在《柳叶刀》发表的建模研究指出，按「少吃多少就掉多少」估算会严重高估长期减重，体重下降本来就会随时间放缓。",
+   "平台期不代表方法失败。看几周的趋势而不是单日数字，必要时小幅调整。若有减重焦虑或进食失控，请咨询医生或营养师。"
+  ],
+  "do": "体重停了两三周时，先回看饮食记录，再小幅调整。",
+  "sources": [
+   "Hall 等, Quantification of the effect of energy imbalance on bodyweight（Lancet, 2011）",
+   "Rosenbaum, Leibel, Adaptive thermogenesis in humans（International Journal of Obesity, 2010）"
+  ]
+ },
+ {
+  "id": "m-exercise-weight-maintenance",
+  "topic": "food",
+  "tags": [
+   "weight",
+   "sport"
+  ],
+  "headline": "光靠运动减重不多，但能防反弹",
+  "lead": "运动对减重的直接贡献有限，对维持体重的作用更大。",
+  "body": [
+   "半小时快走消耗的热量，一块蛋糕就能补回来，运动后胃口也可能变好。所以只运动、不调饮食，体重往往降得不多。",
+   "美国运动医学会立场声明指出，每周150到250分钟中等强度运动只带来小幅减重；而减重后想不反弹，往往需要每周更多的活动量。",
+   "减重主要靠调整饮食，维持靠持续运动，两者配合效果最好。有心血管疾病或关节问题，开始新的运动前先咨询医生。"
+  ],
+  "do": "今天快走30分钟，并把它定成每周固定的时间。",
+  "sources": [
+   "Donnelly 等, Appropriate physical activity intervention strategies for weight loss and prevention of weight regain for adults（Medicine & Science in Sports & Exercise, 2009）",
+   "Swift 等, The role of exercise and physical activity in weight loss and maintenance（Progress in Cardiovascular Diseases, 2014）"
+  ]
+ },
+ {
+  "id": "m-juice-free-sugar",
+  "topic": "food",
+  "tags": [
+   "food"
+  ],
+  "headline": "鲜榨果汁的糖，和添加糖同类",
+  "lead": "世卫组织把果汁里的糖算作游离糖，完整水果里的糖则不算。",
+  "body": [
+   "完整水果里的糖被纤维和细胞壁包着，吃得慢、饱腹感强。榨成汁后糖变成游离状态，喝得快，一杯可能就是好几个水果。",
+   "世卫组织2015年糖摄入指南建议游离糖低于总能量的10%，最好低于5%，并明确果汁计入游离糖。中国膳食指南建议添加糖每天不超过50克，最好25克以内。",
+   "吃完整水果不必担心糖，中国膳食指南建议每天200到350克，并说明果汁不能代替鲜果。糖尿病患者的水果安排，请听从医生或营养师。"
+  ],
+  "do": "今天想喝果汁时，换成吃一个完整的水果。",
+  "sources": [
+   "WHO, Guideline: Sugars intake for adults and children（2015）",
+   "中国营养学会《中国居民膳食指南（2022）》"
+  ]
+ },
+ {
+  "id": "m-time-restricted-eating",
+  "topic": "food",
+  "tags": [
+   "food",
+   "weight"
+  ],
+  "headline": "限时进食能减重，靠的还是少吃",
+  "lead": "热量同样限制时，只在8小时内吃饭并没有带来额外的减重。",
+  "body": [
+   "把进食压缩到一天里的几小时，很多人自然就吃得少了，这是减重的主要原因。进食时间本身对体重的作用，目前看并不大。",
+   "2022 年《新英格兰医学杂志》发表的一项中国研究中，139名肥胖成人都限制热量，其中一组只在早8点到下午4点进食。一年后两组减重相近，差异没有统计学意义。",
+   "如果限时进食让你更容易少吃，可以采用；不适合就不必勉强。用降糖药的糖尿病患者、孕妇和有进食障碍史的人，应先咨询医生。"
+  ],
+  "do": "与其纠结几点吃，今天先把晚饭的主食减少小半碗。",
+  "sources": [
+   "Liu 等, Calorie restriction with or without time-restricted eating in weight loss（New England Journal of Medicine, 2022）",
+   "Lowe 等, Effects of time-restricted eating on weight loss and other metabolic parameters in women and men with overweight and obesity: The TREAT randomized clinical trial（JAMA Internal Medicine, 2020）"
+  ]
+ },
+ {
+  "id": "m-low-sodium-salt",
+  "topic": "food",
+  "tags": [
+   "food"
+  ],
+  "headline": "换成低钠盐，中风风险更低",
+  "lead": "用一部分氯化钾代替氯化钠，味道差不多，钠却少了不少。",
+  "body": [
+   "中国人吃进的盐，大多来自家里做饭时加的盐和酱料。低钠盐用一部分钾代替钠，既减少了钠，又增加了有利于血压的钾。",
+   "2021 年《新英格兰医学杂志》发表的中国农村研究中，约2.1万名有中风史或60岁以上高血压的人随机使用低钠盐或普通盐。约5年后，低钠盐组中风减少14%，死亡减少12%。",
+   "肾病患者、血钾偏高或正在服用某些降压药、保钾利尿剂的人，使用前务必咨询医生。换了低钠盐，总用量也要控制。"
+  ],
+  "do": "下次买盐选低钠盐；有肾病或血钾高，先问医生。",
+  "sources": [
+   "Neal 等, Effect of salt substitution on cardiovascular events and death（New England Journal of Medicine, 2021）",
+   "Anderson 等, Dietary sources of sodium in China, Japan, the United Kingdom, and the United States, women and men aged 40 to 59 years: The INTERMAP study（Journal of the American Dietetic Association, 2010）"
+  ]
+ },
+ {
+  "id": "m-nuts-weight",
+  "topic": "food",
+  "tags": [
+   "food",
+   "weight"
+  ],
+  "headline": "坚果热量高，适量吃却不易胖",
+  "lead": "一小把坚果实际被吸收的热量，比标签上算出来的要少。",
+  "body": [
+   "坚果的脂肪包在坚硬的细胞壁里，嚼不碎的部分会直接排出，实际吸收比计算值少。它富含蛋白质和纤维，饱腹感强，会让你少吃别的。",
+   "2013 年一项随机对照试验的荟萃分析发现，在饮食中加入坚果并没有让体重增加。美国农业部研究人员实测发现，杏仁可吸收的热量明显低于标签值。",
+   "前提是适量，中国膳食指南建议每周50到70克，平均每天约一小把。选原味的，盐焗、裹糖的另当别论。对坚果过敏的人请避免。"
+  ],
+  "do": "今天把下午的饼干换成一小把原味坚果。",
+  "sources": [
+   "Flores-Mateo 等, Nut intake and adiposity: meta-analysis of clinical trials（American Journal of Clinical Nutrition, 2013）",
+   "Novotny, Gebauer, Baer, Discrepancy between the Atwater factor predicted and empirically measured energy values of almonds in human diets（American Journal of Clinical Nutrition, 2012）"
+  ]
+ },
+ {
+  "id": "m-low-carb-vs-low-fat",
+  "topic": "food",
+  "tags": [
+   "food",
+   "weight"
+  ],
+  "headline": "低碳水还是低脂肪，减重差不多",
+  "lead": "一年下来两种饮食减掉的体重相近，能坚持的那种最有效。",
+  "body": [
+   "无论少吃碳水还是少吃脂肪，减重的核心都是长期吃进的能量少于消耗。两种方式都能做到，差别在于哪种更合你的口味和生活。",
+   "2018 年 JAMA 发表的 DIETFITS 随机试验让609名超重成人分别采用健康低脂或健康低碳饮食，一年后平均减重约5.3和6.0公斤，差异不显著。",
+   "两组都强调多吃蔬菜和原样食物，少吃精制糖和加工食品。有肾病或用降糖药的人，改变饮食结构前请先咨询医生或营养师。"
+  ],
+  "do": "今天先去掉一份甜食或含糖饮料，从最容易的改起。",
+  "sources": [
+   "Gardner 等, Effect of low-fat vs low-carbohydrate diet on 12-month weight loss in overweight adults and the association with genotype or insulin secretion: The DIETFITS randomized clinical trial（JAMA, 2018）"
+  ]
+ },
+ {
+  "id": "m-coffee-tea-hydration",
+  "topic": "life",
+  "tags": [
+   "caffeine",
+   "life"
+  ],
+  "headline": "适量喝咖啡和茶，也算在补水",
+  "lead": "日常量的咖啡不会让你脱水，茶水、汤粥和饭菜里的水都算数。",
+  "body": [
+   "咖啡因有轻微的利尿作用，但常喝的人很快就会耐受，一杯咖啡带进的水远多于它让你多排的水。饭菜本身也提供不少水分。",
+   "Killer 等 2014 年的交叉试验中，50名常喝咖啡的男性每天喝4杯咖啡或等量的水，各项水合指标没有差别。中国膳食指南也把茶水列为推荐饮水。",
+   "「每天八杯水」不是硬标准，运动、天热、出汗多要多喝。老人口渴感较弱，宜定时喝水；心衰、肾病需要限水的人请遵医嘱。"
+  ],
+  "do": "今天口渴就喝，白水或淡茶都行，不必硬凑八杯。",
+  "sources": [
+   "Killer, Blannin, Jeukendrup, No evidence of dehydration with moderate daily coffee intake: A counterbalanced cross-over study in a free-living population（PLoS ONE, 2014）",
+   "中国营养学会《中国居民膳食指南（2022）》"
+  ]
+ },
+ {
+  "id": "m-window-glass-vitamin-d",
+  "topic": "life",
+  "tags": [
+   "life"
+  ],
+  "headline": "隔着玻璃晒太阳，补不了维生素D",
+  "lead": "皮肤合成维生素D靠中波紫外线，普通窗玻璃会把它挡掉。",
+  "body": [
+   "皮肤合成维生素D需要中波紫外线（UVB）。普通门窗和车窗玻璃几乎吸收全部UVB，透进来的主要是长波紫外线，它不帮助合成，却仍会让皮肤老化。",
+   "Holick 等维生素D研究者在综述中明确写到，透过玻璃的阳光不会让皮肤产生维生素D。在户外短时间晒晒手臂和腿，通常就能合成可观的量。",
+   "晒太阳以不晒红为限，长时间暴晒会增加皮肤癌风险。冬季、高纬度、肤色深和很少出门的人更容易缺乏，是否需要检测或补充请咨询医生。"
+  ],
+  "do": "今天到户外走一走，露出手臂晒一会儿，以不晒红为限。",
+  "sources": [
+   "Hossein-nezhad, Holick, Vitamin D for health: A global perspective（Mayo Clinic Proceedings, 2013）",
+   "Holick, Vitamin D deficiency（New England Journal of Medicine, 2007）"
+  ]
+ },
+ {
+  "id": "m-moderate-drinking-not-protective",
+  "topic": "life",
+  "tags": [
+   "life"
+  ],
+  "headline": "每天一小杯酒，并不能护心",
+  "lead": "「少量饮酒有益健康」的说法，在更严谨的研究里站不住脚。",
+  "body": [
+   "早期研究常把因病戒酒的人算进「不喝酒」组，让不喝酒的人显得不健康，少量饮酒者就显得更长寿。纠正这类偏差后，好处基本消失。",
+   "2023 年一项纳入107项队列、近480万人的荟萃分析发现，少量饮酒者的死亡风险并不低于从不饮酒者。中国慢性病前瞻性研究的遗传分析也未见少量饮酒防中风。",
+   "不喝酒的人不必为了健康开始喝。已经在喝的人，少喝比多喝好。孕妇、服药期间和有肝病的人应避免饮酒。"
+  ],
+  "do": "今天如果有饮酒安排，把量减半，或换成无酒精饮品。",
+  "sources": [
+   "Zhao 等, Association between daily alcohol intake and risk of all-cause mortality: A systematic review and meta-analyses（JAMA Network Open, 2023）",
+   "Millwood 等, Conventional and genetic evidence on alcohol and vascular disease aetiology: A prospective study of 500 000 men and women in China（Lancet, 2019）"
+  ]
+ },
+ {
+  "id": "m-alcohol-flush",
+  "topic": "life",
+  "tags": [
+   "life"
+  ],
+  "headline": "喝酒脸红，不是酒量好的表现",
+  "lead": "脸红往往说明身体分解乙醛的能力弱，有害物质停留得更久。",
+  "body": [
+   "酒精在体内先变成乙醛，再靠 ALDH2 酶分解。不少东亚人这种酶活性偏低，乙醛堆积就会脸红、心跳快。乙醛是明确的致癌物。",
+   "Brooks 等 2009 年在 PLoS Medicine 的综述指出，约36%的东亚人喝酒会脸红；这类人如果经常饮酒，患食管癌的风险比不脸红的饮酒者高出很多。",
+   "有人喝多了脸红会减轻，那是耐受，风险并没有降低。如果你一喝就脸红，最好的选择是少喝或不喝。"
+  ],
+  "do": "如果你喝酒会脸红，下次酒局主动换成茶或饮料。",
+  "sources": [
+   "Brooks 等, The alcohol flushing response: An unrecognized risk factor for esophageal cancer from alcohol consumption（PLoS Medicine, 2009）"
+  ]
+ },
+ {
+  "id": "m-social-connection-longevity",
+  "topic": "life",
+  "tags": [
+   "life",
+   "stress"
+  ],
+  "headline": "社交太少，对寿命的影响接近吸烟",
+  "lead": "人际联系的多少与死亡风险的关联，可以和吸烟、饮酒相提并论。",
+  "body": [
+   "与人保持联系能缓冲压力，有人提醒你就医、照顾作息，生病时也有人帮忙。长期孤立则与慢性炎症、血压升高等有关。",
+   "Holt-Lunstad 等 2010 年汇总148项研究、约30万人的荟萃分析发现，社会关系较强的人在随访期内存活的可能性高约50%，作者认为其影响与吸烟、饮酒相当。",
+   "这些是观察性研究，不能完全证明因果，而且关键在关系的质量，不在朋友的数量。长期感到孤独或情绪低落，可以找心理咨询师聊聊。"
+  ],
+  "do": "今天给一位很久没联系的朋友或家人打个电话。",
+  "sources": [
+   "Holt-Lunstad, Smith, Layton, Social relationships and mortality risk: A meta-analytic review（PLoS Medicine, 2010）",
+   "Holt-Lunstad 等, Loneliness and social isolation as risk factors for mortality: A meta-analytic review（Perspectives on Psychological Science, 2015）"
+  ]
+ },
+ {
+  "id": "m-break-up-sitting",
+  "topic": "life",
+  "tags": [
+   "life",
+   "sport"
+  ],
+  "headline": "站着办公，不如隔会儿走两步",
+  "lead": "打断久坐时，起身走动对餐后血糖的帮助比单纯站着更大。",
+  "body": [
+   "久坐时腿部大肌肉几乎不工作，吃进去的糖更难被肌肉利用，餐后血糖升得更高、回落更慢。走动让肌肉收缩，能帮着消耗血糖。",
+   "Dunstan 等 2012 年的试验中，每20分钟起身慢走2分钟，餐后血糖和胰岛素明显低于一直坐着。2022 年的一项荟萃分析显示，走动比站立的效果更明显。",
+   "这些多是一天内的短期实验，参与者多为超重人群，长期收益仍在研究。站立办公能减少坐的时间，但站着并不等于运动。"
+  ],
+  "do": "今天设个提醒，每坐30到45分钟，起身走动两三分钟。",
+  "sources": [
+   "Dunstan 等, Breaking up prolonged sitting reduces postprandial glucose and insulin responses（Diabetes Care, 2012）",
+   "Buffey 等, The acute effects of interrupting prolonged sitting time in adults with standing and light-intensity walking on biomarkers of cardiometabolic health in adults: A systematic review and meta-analysis（Sports Medicine, 2022）"
+  ]
+ },
+ {
+  "id": "m-very-hot-drinks",
+  "topic": "life",
+  "tags": [
+   "life",
+   "food"
+  ],
+  "headline": "趁热喝不一定好，太烫伤食管",
+  "lead": "65°C 以上的热饮，被国际癌症研究机构列为很可能致癌的因素。",
+  "body": [
+   "很烫的液体会反复灼伤食管黏膜，损伤和修复不断循环，增加细胞出错的机会。问题在温度，不在茶或咖啡本身。",
+   "2016 年国际癌症研究机构把65°C以上的热饮列为2A类致癌因素。中国慢性病前瞻性研究发现，爱喝烫茶又每天饮酒较多的人，食管癌风险约为对照者的5倍。",
+   "在不抽烟、少喝酒的人中，这项研究没有看到明显关联，但稍等几分钟再喝没有坏处。吞咽疼痛或吞咽困难持续存在，应及时就医。"
+  ],
+  "do": "今天泡好茶或盛好热汤后，等几分钟，入口不烫再喝。",
+  "sources": [
+   "Loomis 等, Carcinogenicity of drinking coffee, mate, and very hot beverages（Lancet Oncology, 2016）",
+   "Yu 等, Hot tea consumption and its interactions with alcohol and tobacco use on the risk for esophageal cancer: A population-based cohort study（Annals of Internal Medicine, 2018）"
+  ]
+ },
+ {
+  "id": "m-spit-dont-rinse",
+  "topic": "life",
+  "tags": [
+   "life"
+  ],
+  "headline": "刷完牙吐掉就好，别再用水漱",
+  "lead": "刷牙后用清水漱口，会冲掉留在牙面上起保护作用的氟。",
+  "body": [
+   "含氟牙膏的作用是让氟留在牙齿表面，帮助修复早期龋坏。刷完立刻用一大口水漱，口腔里留下的氟就被稀释掉了。",
+   "英国的《Delivering better oral health》循证指南把「刷牙后吐掉牙膏、不用水漱口」列为强推荐，依据是比较吐与漱的研究证据。",
+   "实在不习惯，可以只用很少的水轻漱一下。儿童要控制牙膏用量，并在大人看护下刷牙。牙龈出血或牙痛，请看牙医。"
+  ],
+  "do": "今晚刷牙后只吐掉泡沫，不再用清水漱口。",
+  "sources": [
+   "Public Health England, Delivering better oral health: an evidence-based toolkit for prevention（第4版, 2021）"
+  ]
+ }
+]

@@ -276,6 +276,11 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
             out_layout = canvas.validate(hero["layout"], "hero", pool, _has_number)
         except canvas.CanvasError as exc:
             raise ValueError(f"hero.layout：{exc}") from exc
+
+        def _has_timeline(n: dict) -> bool:
+            return n.get("t") == "timeline" or any(_has_timeline(k) for k in n.get("children") or [])
+        if _has_timeline(out_layout):
+            raise ValueError("hero.layout 里不要放 timeline：页面下面「接下来」已经列了待办，主卡再放一遍就重复了")
         for num in _layout_bound_numbers(out_layout):
             if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
                 raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
@@ -321,23 +326,14 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
   · hero.value 写 facts.viz.<metric>.value_text；常态区间和警戒线是按老大自己 30 天的数算的（或他自己定的），不是医学标准，不要说成诊断。
     结论和 note 里说「比你平时高 / 低」「出了你自己的常态」，**不要写「正常范围」「超标」「异常」**（老大会以为是医学上的不正常）。
   · facts.viz.<metric>.zone 是内核按常态和警戒线算的位置：act=过了警戒线，watch=出了常态，steady=常态里。level 由你判断，但 zone=act 时不能写 steady。
-- **主卡也可以自己排（hero.layout，开放画布）**：主卡标题行（label + 档位）App 会画，标题行下面整块（宽 354、高最多 400）由你用零件拼，替代 value/viz/fields/table（用了 layout 就别再放这三样）。零件只有这些，样式没法写，只能选档位：
-  · v / h：竖排 / 横排 {"t":"v","gap":12,"children":[…]}；h 最多 4 个，可加 "justify":"between"
-  · text：{"t":"text","text":"…","role":"title|body|caption|label","tone":1|2|3}（title≤18 字，body≤60，caption≤40，label≤14；tone 1 白 2 灰 3 浅灰）
-  · value：大数字 {"t":"value","bind":"sleep","size":"xl|l|m"}；stat：小字段 {"t":"stat","label":"HRV","bind":"hrv"}
-  · chart：主卡同款图 {"t":"chart","metric":"hrv","kind":"trend","days":14,"show":["band","warn"],"height":"s|m|l"}
-  · dots：一排点 {"t":"dots","bind":"sleep.nights|steps.week|project:<项目id>","days":7}
-  · bar：进度条 {"t":"bar","bind":"sleep|steps|weight"}；ring：圆环 {"t":"ring","bind":"recovery|steps|project:<项目id>"}
-  · level：档位点 {"t":"level","level":"act|watch|steady"}；rule：细线；spacer：留白 {"t":"spacer","size":8|16|24}
-  · list：清单 {"t":"list","items":["…"],"style":"dot|number"}（1–5 条，每条≤30 字）；timeline：接下来的待办 {"t":"timeline","n":1–3}
-  · bind 能用：指标 hrv/resp_rate/resting_hr/recovery/sleep/sleep_debt/steps/weight，或 <指标>.need/.goal/.target/.short/.pace/.warn/.prev。
-    数字优先用 bind（内核现算，永远是最新的）；手写的数字（text、value 的 value）也只能抄 facts。
+- **主卡也可以自己排（hero.layout，开放画布）**：主卡标题行（label + 档位）App 会画，标题行下面整块（宽 354、高最多 400）由你用零件拼，替代 value/viz/fields/table（用了 layout 就别再放这三样）。样式没法写，只能选零件和档位：
+  · hero.layout 的零件和写法见 canvas-cards skill，或跑 `./pivis-health parts`；写完用 `./pivis-health canvas --slot hero --json '<零件树>'` 预览，过了再输出。
+  · 数字优先用 bind（内核现算，永远是最新的）；手写的数字也只能抄 facts。
   · 页面主卡下面已经列了「接下来」的待办和「坚持习惯」那一行：layout 里别放 timeline、别重复项目名，除非老大的偏好里明确要。
   · 什么时候用 layout：一个数 + 一张图就够时用 viz；要把两三样拼在一起讲一件事（睡了多久 + 一排每晚点 + 坚持习惯进度；恢复圆环 + HRV/静息心率两个字段；步数进度条 + 今天还差多少 + 接下来去走的那件事）时用 layout。
-  · 例：{"t":"v","gap":12,"children":[{"t":"h","justify":"between","align":"baseline","children":[{"t":"value","bind":"sleep","size":"xl"},{"t":"stat","label":"需要","bind":"sleep.need"}]},{"t":"bar","bind":"sleep"},{"t":"dots","bind":"sleep.nights","days":7}]}
 - level：act=需要处理；watch=留意；steady=平稳/没问题。客户端按 level 给动效：act 最强、watch 缓慢、steady 静止。
 - headline 说判断和接下来该做什么；数字只放主卡，不要在结论里重复主卡的 value。
-- 现在页（now）从三个板块里挑当前最需要关注的一项；专项页只挑本板块（hero.board 必须等于页面）。
+- 此刻页（now）从三个板块里挑当前最需要关注的一项；专项页只挑本板块（hero.board 必须等于页面）。
 - 所有数字只能来自 facts，禁止自己加减乘除推算新数字；fields 和 table 里的每个数也一样。
 - 正在进行的项目由客户端显示在主卡下，不写进 hero；有进行中的项目时结论要体现计划，早上写成对昨晚执行的总结。
 - 压力页（stress）：从 hrv_trend（近 3 天对比之前）、hrv_ms、resting_hr（对比 avg_prev7）、resp_rate、recovery_pct 里挑最能说明当前生理压力信号的一个。HRV 个人范围没学满时就用这些自己和自己比。都在正常波动内就 level=steady，结论写「压力这块没问题」这类，主卡放最能说明没问题的那个数。不诊断、不推测情绪、不说「因为…所以压力大」。
@@ -409,7 +405,7 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
         if e.get("scope") == f"pref.page.{page}" and lay:
             pref_text += ("\n老大确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
                           + json.dumps(lay, ensure_ascii=False))
-    prompt = ("你是 P-Health 的页面编排，不是聊天。根据真实证据为「" + {"now": "现在", "sleep": "休息", "sport": "运动",
+    prompt = ("你是 P-Health 的页面编排，不是聊天。根据真实证据为「" + {"now": "此刻", "sleep": "休息", "sport": "运动",
               "stress": "压力"}[page] + "」页写主卡和结论。\n" + SCHEMA + pref_text + "\n证据：\n"
               + json.dumps(evidence, ensure_ascii=False, default=str))
     before = len(dsh_chat.read_session_events(context))
@@ -524,6 +520,8 @@ def page_doc(tools, page: str) -> dict:
     carry = [t for t in store.for_date(day - timedelta(days=1), None if page == "now" else page)
              if t.get("auto") == "bedtime" and t["status"] == "done"]
     pending = [t for t in todos if t["status"] in PENDING]
+    # 项目里的卡带上「上次」：跟做卡显示上次的评价，数值卡先填上次的数
+    pending = [{**t, "last": store.last_record(t)} if t.get("project") else t for t in pending]
     done = [t for t in todos if t["status"] in ("done", "skipped")] + carry
     hidden = 0
     if page == "now" and len(pending) > 3:
@@ -652,6 +650,38 @@ def _turn(context: str) -> dict | None:
     st = dsh_chat.turn_status(context)
     _TURN_CACHE[context] = (m, st)
     return st
+
+
+def sync_health(tools, now: datetime | None = None) -> dict:
+    """老大在 App 里下拉刷新：马上拉一次 WHOOP（App 同时把 Apple 健康的数据传上来）。
+    - 这是老大自己要的同步，北京 02:00–09:00 的静默时段也照拉（静默只管后台自动同步）；
+    - 60 秒内重复下拉不重复拉，直接说刚同步过；
+    - 模拟回放 / 演示环境不连 WHOOP。"""
+    cfg = tools.cfg
+    if getattr(cfg, "sim_mode", False):
+        return {"ok": True, "whoop": "skipped", "message": "模拟环境不连 WHOOP"}
+    from . import whoop_sync
+    mark = cfg.data_dir / "whoop_manual_sync.json"
+    t = time.time()
+    try:
+        last = json.loads(mark.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        last = {}
+    if t - float(last.get("at") or 0) < 60 and last.get("ok"):
+        return {"ok": True, "whoop": "recent", "message": "刚同步过", "latest": last.get("latest")}
+    try:
+        r = whoop_sync.sync(cfg, force=True)
+        out = {"ok": True, "whoop": "synced", "latest": r.get("latest_recovery_night"),
+               "message": "WHOOP 已同步"}
+    except whoop_sync.WhoopError as exc:
+        out = {"ok": False, "whoop": "failed", "message": f"WHOOP 同步失败：{str(exc)[:60]}"}
+    except Exception as exc:  # noqa: BLE001
+        out = {"ok": False, "whoop": "failed", "message": f"WHOOP 同步失败：{type(exc).__name__}"}
+    try:
+        mark.write_text(json.dumps({"at": t, "ok": out["ok"], "latest": out.get("latest")}), encoding="utf-8")
+    except OSError:
+        pass
+    return out
 
 
 def sync_status(tools) -> dict:

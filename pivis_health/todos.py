@@ -21,7 +21,10 @@ from .config import Config
 
 BOARDS = ("sleep", "sport", "stress", "life")   # life＝日常（饭、试纸这类记录），只出待办，不单独成页
 BOARD_LABEL = {"sleep": "休息", "sport": "运动", "stress": "压力", "life": "日常"}
-KINDS = ("done", "follow", "options", "scale", "number", "fields", "proposal")
+KINDS = ("done", "follow", "options", "scale", "number", "fields", "proposal",
+         "counter", "timer", "checklist", "confirm")
+# counter：一天点好几次（喝水 3/6 杯）；timer：有时长、开始后倒计时（午睡 20 分钟）；
+# checklist：一件事拆几小步、每步单独勾；confirm：要留下完成时间的事（按医嘱打针 08:05）
 STATUSES = ("proposed", "scheduled", "in_progress", "processing", "done", "skipped", "expired")
 PENDING = ("proposed", "scheduled", "in_progress", "processing")
 VERBS = ("start", "done", "later", "skip")
@@ -29,6 +32,57 @@ INPUT_TYPES = ("options", "multi", "scale", "number", "text", "time", "photo")
 SUBMIT_MODES = ("local", "agent", "chat")
 MEDIA_KINDS = ("audio", "video", "embed")
 _HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+# 待办的 14 种形式（todo-cards skill 和 `./pivis-health todo-forms` 都从这里读，别在提示词里抄一份）
+TODO_FORMS: list[dict] = [
+    {"form": "check", "name": "打勾", "kind": "done", "use": "做了点一下就行的事",
+     "template": {"board": "sleep", "when": "23:00", "title": "放下手机", "kind": "done", "note": "开勿扰，放远"}},
+    {"form": "options", "name": "单选", "kind": "options", "use": "一个问题 2–4 个选项，点了就交",
+     "template": {"board": "sleep", "when": "13:20", "title": "现在困吗", "kind": "options",
+                  "inputs": [{"id": "sleepy", "label": "", "type": "options", "options": ["很困", "有点", "不困"], "submit": "agent"}]}},
+    {"form": "number", "name": "数值", "kind": "number", "use": "记一个数（体重、血压读数），默认填上次的值",
+     "template": {"board": "life", "when": "07:40", "title": "称体重", "kind": "number", "note": "空腹，上完厕所",
+                  "inputs": [{"id": "kg", "label": "", "type": "number", "unit": "kg", "step": 0.1, "default": "last", "submit": "agent"}]}},
+    {"form": "fields", "name": "多字段日记", "kind": "fields", "use": "一次记好几样（睡眠日记）：时间、选项、加减、打分、文字",
+     "template": {"board": "sleep", "when": "08:50", "title": "记一下昨晚", "kind": "fields", "submit_label": "记好了",
+                  "inputs": [{"id": "bed", "label": "几点上床", "type": "time"},
+                             {"id": "latency", "label": "多久睡着", "type": "options", "options": ["15 分内", "15–30", "30–60", "1 小时+"]},
+                             {"id": "wakes", "label": "醒了几次", "type": "number", "step": 1, "unit": "次"},
+                             {"id": "energy", "label": "早上精神", "type": "scale", "min": 1, "max": 5},
+                             {"id": "more", "label": "还想说的", "type": "text", "submit": "agent"}]}},
+    {"form": "counter", "name": "计数", "kind": "counter", "use": "一天点好几次的事，点一下加一格（喝水、站起来）",
+     "template": {"board": "life", "title": "喝水", "kind": "counter", "target": 6, "unit": "杯"}},
+    {"form": "timer", "name": "计时", "kind": "timer", "use": "有时长的事，开始后倒计时、到点响（午睡、冥想不跟视频时）",
+     "template": {"board": "sleep", "when": "13:30", "title": "午睡 20 分钟", "kind": "timer", "duration_min": 20, "alarm": "13:50"}},
+    {"form": "follow", "name": "跟做", "kind": "follow", "use": "要跟着音频 / 视频 / 步骤做（拉伸、身体扫描）",
+     "template": {"board": "sleep", "when": "00:30", "title": "床外身体扫描", "kind": "follow", "note": "在床外做",
+                  "steps": [{"title": "坐好，肩膀放松", "duration_min": 1},
+                            {"title": "身体扫描引导", "media": {"kind": "audio", "title": "身体扫描引导", "url": "<media-library 里的 url>", "duration_min": 10}},
+                            {"title": "慢慢睁眼，困了再上床", "duration_min": 1}]}},
+    {"form": "checklist", "name": "子清单", "kind": "checklist", "use": "一件事拆成几小步，每步单独勾（睡前流程）",
+     "template": {"board": "sleep", "when": "22:40", "title": "睡前流程", "kind": "checklist",
+                  "items": ["把明天写下来", "调暗灯光", "手机放到卧室外", "温水洗个澡"]}},
+    {"form": "photo", "name": "拍照", "kind": "fields", "use": "拍饭、试纸；交上来你看图、写一句点评到 summary",
+     "template": {"board": "life", "when": "19:30", "title": "晚饭拍一张", "kind": "fields",
+                  "inputs": [{"id": "photo", "label": "", "type": "photo", "submit": "agent"}]}},
+    {"form": "rating", "name": "打分", "kind": "options", "use": "用完素材 / 新做法之后评价，按分数换或留",
+     "template": {"board": "sleep", "title": "昨晚的放松有用吗", "kind": "options", "note": "身体扫描 · 12 分钟",
+                  "inputs": [{"id": "rate", "label": "", "type": "options", "options": ["有用", "一般", "没用，换一个"], "submit": "agent"}]}},
+    {"form": "proposal", "name": "提议", "kind": "proposal", "use": "你想改计划时先问：原因写进 note，2–3 个方案让老大选；一定写 until",
+     "template": {"board": "sleep", "title": "本周复盘：睡前流程", "kind": "proposal", "until": "21:30",
+                  "note": "身体扫描 3 次都跳了，理由都是太晚太困",
+                  "inputs": [{"id": "fix", "label": "", "type": "options",
+                              "options": ["提前到 23:10，换 6 分钟呼吸", "只换 6 分钟短版", "先不动，再跑一周"], "submit": "agent"}]}},
+    {"form": "ask", "name": "追问 + 文字", "kind": "options", "use": "破了规则后的追问：选一个原因，也能自己写一句",
+     "template": {"board": "sleep", "title": "起晚了，是什么原因", "kind": "options",
+                  "inputs": [{"id": "why", "label": "", "type": "options", "options": ["没听到闹钟", "太困起不来", "想多睡会", "别的原因"],
+                              "allow_text": True, "submit": "agent"}]}},
+    {"form": "auto", "name": "设备自动完成", "kind": "done", "use": "设备能识别的事（入睡），不用老大点",
+     "template": {"board": "sleep", "when": "01:30", "title": "01:30 后再上床", "kind": "done", "auto": "bedtime"}},
+    {"form": "confirm", "name": "确认 + 时间", "kind": "confirm", "use": "要留下完成时间的事（按医嘱用药），卡上不写剂量",
+     "template": {"board": "life", "when": "08:00", "title": "按医嘱打针", "kind": "confirm", "note": "每周一"}},
+]
 
 
 def _sort_when(when: str) -> str:
@@ -106,6 +160,8 @@ def _norm_input(i: Any, idx: int) -> dict:
         if not 2 <= len(norm) <= 6:
             raise TodoError("选项需要 2–6 个")
         out["options"] = norm
+        if i.get("allow_text"):
+            out["allow_text"] = True       # 选项下面再给一行自己写（「别的原因」）
     if typ == "scale":
         out["min"] = int(i.get("min", 1))
         out["max"] = int(i.get("max", 5))
@@ -117,6 +173,16 @@ def _norm_input(i: Any, idx: int) -> dict:
             out["max_label"] = str(i["max_label"])
     if typ == "number":
         out["unit"] = str(i.get("unit") or "")
+        if i.get("step") not in (None, ""):
+            step = float(i["step"])
+            if not 0 < step <= 100:
+                raise TodoError("number.step 要在 0–100 之间")
+            out["step"] = step             # App 画 − / + 按钮，一次加减这么多
+        d = i.get("default")
+        if d not in (None, ""):
+            if d != "last":
+                float(d)
+            out["default"] = d             # "last" = 先填上次的值（体重这类）
     if typ in ("text", "number", "time") and i.get("placeholder"):
         out["placeholder"] = str(i["placeholder"])
     submit = i.get("submit") or ("agent" if typ in ("text", "time") else "local")
@@ -143,8 +209,8 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
     status = base.get("status") or ("proposed" if kind == "proposal" else "scheduled")
     if status not in STATUSES:
         raise TodoError(f"status 只能是 {STATUSES}")
-    verbs = base.get("verbs") or (["start", "later", "skip"] if kind == "follow" else ["done", "later", "skip"]
-                                  if kind == "done" else ["later", "skip"])
+    verbs = base.get("verbs") or {"follow": ["start", "later", "skip"], "timer": ["start", "later", "skip"],
+                                  "done": ["done", "later", "skip"], "counter": ["skip"]}.get(kind, ["later", "skip"])
     for v in verbs:
         if v not in VERBS:
             raise TodoError(f"verbs 只能从 {VERBS} 里选")
@@ -189,6 +255,19 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
         out["steps"].append(step)
     if out["kind"] in ("options", "scale", "number", "fields") and not out["inputs"]:
         raise TodoError(f"kind={kind} 需要 inputs")
+    if kind == "counter":
+        target = int(base.get("target") or 0)
+        if not 1 <= target <= 20:
+            raise TodoError("counter 要写 target（1–20，比如一天 6 杯水）")
+        out["target"] = target
+        out["unit"] = str(base.get("unit") or "次")[:4]
+    if kind == "timer" and not out["duration_min"]:
+        raise TodoError("timer 要写 duration_min（比如午睡 20）")
+    if kind == "checklist":
+        items = [str(x).strip() for x in base.get("items") or [] if str(x).strip()]
+        if not 2 <= len(items) <= 8 or any(len(x) > 20 for x in items):
+            raise TodoError("checklist 要写 items：2–8 小步，每步最多 20 个字")
+        out["items"] = items
     date.fromisoformat(out["date"])
     return out
 
@@ -269,6 +348,26 @@ class TodoStore:
                 raise TodoError(f"没有这条待办: {todo_id}")
             data["log"].append({"at": _now_iso(), "op": "remove", "id": todo_id})
             return {"removed": todo_id}
+
+    def last_record(self, t: dict, back_days: int = 14) -> dict | None:
+        """同一个项目里同一项（id 是 项目-日期-key）上一次的结果：跟做卡显示「上次：有用（11/3）」，数值卡先填上次的数。"""
+        pid = t.get("project")
+        if not pid or t.get("source") != "project":
+            return None
+        prefix = f"{pid}-{t['date']}-"
+        if not t["id"].startswith(prefix):
+            return None
+        key = t["id"][len(prefix):]
+        day = date.fromisoformat(t["date"])
+        todos = self._read()["todos"]
+        for i in range(1, back_days + 1):
+            d = day - timedelta(days=i)
+            prev = todos.get(f"{pid}-{d.isoformat()}-{key}")
+            if prev and prev["status"] in ("done", "skipped"):
+                rec = prev.get("record") or {}
+                return {"date": f"{d.month}/{d.day}", "summary": prev.get("summary") or "",
+                        "status": prev["status"], "values": rec.get("values") or {}}
+        return None
 
     def get(self, todo_id: str) -> dict | None:
         return self._read()["todos"].get(todo_id)
@@ -414,6 +513,31 @@ class TodoStore:
             values = values or {}
             if action == "start":
                 t["status"] = "in_progress"
+                if t["kind"] == "timer":       # 计时：记下开始时间，App 按它倒计时
+                    t["record"] = {**(t.get("record") or {}), "started_at": now.isoformat(timespec="seconds")}
+            elif action == "inc":
+                # 计数：点一下加一格；到 target 就算做完
+                rec = dict(t.get("record") or {})
+                rec["count"] = max(0, int(rec.get("count") or 0) + int(values.get("n") or 1))
+                rec["at"] = now.isoformat(timespec="seconds")
+                t["record"] = rec
+                target = int(t.get("target") or 1)
+                t["summary"] = f"{rec['count']} / {target} {t.get('unit') or ''}".strip()
+                if rec["count"] >= target:
+                    t["status"] = "done"
+            elif action == "check":
+                # 子清单：勾 / 取消一小步；全部勾完就算做完
+                items = t.get("items") or []
+                idx = int(values.get("index", -1))
+                if not 0 <= idx < len(items):
+                    raise TodoError("没有这一步")
+                rec = dict(t.get("record") or {})
+                checked = set(rec.get("checked") or [])
+                checked.add(idx) if values.get("on", True) else checked.discard(idx)
+                rec["checked"] = sorted(checked)
+                t["record"] = rec
+                t["summary"] = f"{len(checked)} / {len(items)}"
+                t["status"] = "done" if len(checked) == len(items) else "in_progress" if checked else "scheduled"
             elif action == "done":
                 t["status"] = "done"
                 t["record"] = {"values": values, "text": text or "", "at": now.isoformat(timespec="seconds")}
