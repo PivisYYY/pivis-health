@@ -376,6 +376,8 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
             return dict(n)
         except (vizmod.VizUnavailable, KeyError, ValueError) as exc:
             return {"t": "text", "text": f"这里的数暂时算不出来（{str(exc)[:20]}）", "role": "caption", "tone": 3}
+        except Exception:  # noqa: BLE001  读库失败这类意外：只影响这一格，整张卡照样画
+            return {"t": "text", "text": "这里的数据暂时读不到，稍后自动恢复", "role": "caption", "tone": 3}
 
     return one(layout)
 

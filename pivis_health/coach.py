@@ -116,6 +116,29 @@ def media_add(tools, item: dict) -> dict:
     return entry
 
 
+def project_status(p: dict, day: date) -> str:
+    """一个项目此刻的真实状态（开始日以项目数据为准）：还没开始 / 第几天 / 已结束。"""
+    start = date.fromisoformat(p["start"])
+    days = int(p.get("days") or 0)
+    if day < start:
+        left = (start - day).days
+        when = "明天" if left == 1 else f"{left} 天后"
+        return f"{p['name']}（{p['id']}）：{start.isoformat()} 开始，{when}，今天还没开始"
+    n = (day - start).days + 1
+    if days and n > days:
+        return f"{p['name']}（{p['id']}）：{start.isoformat()} 开始的 {days} 天已经结束"
+    return f"{p['name']}（{p['id']}）：第 {n} 天 / 共 {days} 天（{start.isoformat()} 开始）"
+
+
+def projects_truth(tools, day: date, board: str | None = None) -> str:
+    """推荐、复盘提示里带上的项目真实状态：计划改过的话以这里为准，不按对话里早先说过的。"""
+    ps = [p for p in TodoStore(tools.cfg).projects(active_only=True) if board is None or p["board"] == board]
+    if not ps:
+        return ""
+    return ("\n进行中的项目（以这里的开始日为准；计划改过的话，对话里早先说的「明天开始」之类作废）：\n"
+            + "\n".join("- " + project_status(p, day) for p in ps))
+
+
 def weekly_review_note(tools, board: str, day: date) -> str:
     """周日的每日整理里加一段：每个进行中的项目做一次周复盘。"""
     if day.isoweekday() != 7:
@@ -128,4 +151,5 @@ def weekly_review_note(tools, board: str, day: date) -> str:
     return ("\n5. 今天是周日，做周复盘：" + names + "。每个项目先跑 ./pivis-health project-stats --id <id> --days 7"
             "（睡眠类再跑 ./pivis-health sleep-week），按 habit-coach / 对应专业 skill 的复盘规则判断要不要调整；"
             "要调整就加一张 kind=proposal 的待办「本周复盘」，把数据和建议写清楚、给 2–3 个选项，老大选了再 project-set。"
-            "学到的规律用 context-record --scope learn.<主题> 记下。")
+            "学到的规律用 context-record --scope learn.<主题> 记下。"
+            "说某个项目哪天开始、第几天，只按这条消息里「进行中的项目」的状态说。")

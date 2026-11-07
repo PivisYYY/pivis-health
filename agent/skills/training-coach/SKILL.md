@@ -29,7 +29,7 @@ description: "运动教练：网球、力量、跑步、灵活性。按工具里
 
 ### 2. 单次活动（老大说今天要打球、跑步）
 照 AGENTS 第 4 节「常见流程」：一句回应加一个必要提醒（来自第 1 步）→ question 卡问几点开始、多久 → plan 卡 → 写热身卡和练完记录卡 → receipt。
-热身步骤按项目从 sessions.md 第 1 节挑，不要每次都写网球的。
+热身步骤按项目从 sessions.md 第 1 节挑，不要每次都写网球的。老大打网球：专项力量（肩袖、前臂离心、抗旋、侧向移动）的动作库和 8 / 20 / 25 分钟三种跟做见 `references/tennis.md`。
 
 ### 3. 长期计划（项目）
 1. 先 `context-list --scope sport.preference` 看项目、频率、时间、伤病。缺的用 question 卡补。

@@ -113,3 +113,19 @@ def test_known_facts_without_rule_still_render():
          "payload": {"cbti_ok": True, "flags": ["晚上胸口闷"], "advised": "11-06 心内科"}}])
     assert "在试：每天 15:30 慢呼吸 5 分钟（learn.exp" in block and "旧实验" not in block
     assert "晚上胸口闷；11-06 心内科（profile.safety" in block
+
+
+def test_projects_truth_uses_current_start(tmp_path):
+    cfg = _cfg(tmp_path)
+    st = TodoStore(cfg)
+    now = datetime(2026, 11, 7, 8, 0)
+    st.project_set({"id": "tennis", "name": "网球力量", "board": "sport", "start": "2026-11-16", "days": 28,
+                    "daily": [{"key": "a", "when": "20:00", "title": "全身力量 A", "kind": "done"}]}, now.date(), now)
+    st.project_set({"id": "wind", "name": "睡前放松", "board": "sleep", "start": "2026-11-05", "days": 14,
+                    "daily": [{"key": "b", "when": "22:30", "title": "关灯", "kind": "done"}]}, now.date(), now)
+    tools = SimpleNamespace(cfg=cfg)
+    text = coach.projects_truth(tools, date(2026, 11, 9))
+    assert "网球力量（tennis）：2026-11-16 开始，7 天后，今天还没开始" in text
+    assert "睡前放松（wind）：第 5 天 / 共 14 天" in text
+    assert "明天，今天还没开始" in coach.projects_truth(tools, date(2026, 11, 15), "sport")
+    assert coach.projects_truth(tools, date(2026, 11, 9), "stress") == ""

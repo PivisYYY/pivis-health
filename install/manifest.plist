@@ -19,7 +19,7 @@
 				<key>bundle-identifier</key>
 				<string>com.pivis.health</string>
 				<key>bundle-version</key>
-				<string>32</string>
+				<string>42</string>
 				<key>kind</key>
 				<string>software</string>
 				<key>title</key>

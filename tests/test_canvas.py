@@ -107,3 +107,17 @@ def test_columns_resolve_sleep_marks_need_and_steps_goal():
     st = canvas._columns("steps", 7, date(2026, 11, 5), vz)
     assert st["ref"] == 8000 and [i["on"] for i in st["items"]] == [True, False]
     assert st["caption"] == "前 1 天 1 天走够 · 今天还在走"
+
+
+def test_resolve_survives_unexpected_errors(monkeypatch):
+    """读库失败（sqlite OperationalError）这类意外只影响那一格，整张卡不挂（封版测试发现主卡整张变空）。"""
+    import sqlite3
+    from pivis_health import viz
+
+    def boom(tools, spec, day=None, now=None):
+        raise sqlite3.OperationalError("unable to open database file")
+    monkeypatch.setattr(viz, "build", boom)
+    lay = canvas.validate({"t": "v", "children": [{"t": "text", "text": "近 7 晚"}, {"t": "value", "bind": "sleep"}]})
+    out = canvas.resolve(FakeTools(), lay)
+    assert out["children"][0]["text"] == "近 7 晚"
+    assert out["children"][1]["t"] == "text" and "读不到" in out["children"][1]["text"]

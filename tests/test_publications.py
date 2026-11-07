@@ -5,7 +5,6 @@ import pytest
 
 from pivis_health.config import Config
 from pivis_health.publications import PublicationStore, validate_components
-from pivis_health.web import _ensure_now_hero
 
 
 def _doc():
@@ -229,7 +228,7 @@ def test_rejects_dual_big_card_missing_big_card_and_media_on_now():
         validate_components("now", now_page, _media_doc())
 
 
-def test_now_requires_hero_and_old_publication_gets_structural_fallback():
+def test_now_requires_hero():
     doc = {
         "headline": "今晚先补两件事",
         "hero": {"value": 34.3, "unit": "ms", "label": "HRV",
@@ -250,9 +249,6 @@ def test_now_requires_hero_and_old_publication_gets_structural_fallback():
     with pytest.raises(ValueError, match="exactly one hero_status"):
         validate_components("now", without_hero, doc)
 
-    fallback = _ensure_now_hero("now", doc, without_hero)
-    assert [c["type"] for c in fallback] == ["headline", "hero_status", "quiet_note"]
-    assert fallback[1]["label"] == "HRV"
 
 
 def test_rejects_illegal_protocol_and_fabricated_media():

@@ -298,6 +298,61 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
     }
 
 
+_LAYOUT_SHELL = ("v", "h", "text", "spacer", "rule")
+
+
+def _layout_sig(node: Any) -> list[tuple]:
+    """零件树里「画什么数据」的部分：零件类型 + bind / metric / days / kind，按顺序。文字、间距不算。"""
+    if not isinstance(node, dict):
+        return []
+    out = []
+    if node.get("t") not in _LAYOUT_SHELL:
+        out.append(tuple(str(node.get(k) or "") for k in ("t", "bind", "metric", "days", "kind")))
+    for k in node.get("children") or []:
+        out += _layout_sig(k)
+    return out
+
+
+def page_pref(cfg, page: str) -> dict | None:
+    """老大在对话里确认过的这一页主卡（pref.page.<page> 里带 layout 的那条）。"""
+    from . import prefs
+    for e in prefs.active_prefs(cfg):
+        p = e.get("payload") or {}
+        if e.get("scope") == f"pref.page.{page}" and isinstance(p.get("layout"), (dict, list)):
+            return p
+    return None
+
+
+def _evidence_pool(facts_: dict) -> list[float]:
+    pool = _numbers(facts_)
+    return pool + [abs(p) for p in pool if p < 0]
+
+
+def enforce_page_pref(page: str, doc: dict, pref: dict | None, facts_: dict, final: bool) -> dict:
+    """老大确认过的主卡样子必须照做：零件和 bind 一样才算（文字可以微调）。
+    不一样：还能重排就退回（ValueError，原因发回编排）；最后一次直接换成确认过的零件树。"""
+    if not pref:
+        return doc
+    from . import canvas
+    try:
+        want = canvas.validate(pref["layout"], "hero", _evidence_pool(facts_), _has_number)
+    except canvas.CanvasError:
+        return doc          # 偏好里的零件树本身过不了（比如手写的数现在对不上了）：没法强制，照编排的来
+    hero = doc.get("hero") or {}
+    if hero.get("layout") and _layout_sig(hero["layout"]) == _layout_sig(want):
+        return doc
+    if not final:
+        raise ValueError("老大确认过这一页主卡的样子（上面给的零件树），hero.layout 必须照它排：零件、bind、metric、days 都别改，"
+                         "只能微调文字；label 和结论也要讲这张图说的事")
+    from . import viz as vizmod
+    metric = next((s[2] or s[1] for s in _layout_sig(want) if s[1] or s[2]), "")
+    label = str(pref.get("label") or (vizmod.METRICS.get(metric) or {}).get("label") or hero.get("label") or "")
+    hero = {**hero, "layout": want, "value": "", "unit": "", "viz": None, "fields": [], "table": None, "label": label}
+    if page in BOARDS:
+        hero["board"] = page
+    return {**doc, "hero": hero, "pref_forced": True}
+
+
 def _layout_bound_numbers(node: dict) -> list[str]:
     """layout 里手写的数字（用来检查结论有没有重复主卡的数）。"""
     out: list[str] = []
@@ -399,12 +454,11 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
     active = prefs.active_prefs(tools.cfg)
     rules = [str((e.get("payload") or {}).get("rule") or "") for e in active]
     pref_text = ("\n老大定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules if r)) if any(rules) else ""
-    # 老大在对话里确认过的主卡样子：照这个零件树排（bind 的数会现算成最新的）
-    for e in active:
-        lay = (e.get("payload") or {}).get("layout")
-        if e.get("scope") == f"pref.page.{page}" and lay:
-            pref_text += ("\n老大确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
-                          + json.dumps(lay, ensure_ascii=False))
+    # 老大在对话里确认过的主卡样子：照这个零件树排（bind 的数会现算成最新的）；发布前代码还会再核对一遍
+    confirmed = page_pref(tools.cfg, page)
+    if confirmed:
+        pref_text += ("\n老大确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
+                      + json.dumps(confirmed["layout"], ensure_ascii=False))
     prompt = ("你是 P-Health 的页面编排，不是聊天。根据真实证据为「" + {"now": "此刻", "sleep": "休息", "sport": "运动",
               "stress": "压力"}[page] + "」页写主卡和结论。\n" + SCHEMA + pref_text + "\n证据：\n"
               + json.dumps(evidence, ensure_ascii=False, default=str))
@@ -421,6 +475,7 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
             continue
         try:
             doc = validate_page(page, _parse_json(_new_assistant_text(new)), evidence["facts"])
+            doc = enforce_page_pref(page, doc, confirmed, evidence["facts"], final=tries >= 2)
             doc.update({"published_at": tools._now().isoformat(timespec="seconds"), "session": session,
                         "producer": "P-Health Agent"})
             return V3PageStore(tools.cfg).save(page, doc)
@@ -523,14 +578,17 @@ def page_doc(tools, page: str) -> dict:
     # 项目里的卡带上「上次」：跟做卡显示上次的评价，数值卡先填上次的数
     pending = [{**t, "last": store.last_record(t)} if t.get("project") else t for t in pending]
     done = [t for t in todos if t["status"] in ("done", "skipped")] + carry
-    hidden = 0
+    more: list[dict] = []
     if page == "now" and len(pending) > 3:
-        keep = [t for t in pending if t["status"] == "processing"]
-        rest = [t for t in pending if t["status"] != "processing"]
-        hidden = len(pending) - max(3, len(keep))
-        pending = (keep + rest)[:max(3, len(keep))]
+        # 先排再截：等拍板的和最早到点的在前（日常卡没有自己的页，截错了就哪儿都看不到）。
+        # 截下来的放 more，App 显示「另有 N 件」点开，提醒也照排
         from .todos import sort_key
-        pending.sort(key=sort_key)
+        keep = sorted((t for t in pending if t["status"] == "processing"), key=sort_key)
+        rest = sorted((t for t in pending if t["status"] != "processing"), key=sort_key)
+        n = max(3, len(keep))
+        head, more = (keep + rest)[:n], (keep + rest)[n:]
+        pending = sorted(head, key=sort_key)
+    hidden = len(more)
     hero = (pub or {}).get("hero") or {"level": "nodata", "board": page if page in BOARDS else "sleep",
                                        "label": "还没有判断", "value": "", "unit": "",
                                        "note": "P-Health 下一次更新时生成", "others": []}
@@ -547,7 +605,9 @@ def page_doc(tools, page: str) -> dict:
             hero = {**hero, "layout": canvas.resolve(tools, hero["layout"], day, now,
                                                      hero.get("board") or (page if page in BOARDS else None))}
         except Exception:  # noqa: BLE001
-            hero = {**hero, "layout": None}
+            # 整张图都算不出来：别静默丢掉（App 上会只剩标题），换成一行说明
+            hero = {**hero, "layout": {"t": "v", "gap": 12, "align": "leading", "children": [
+                {"t": "text", "text": "数据暂时读不到，P-Health 会自动恢复；先按昨天的安排来", "role": "body", "tone": 2}]}}
     board = hero.get("board") or (page if page in BOARDS else None)
     proj = store.project_for_board(board, day) if board else None
     handling = None
@@ -561,7 +621,7 @@ def page_doc(tools, page: str) -> dict:
         "headline": (pub or {}).get("headline") or {"text": ""},
         "hero": {**hero, "level_label": LEVEL_LABEL.get(hero.get("level"), ""), "board_label": BOARD_LABEL.get(board, ""),
                  "handling": handling},
-        "todos": pending, "done": done, "hidden": hidden,
+        "todos": pending, "more": more, "done": done, "hidden": hidden,
         "details": (pub or {}).get("details") or [],
         "notices": (pub or {}).get("notices") or [],
         "projects": [{"id": p["id"], "name": p["name"], "board": p["board"], "rules": p.get("rules"),
@@ -720,13 +780,95 @@ def sync_status(tools) -> dict:
             "now": tools._now().isoformat(timespec="seconds")}
 
 
+BOARD_LABELS = {"sleep": "休息", "sport": "运动", "stress": "压力", "life": "日常"}
+
+
+def _abs_time(day_iso: str, hhmm: str, tz) -> str | None:
+    """待办的绝对时间：00:00–05:59 的算当晚（第二天凌晨）。小组件按它排时间线。"""
+    if not hhmm:
+        return None
+    try:
+        d = date.fromisoformat(day_iso)
+        h, m = (int(x) for x in hhmm.split(":"))
+    except ValueError:
+        return None
+    at = datetime(d.year, d.month, d.day, h, m, tzinfo=tz)
+    if h < 6:
+        at += timedelta(days=1)
+    return at.isoformat(timespec="minutes")
+
+
+def widget_doc(tools) -> dict:
+    """小组件用的一小份数据：此刻主卡、今天还没做的待办（带绝对时间）、上床时间、近 7 晚。"""
+    from . import viz as vizmod
+    from .todos import sort_key
+    now = tools._now()
+    day = now.date()
+    tz = now.tzinfo
+    page = page_doc(tools, "now")
+    hero = page.get("hero") or {}
+    store = TodoStore(tools.cfg)
+    today = store.for_date(day, None)
+    pending = sorted((t for t in today if t["status"] in PENDING), key=sort_key)
+    todos = [{
+        "id": t["id"], "when": t["when"], "at": _abs_time(t["date"], t["when"], tz),
+        "title": t["title"], "note": t.get("note") or "", "board": t["board"],
+        "board_label": BOARD_LABELS.get(t["board"], ""), "kind": t["kind"], "status": t["status"],
+        "auto": bool(t.get("auto")),        # 设备自动记的（上床）：小组件上写「自动记」，不让手点
+        # 小组件上能直接打勾的：只要知道做没做的（跟做、填写、计时这些要进 App）
+        "check": t["kind"] == "done" and not t.get("auto") and t["status"] != "processing",
+    } for t in pending]
+    bed = next((t for t in today if t.get("auto") == "bedtime"), None)
+    nights = []
+    try:
+        nights = vizmod._sleep_nights(tools, day)[-7:]
+    except Exception:  # noqa: BLE001
+        nights = []
+    sleep = {"nights": [{"date": n["date"], "hours": round(float(n["actual"]), 1),
+                         "need": round(float(n["need"]), 1) if n.get("need") is not None else None}
+                        for n in nights]}
+    if nights:
+        last = nights[-1]
+        sleep["last"] = round(float(last["actual"]), 1)
+        if last.get("need") is not None:
+            sleep["need"] = round(float(last["need"]), 1)
+            sleep["short"] = round(max(0.0, float(last["need"]) - float(last["actual"])), 1)
+    return {
+        "now": now.isoformat(timespec="minutes"), "date": day.isoformat(),
+        "hero": {"label": hero.get("label") or "", "value": str(hero.get("value") or ""),
+                 "unit": hero.get("unit") or "", "level": hero.get("level") or "",
+                 "board_label": BOARD_LABELS.get(hero.get("board") or "", ""),
+                 "note": (page.get("headline") or {}).get("text") or hero.get("note") or ""},
+        "todos": todos[:8], "count": len(todos),
+        "bed": {"title": bed["title"], "when": bed["when"], "at": _abs_time(bed["date"], bed["when"], tz)} if bed and bed["when"] else None,
+        "sleep": sleep,
+    }
+
+
+def _client_now(server_now: datetime, client_at) -> datetime:
+    """老大点下去的那一刻（App 断网时先记在本地，连上再发）。只认最近 36 小时内、不超前 5 分钟的时间，
+    否则（包括模拟回放的假时钟）用服务器时间。"""
+    if not client_at:
+        return server_now
+    try:
+        t = datetime.fromisoformat(str(client_at).replace("Z", "+00:00"))
+    except ValueError:
+        return server_now
+    if t.tzinfo is None or server_now.tzinfo is None:
+        return server_now
+    t = t.astimezone(server_now.tzinfo)
+    if timedelta(minutes=-5) <= server_now - t <= timedelta(hours=36):
+        return t
+    return server_now
+
+
 def submit(tools, todo_id: str, body: dict) -> dict:
     from . import dsh_chat
     store = TodoStore(tools.cfg)
     action = body.get("action") or "done"
     values = body.get("values") or {}
     text = (body.get("text") or "").strip()
-    now = tools._now()
+    now = _client_now(tools._now(), body.get("client_at"))
     photos = (tools.cfg.data_dir / "photos").resolve()
     cur = store.get(todo_id) or {}
     for inp in cur.get("inputs") or []:
@@ -734,7 +876,7 @@ def submit(tools, todo_id: str, body: dict) -> dict:
             p = Path(str(values[inp["id"]])).resolve()
             if photos not in p.parents or not p.is_file():
                 raise ValueError("照片路径无效")
-    t = store.user_submit(todo_id, action, values, text, body.get("summary"), now)
+    t = store.user_submit(todo_id, action, values, text, body.get("summary"), now, op_id=body.get("op_id"))
     if action == "agent":
         msg = _agent_message(t, values, text)
         context = CONTEXT_OF_BOARD.get(t["board"], "")
@@ -778,40 +920,52 @@ def submit(tools, todo_id: str, body: dict) -> dict:
 REVIEW_PREFIX = "【每日整理】"
 
 
-def _review_message(board: str, now: datetime) -> str:
-    label = BOARD_LABEL[board]
-    return (f"{REVIEW_PREFIX}{now.date().isoformat()} {now.strftime('%H:%M')}｜{label}\n"
-            f"这是系统每天早上的例行整理，老大不会看到这条。请：\n"
-            f"1. 运行 ./pivis-health facts、./pivis-health project-list、./pivis-health todo-list --board {board}，"
-            f"再看昨天做了什么、跳过了什么：./pivis-health todo-list --board {board} --date {(now.date() - timedelta(days=1)).isoformat()}\n"
-            "2. 昨天跳过的不要补到今天（不叠加），记在心里就行。判断今天要不要额外加待办。项目的每日待办系统已自动生成，不要重复。最多 2 件，没必要就不加。"
-            "需要老大拍板的用 kind=proposal（2–3 个选项，submit 用 agent），简单的用 done。\n"
-            "3. 红线照旧：数字只用 facts；不诊断；老大对同类事说过「算了」的今天不再提；"
-            "午睡不超过 20 分钟、15:00 前结束；"
-            "压力板块：HRV 个人范围没学满时，用 hrv_trend、resting_hr、resp_rate、recovery_pct 自己和自己比，有明确的压力信号才加减压待办。\n"
-            "4. 加完只回一句话，例如「今天加了：补觉提议」或「今天不加」，不要长文和卡片。")
+RECOMMEND_PREFIX = "【每日推荐】"
+SLOTS = {"morning": ("早上", "起床"), "noon": ("午后", "午休结束"), "evening": ("傍晚", "下班回家")}
 
 
-def daily_review(tools, boards: list[str] | None = None, force: bool = False) -> dict:
+def slot_for(now: datetime) -> str:
+    """按钟点判断现在是哪一档：11 点前早上，16 点前午后，其余傍晚。"""
+    return "morning" if now.hour < 11 else ("noon" if now.hour < 16 else "evening")
+
+
+def _recommend_message(slot: str, now: datetime) -> str:
+    name, scene = SLOTS[slot]
+    return (f"{RECOMMEND_PREFIX}{now.date().isoformat()} {now.strftime('%H:%M')}｜{name}\n"
+            f"系统的定时推荐，老大看不到这条。现在是{name}（老大{scene}的时候）。"
+            f"按 daily-recommend skill 里「{name}」那一节做：看数据和今天已有的待办，主动给老大推荐 1–2 件现在最合适的事，"
+            "用待办卡写进对应板块（要占时间或改计划的用 proposal，几分钟的小事直接给跟做卡）；不要和项目里已有的重复。"
+            "做完只回一句话，例如「早上推荐了：晨光散步、网球前臂离心」。")
+
+
+def daily_review(tools, boards: list[str] | None = None, force: bool = False, slot: str | None = None) -> dict:
+    """每天三次（早上 8 点起床、午后 1 点午休结束、傍晚 6 点下班回家）的场景推荐：
+    发给主对话里的 P-Health，由它通盘看三个板块，在合适的板块加 1–2 张卡。每档每天只发一次。
+    周日早上那次顺带做每个进行中项目的周复盘。boards 参数保留给旧调用，已不分板块。"""
     from . import dsh_chat
+    from .coach import weekly_review_note
     now = tools._now()
+    slot = slot or slot_for(now)
+    if slot not in SLOTS:
+        raise ValueError(f"slot 只能是 {tuple(SLOTS)}")
     state_path = tools.cfg.data_dir / "daily_review.json"
     try:
         state = json.loads(state_path.read_text())
     except (OSError, ValueError):
         state = {}
-    out = {}
-    for b in boards or list(PAGE_BOARDS):
-        key = f"{b}:{now.date().isoformat()}"
-        if state.get(key) and not force:
-            out[b] = "already"
-            continue
-        try:
-            from .coach import weekly_review_note
-            dsh_chat.send_message(_review_message(b, now) + weekly_review_note(tools, b, now.date()), CONTEXT_OF_BOARD[b])
-            state[key] = now.isoformat(timespec="minutes")
-            out[b] = "sent"
-        except Exception as exc:  # noqa: BLE001
-            out[b] = f"error: {exc}"
+    key = f"main:{now.date().isoformat()}:{slot}"
+    if state.get(key) and not force:
+        return {"slot": slot, "status": "already"}
+    msg = _recommend_message(slot, now)
+    from .coach import projects_truth
+    msg += projects_truth(tools, now.date())
+    if slot == "morning":
+        msg += "".join(weekly_review_note(tools, b, now.date()) for b in PAGE_BOARDS)
+    try:
+        dsh_chat.send_message(msg, "")
+        state[key] = now.isoformat(timespec="minutes")
+        out = {"slot": slot, "status": "sent"}
+    except Exception as exc:  # noqa: BLE001
+        out = {"slot": slot, "status": f"error: {exc}"}
     state_path.write_text(json.dumps(state, ensure_ascii=False, indent=1))
     return out

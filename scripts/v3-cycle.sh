@@ -1,8 +1,14 @@
 #!/bin/sh
-# v3 定时节拍：每天第一次先让各板块 P-Health 做「每日整理」（每板块每天只发一次），再重排四个页面的结论和主卡。
-# 由 launchd（com.pivis.health-composer）在 09:35 / 12:30 / 17:30 / 21:30 调用。
+# v3 定时节拍（launchd com.pivis.health-composer，每个整点唤醒一次）。
+# 只在老大所在时区（config 里的 timezone，北京）的 8 点、13 点、18 点干活：本机时区和夏令时怎么变都不会错。
+# 先让 P-Health 按场景主动推荐 1–2 件事（每档每天只发一次），再重排四个页面的结论和主卡。
 cd "$(dirname "$0")/.." || exit 1
 export PYTHONPATH="$PWD"
+H=$(/usr/bin/python3 -c "from datetime import datetime; from zoneinfo import ZoneInfo; from pivis_health.config import load_config; print(datetime.now(ZoneInfo(load_config().timezone)).strftime('%H'))")
+case "$H" in
+  08|13|18) ;;
+  *) exit 0 ;;
+esac
 /usr/bin/python3 -m pivis_health.cli daily-review
-sleep 120   # 给各板块一点时间加待办，再编排页面
+sleep 150   # 给 P-Health 一点时间加待办，再编排页面
 /usr/bin/python3 -m pivis_health.cli publish-v3 all

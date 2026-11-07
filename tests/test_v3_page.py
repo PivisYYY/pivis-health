@@ -49,3 +49,45 @@ def test_fields_and_table_together_rejected_and_negative_change_matches():
               "hero": {"level": "watch", "board": "stress", "label": "HRV 近 3 天", "value": "32.7", "unit": "ms",
                        "fields": [{"label": "之前", "value": "39.6", "unit": "ms"}, {"label": "下降", "value": "17", "unit": "%"}]}}
     assert validate_page("stress", stress, FACTS)["hero"]["level"] == "watch"
+
+
+# ---- 老大确认过的主卡样子（pref.page.<page>.layout）：发布前代码核对
+from pivis_health.v3 import enforce_page_pref  # noqa: E402
+
+SPORT_PREF = {"rule": "运动页主卡用竖柱看步数",
+              "layout": {"t": "v", "gap": 12, "children": [{"t": "value", "bind": "steps", "size": "l"},
+                                                           {"t": "columns", "metric": "steps", "days": 7, "height": "s"}]}}
+
+
+def _sport(layout=None, viz=None):
+    hero = {"level": "watch", "board": "sport", "label": "恢复", "value": "", "unit": "", "viz": viz,
+            "fields": [], "table": None, "layout": layout}
+    return {"headline": {"text": "今天多走走"}, "hero": hero}
+
+
+def test_page_pref_matching_layout_passes_with_text_tweaks():
+    tweaked = {"t": "v", "gap": 8, "children": [{"t": "text", "text": "今天走了", "role": "caption"},
+                                                {"t": "value", "bind": "steps", "size": "l"},
+                                                {"t": "columns", "metric": "steps", "days": 7, "height": "m"}]}
+    doc = _sport(layout=tweaked)
+    assert enforce_page_pref("sport", doc, SPORT_PREF, FACTS, final=False) is doc
+
+
+def test_page_pref_mismatch_retries_then_forces_confirmed_layout():
+    gauge = _sport(viz={"metric": "recovery", "kind": "gauge"})
+    with pytest.raises(ValueError, match="确认过"):
+        enforce_page_pref("sport", gauge, SPORT_PREF, FACTS, final=False)
+    wrong_days = _sport(layout={"t": "v", "children": [{"t": "value", "bind": "steps"},
+                                                       {"t": "columns", "metric": "steps", "days": 14}]})
+    with pytest.raises(ValueError):
+        enforce_page_pref("sport", wrong_days, SPORT_PREF, FACTS, final=False)
+    forced = enforce_page_pref("sport", gauge, SPORT_PREF, FACTS, final=True)
+    h = forced["hero"]
+    assert h["viz"] is None and h["board"] == "sport" and h["label"] == "今天步数"
+    assert [k["t"] for k in h["layout"]["children"]] == ["value", "columns"]
+    assert forced["headline"] == gauge["headline"] and forced["pref_forced"] is True
+
+
+def test_no_page_pref_leaves_doc_alone():
+    doc = _sport(viz={"metric": "recovery"})
+    assert enforce_page_pref("sport", doc, None, FACTS, final=True) is doc

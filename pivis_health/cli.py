@@ -11,6 +11,24 @@ from .config import Config, load_config
 from .tools import HealthTools
 
 
+# 命令帮助：P-Health 不读源码，字段怎么写都要能在 --help 里查到
+TODO_ADD_HELP = """新增一张待办卡。常用字段（全部字段和 14 种形式见 ./pivis-health todo-forms）：
+  board   sleep / sport / stress / life（life＝日常，显示在「此刻」页；App 只有 此刻 / 休息 / 运动 / 压力 四页）
+  title   ≤14 字    when  HH:MM（到点 App 提醒，错过 15 分钟再催一次）    date  YYYY-MM-DD，默认今天
+  kind    done / options / number / fields / counter / timer / checklist / follow / proposal / confirm …
+  note    一行说明    until  提议卡必填（几点前没答就收起）
+例：./pivis-health todo-add --json '{"board":"life","when":"15:00","title":"喝一杯水","kind":"done"}'"""
+
+PROJECT_SET_HELP = """新建或修改一个项目（同 id 即修改，旧版本自动保留）。字段：
+  id / name / board / goal       board 同待办：sleep / sport / stress / life
+  start  YYYY-MM-DD（开始那天）    days  持续几天
+  rules  ["一句话规则", …]        reviews  [{"date":"YYYY-MM-DD","title":"一周复盘：…"}]
+  daily  每日待办模板：[{"key":"唯一键","when":"HH:MM","title":"…","kind":"…", 其余同 todo-add}]
+         只在某几天出现：加 "weekdays":[1,3,5]（1=周一 … 7=周日；每周重复、隔天练、周末才做都这样写）
+例：./pivis-health project-set --json '{"id":"meds","name":"每天吃药","board":"life","start":"2026-11-08","days":365,
+      "daily":[{"key":"am","when":"08:00","title":"吃药","kind":"done"},{"key":"wk","weekdays":[7],"when":"20:00","title":"本周复盘","kind":"proposal","until":"22:00"}]}'"""
+
+
 def _json(obj) -> None:
     print(json.dumps(obj, ensure_ascii=False, indent=1, default=str))
 
@@ -65,16 +83,19 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("ui-list", help="读取页面字段/表现覆盖"); sp.add_argument("--page", choices=["now", "sleep", "sport", "stress", "relax"])
     sp = sub.add_parser("ui-set", help="对话中调整既有组件，不可改结构"); sp.add_argument("--page", required=True); sp.add_argument("--component", required=True); sp.add_argument("--patch", required=True, help="JSON 字符串"); sp.add_argument("--reason", default=""); sp.add_argument("--source-session", default="unknown", help="该决定来源的 Session，默认 unknown")
     # ---- v3：生成式待办 + 项目（P-Health 在对话里直接调用）----
-    sp = sub.add_parser("todo-add", help="新增一张生成式待办卡（JSON）"); sp.add_argument("--json", required=True)
+    sp = sub.add_parser("todo-add", help="新增一张生成式待办卡（JSON）", formatter_class=argparse.RawDescriptionHelpFormatter,
+                        description=TODO_ADD_HELP); sp.add_argument("--json", required=True)
     sp = sub.add_parser("todo-update", help="修改待办（JSON 补丁）"); sp.add_argument("--id", required=True); sp.add_argument("--json", required=True)
     sp = sub.add_parser("todo-remove"); sp.add_argument("--id", required=True)
     sp = sub.add_parser("todo-list", help="列出某天待办"); sp.add_argument("--date"); sp.add_argument("--board")
-    sp = sub.add_parser("project-set", help="创建或修改项目（含每日待办模板）"); sp.add_argument("--json", required=True)
+    sp = sub.add_parser("project-set", help="创建或修改项目（含每日待办模板）", formatter_class=argparse.RawDescriptionHelpFormatter,
+                        description=PROJECT_SET_HELP); sp.add_argument("--json", required=True)
     sp = sub.add_parser("project-list")
     sp = sub.add_parser("media-library", help="可用的放松/跟练素材（只能从这里选链接）")
     sp = sub.add_parser("facts", help="v3 主卡可引用的数字"); sp.add_argument("--date")
     sp = sub.add_parser("page-v3", help="查看 v3 页面文档"); sp.add_argument("page", choices=["now", "sleep", "sport", "stress"])
-    sp = sub.add_parser("daily-review", help="每天早上让各板块 P-Health 决定要不要加待办"); sp.add_argument("--board", choices=["sleep", "sport", "stress"]); sp.add_argument("--force", action="store_true")
+    sp = sub.add_parser("daily-review", help="定时场景推荐（早上 8 点 / 午后 1 点 / 傍晚 6 点）：让 P-Health 主动推荐 1–2 件事"); sp.add_argument("--board", choices=["sleep", "sport", "stress"]); sp.add_argument("--force", action="store_true")
+    sp.add_argument("--slot", choices=["morning", "noon", "evening"], help="不写就按现在的钟点判断")
     sp = sub.add_parser("publish-v3", help="让 P-Health 重新生成 v3 页面主卡"); sp.add_argument("page", choices=["now", "sleep", "sport", "stress", "all"]); sp.add_argument("--timeout", type=int, default=420)
     sp = sub.add_parser("now", help="当前时间（模拟回放时为模拟时间）")
     sp = sub.add_parser("ui-reset"); sp.add_argument("--page", required=True); sp.add_argument("--component"); sp.add_argument("--source-session", default="unknown")
@@ -84,6 +105,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("compare", help="和老大指定的基线对比（数字由内核算）")
     sp.add_argument("--metric", required=True); sp.add_argument("--recent", type=int, default=7)
     sp.add_argument("--baseline", default="prev_week", choices=["prev_week", "personal"]); sp.add_argument("--date")
+    sp = sub.add_parser("follow", help="跟练视频：把小红书 / B 站动作视频做成跟练（先读 follow-video skill）", add_help=False)
+    sp.add_argument("follow_args", nargs=argparse.REMAINDER)
     sp = sub.add_parser("viz", help="主卡图表的数字（P-Health 定画什么，内核填数）；不带 --metric 列出每项能不能画")
     sp.add_argument("--metric"); sp.add_argument("--kind"); sp.add_argument("--days", type=int)
     sp.add_argument("--show", help="逗号分隔：band,warn,need,pace,goal,target,plan")
@@ -120,6 +143,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("canvas", help="预览 / 校验一张画布卡（主卡 layout 或对话里的 layout 卡）：返回内核现算后的样子，不合规范就报原因")
     sp.add_argument("--json", required=True, help="零件树 JSON"); sp.add_argument("--slot", default="chat", choices=["hero", "chat"])
     sp.add_argument("--board")
+    sp = sub.add_parser("card-check", help="发对话卡片前检查：--text '<整条回复>'（检查里面所有 ```phealth-ui 卡片）或 --json '<一张卡>'；也可以从标准输入读。常见笔误会给出修好的 fixed")
+    sp.add_argument("--text"); sp.add_argument("--json")
     sp = sub.add_parser("parts", help="画布零件说明书：默认每个一行（名字、中文名、什么时候用、输入示例），--name 看全文")
     sp.add_argument("--group", choices=["基础", "占比", "时间", "趋势", "进度"]); sp.add_argument("--name")
     sp = sub.add_parser("todo-forms", help="待办卡的 14 种形式：默认列出名字、用途、kind；--form 看那一种的模板 JSON")
@@ -173,6 +198,11 @@ def main(argv: list[str] | None = None) -> int:
             from .web import serve
             serve(cfg, host=args.host, port=args.port, tls_cert=args.tls_cert, tls_key=args.tls_key)
             return 0
+        if args.cmd == "follow":
+            from .follow import run_cli as follow_cli
+            out, code = follow_cli(cfg, args.follow_args)
+            _json(out)
+            return code
         if args.cmd in ("whoop-auth", "whoop-sync", "whoop-status"):
             from .whoop_sync import run_cli
             out, code = run_cli(cfg, args)
@@ -284,6 +314,24 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "media-add":
             from .coach import media_add
             _json(media_add(tools, json.loads(args.json)))
+        elif args.cmd == "card-check":
+            from . import cards
+            import sys as _sys
+            if args.json:
+                obj, err, fixed = cards.parse(args.json)
+                if obj is None:
+                    _json({"ok": False, "problems": [err]})
+                else:
+                    probs = cards.check(obj)
+                    if err:
+                        probs = [err + "，已按常见笔误修好，用 fixed 里的 JSON"] + probs
+                    _json({"ok": not probs, "problems": probs, **({"fixed": fixed} if fixed else {})})
+            else:
+                text = args.text if args.text is not None else _sys.stdin.read()
+                res = cards.check_text(text)
+                if res["count"] == 0:
+                    res["note"] = "这条回复里没有 ```phealth-ui 卡片"
+                _json(res)
         elif args.cmd == "canvas":
             from . import canvas
             lay = canvas.validate(json.loads(args.json), args.slot)
@@ -380,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
             _json(out)
         elif args.cmd == "daily-review":
             from .v3 import daily_review
-            _json(daily_review(tools, [args.board] if args.board else None, args.force))
+            _json(daily_review(tools, [args.board] if args.board else None, args.force, args.slot))
         elif args.cmd == "now":
             n = tools._now()
             _json({"now": n.isoformat(timespec="minutes"), "date": n.date().isoformat(),

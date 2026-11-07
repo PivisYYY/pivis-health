@@ -48,7 +48,13 @@ class ReadOnlyObjectiveStore:
 
     def connect(self) -> sqlite3.Connection:
         expected = self._identity()
-        con = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+        try:
+            con = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
+            con.execute("SELECT 1 FROM sqlite_master LIMIT 1")
+        except sqlite3.OperationalError:
+            # 库是 WAL 模式：旁边的 -shm 不在时（写入进程都正常关掉后 SQLite 会删掉它），只读方式打不开。
+            # 退回普通方式打开一次（会把 -shm 建回来），下面照样 query_only，不会写入
+            con = sqlite3.connect(str(self.db_path))
         if self._identity() != expected:
             con.close()
             raise ObjectiveStoreError("database identity changed during connect")

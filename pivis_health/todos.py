@@ -108,6 +108,12 @@ def _now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+# 公开网盘 / 临时文件站 / 图床：用户和博主的视频绝不能传到这些地方
+FILE_HOSTS = ("uguu.se", "catbox.moe", "litterbox", "gofile.io", "tmpfiles.org", "0x0.st", "pixeldrain", "bashupload",
+              "envs.sh", "transfer.sh", "file.io", "wetransfer", "filebin", "temp.sh", "anonfiles", "mega.nz", "dropbox",
+              "drive.google", "pan.baidu", "aliyundrive", "alipan", "lanzou", "123pan", "cowtransfer", "imgur", "sm.ms")
+
+
 def _check_url(url: str) -> None:
     if url.startswith("/media/"):
         return
@@ -125,6 +131,9 @@ def _check_url(url: str) -> None:
         raise TodoError(f"媒体链接不能用内网地址: {url}")
     if "youtube.com" in host or "youtu.be" in host:
         raise TodoError("不使用 YouTube，国内平台优先 B 站")
+    if any(h in host for h in FILE_HOSTS):
+        raise TodoError("不能用网盘 / 临时文件站 / 图床的链接（用户和博主的视频不能传到公开网站）；"
+                        "自己做的跟练视频用 follow 命令出片后给的 /media/follow/... 地址")
 
 
 def _norm_media(m: Any) -> dict | None:
@@ -505,11 +514,15 @@ class TodoStore:
 
     # ---- 用户提交 ----
     def user_submit(self, todo_id: str, action: str, values: dict | None, text: str | None,
-                    summary: str | None, now: datetime) -> dict:
+                    summary: str | None, now: datetime, op_id: str | None = None) -> dict:
         with self._locked() as data:
             t = data["todos"].get(todo_id)
             if not t:
                 raise TodoError(f"没有这条待办: {todo_id}")
+            # App 的发送队列断网后会重发：同一个 op_id 只算一次（计数不会多加、计时不会重开）
+            op_id = str(op_id or "")[:64]
+            if op_id and op_id in (t.get("ops") or []):
+                return t
             values = values or {}
             if action == "start":
                 t["status"] = "in_progress"
@@ -567,6 +580,8 @@ class TodoStore:
                 t["summary"] = summary or t["summary"]
             else:
                 raise TodoError(f"未知动作: {action}")
+            if op_id:
+                t["ops"] = (list(t.get("ops") or []) + [op_id])[-30:]
             t["updated_at"] = _now_iso()
             data["log"].append({"at": _now_iso(), "op": f"user_{action}", "id": todo_id})
             return t
