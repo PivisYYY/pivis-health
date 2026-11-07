@@ -24,12 +24,12 @@ description: "失眠的认知行为治疗（CBT-I）教练流程：开始前筛�
    - 最早上床时间 = 起床时间 − 窗口；咖啡因截止 = 最早上床 − 8 小时；睡前流程 = 最早上床 − 60 分钟；日记 = 起床 + 20 分钟。
 4. **plan 卡**：title「CBT-I · 6 周」。summary 写窗口和依据（「近 5 晚平均 6.1 小时（facts）」），items 写四个时间点，rules 写 templates.md 里的 7 条。actions：就这样 / 改一下 / 不要。
 5. 老大点「就这样」后：
-   - `./pivis-health project-set --json '<templates.md 的 JSON，时间换成第 3 步算出的>'`
+   - `./pivis-health project-set --json '<templates.md 的 JSON，时间换成第 3 步算出的>'`。睡前流程那一项只放一个 follow 出的视频；还没有视频就先不写这一项，请老大发一个睡前拉伸的博主视频，出好片再加上（templates.md 第 1 节）
    - `./pivis-health context-record --scope sleep.cbti --payload '{"rule":"每天 08:00 起床，00:30 后才上床","wake":"08:00","earliest_bed":"00:30","window_h":7.5,"week":1,"start":"<今天>","history":[]}' --source-session 休息 --reason '<原话>'`
    - 最后附 receipt 卡。
 
 ## 每天怎么跟
-系统每天会按模板出 4 张卡：日记、咖啡截止、睡前流程、上床（设备自动打勾）。周日多一张「本周睡眠复盘」。你要做的是**处理日记和破例**。
+系统每天会按模板出 4 张卡：日记、咖啡截止、睡前流程（一个练习视频，老大点对勾才算做完）、上床（设备自动打勾）。周日多一张「本周睡眠复盘」。你要做的是**处理日记和破例**。
 
 ### 收到日记的【待办提交】
 1. 对照 `sleep.cbti`（`context-list --scope sleep.cbti`）逐条检查。只比时间先后，不算时长：

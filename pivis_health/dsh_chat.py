@@ -64,6 +64,18 @@ def _photo_marker(m: re.Match) -> str:
     return f"[[photo:{Path(m.group(1)).name}]]"
 
 
+# App 带着习惯 / 待办发的消息，正文前有一行标记：【习惯 <项目 id> · <名字>】或【待办 <待办 id> · <标题>】
+_CTX = re.compile(r"^【(习惯|待办) (\S+?) · ([^】\n]*)】[ \t]*\n?")
+
+
+def split_context(text: str) -> tuple[str, dict | None]:
+    """历史里把标记拆出来：正文不带标记，context = {kind: habit|todo, id, name}（App 在气泡下写「带着：名字」）。"""
+    m = _CTX.match(text or "")
+    if not m:
+        return text, None
+    return text[m.end():], {"kind": "habit" if m.group(1) == "习惯" else "todo", "id": m.group(2), "name": m.group(3).strip()}
+
+
 class DshChatError(RuntimeError):
     pass
 
@@ -310,12 +322,16 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
                                              "The sandbox mode changed",
                                              "Sandbox mode changed")):
                         continue
-                    msgs.append({
+                    body, ctx = split_context(c["text"])
+                    msg = {
                         "role": "me",
-                        "text": _PHOTO_REF.sub(_photo_marker, c["text"]),   # 不把服务器上的照片路径给老大看，换成缩略图标记
+                        "text": _PHOTO_REF.sub(_photo_marker, body),   # 不把服务器上的照片路径给老大看，换成缩略图标记
                         "time": ts.isoformat() if ts else "",
                         "type": "user"
-                    })
+                    }
+                    if ctx:
+                        msg["context"] = ctx
+                    msgs.append(msg)
         elif t == "assistant/message":
             data = d.get("data", d)
             message = data.get("message", data)

@@ -1,69 +1,79 @@
 ---
 name: relaxation-media
 version: 1.0.0
-description: "给老大找放松和跟练素材（呼吸引导、身体扫描、白噪音或自然声、拉伸视频、正念）：先用 media-library，不够再联网搜索公开、免登录、中文的素材，给 2–3 个让老大选，选定后用 plan 卡确认，再写进待办或项目，用完打分，分低就换。老大要放松材料、说现在的素材不好用、要换一个，或要给睡前流程或减压待办配素材时使用。"
+description: "给老大找放松和练习素材（呼吸引导、身体扫描、拉伸视频、正念，以及白噪音或自然声）：练习类只用 follow 出的视频——先查已出的片，不够再联网找公开、免登录、中文的候选，给 2–3 个让老大先看，他同意了再用 follow 出片，出好片用 plan 卡确认后排进待办或项目，用完打分，分低就换；白噪音、雨声只在对话里发音频卡，不当练习。老大要放松材料、说现在的素材不好用、要换一个，或要给睡前流程或减压待办配视频时使用。"
 ---
 
 # 放松素材：先选再定
 
 ## 什么时候用
 - 老大说「找点放松的」「睡前听什么」「这个不好用，换一个」「有没有拉伸视频」。
-- 你要给 cbti 的睡前流程、stress-recovery 的减压待办、training-coach 的拉伸配素材。
-- 【每日整理】时发现昨天用了某个素材但还没打分。
+- 你要给 cbti 的睡前流程、stress-recovery 的减压待办、training-coach 的拉伸配视频。
+- 【每日整理】时发现昨天用了某个视频但还没打分。
+
+## 先分清两类
+- **练习**（呼吸引导、身体扫描、拉伸、正念、入眠练习）：只用 follow 出的视频，卡上是「这个项目 + 一个视频」（AGENTS 红线 9）。B 站、小红书链接不能直接放进待办或项目。
+- **背景声**（白噪音、雨声、自然声、轻音乐）：不是练习，只在对话里发音频卡，不做成待办卡。
 
 ## 怎么做
 1. **弄清需求**（已知的不再问）：先 `./pivis-health context-list --scope pref.media` 和 `--scope learn.media`。缺什么，就用 question 卡问什么，一次最多问 2 题：
    - 类型：呼吸引导 / 身体扫描 / 白噪音或自然声 / 拉伸视频 / 轻音乐
    - 用在什么时候：睡前 / 午间 / 压力大时 / 运动后
    时长按 `references/search.md` 第 1 节的默认值，老大另有要求就听他的。
-2. **先查素材库**：`./pivis-health media-library`。挑类型和时长对得上的，去掉 `learn.media.avoid` 里的。够 2 个就跳到第 4 步。
+2. **先查已有的**：
+   - 练习类：`./pivis-health follow session list`（已出的练习视频，看 title、duration_min、video）。挑类型和时长对得上的，去掉 `learn.media.avoid` 里的。
+   - 背景声：`./pivis-health media-library`（`plannable:false` 的只能在对话里发）。
+   - 够 2 个就跳到第 4 步。
 3. **联网搜**（用 tool-web 的搜索和打开网页）：
-   - 搜索词和筛选标准见 `references/search.md`。只用 B 站，或网页直接能播、不用登录也不要会员的国内平台。
-   - 每个候选都要打开页面核对：标题、UP 主、时长、播放量，不要登录、不是会员或充电专属、不是多 P 合集里的后几集。核对不了的不用。
-   - 链接写成干净的 `https://www.bilibili.com/video/BVxxxxxxxxxx`（去掉 `?` 后面的参数）。
+   - 搜索词和筛选标准见 `references/search.md`。只用 B 站、小红书，或网页直接能播、不用登录也不要会员的国内平台。
+   - 每个候选都要打开页面核对：标题、UP 主或博主、时长、播放量，不要登录、不是会员或充电专属、不是多 P 合集里的后几集。核对不了的不用。
+   - 练习类要能交给 follow 出片：一个人出镜、全身入镜、镜头不乱切（见 follow-video「常见问题」）。
+   - B 站链接写成干净的 `https://www.bilibili.com/video/BVxxxxxxxxxx`（去掉 `?` 后面的参数）。
    - 不用 YouTube、内网地址、本地路径、网盘链接。
 4. **给 2–3 个选项**：一句话说明为什么挑这几个，然后：
-   - 网上找到的：每个发一张 media 卡（B 站链接 `"kind":"embed"`），title 写「<名字> · <时长> · <UP 主>」。
-   - 素材库里的（url 以 `/media/` 开头的音频）：直接发 media 卡（`"kind":"audio"`），App 会补全地址。
+   - 已出的练习视频：发 media 卡（`"kind":"video"`，url 用 video 地址）。
+   - 网上找到的：先给老大看。B 站的发 media 卡（`"kind":"embed"`），title 写「<名字> · <时长> · <UP 主>」；小红书的写名字、时长、博主。**这一步只是看，不排进计划。**
+   - 素材库里的背景声（url 以 `/media/` 开头的音频）：直接发 media 卡（`"kind":"audio"`），App 会补全地址。
    - 最后发一张 question 卡让老大选（模板见下）。
-5. **老大选了以后，发 plan 卡**：什么时间、做多久、连续几天、在流程里排第几步、怎么打分。actions：就这样 / 改一下 / 不要。
-6. **老大点「就这样」后写入**：
-   - 已有项目里的流程（比如 cbti 的 winddown）：`project-set` 同一个 id，只换那一项的 steps。
-   - 只用一次：`todo-add` 一张 kind=follow 的卡。
+5. **老大选了以后**：
+   - 选的是网上找到的练习视频：用 follow 出片（`./pivis-health follow make "<链接>" …`，做法见 follow-video），验收过了再往下走。出片做不了（没开放、视频不适合），如实说，换下一个候选。
+   - 选的是背景声：不排卡。网上找到的用 `media-add` 收进素材库；要用时在对话里发音频卡（锁屏也能接着放）。
+   - 练习视频出好了，发 plan 卡：什么时间、做多久、连续几天、在流程里排第几项、怎么打分。actions：就这样 / 改一下 / 不要。
+6. **老大点「就这样」后写入**（只放 follow 出的这一个视频）：
+   - 已有项目里的流程（比如 cbti 的 winddown）：`project-set` 同一个 id，只换那一项的视频。
+   - 只用一次：`todo-add` 一张练习视频卡（模板见下）。
    - 连续用几天、又没有项目：建一个小项目（days 7），写法照 `../cbti/references/templates.md` 第 1 节。
-   - 写进待办的 media：B 站视频用 `"kind":"video"`（跟做页会嵌入 B 站播放器），音频文件用 `"kind":"audio"`。
-   - 网上找到、老大选中的素材收进他的素材库，下次不用重搜：`./pivis-health media-add --json '{"title":"…","url":"https://www.bilibili.com/video/BV…","duration_min":15,"type":"身体扫描"}'`
    - `context-record --scope pref.media`（老大喜欢的类型、时长、来源），附 receipt 卡。
 7. **用完打分**：
    - 在 cbti 项目里：日记里已经有「昨晚的睡前放松」这一题，不另外加卡。
-   - 不在项目里：第二天【每日整理】时，如果昨天的 follow 卡是 done、还没打分，就 `todo-add` 一张打分卡（不写 when，不推送）。
+   - 不在项目里：第二天【每日整理】时，如果昨天的练习视频卡是 done、还没打分，就 `todo-add` 一张打分卡（不写 when，不推送）。
 8. **按分数换**：
    | 打分 | 动作 |
    |---|---|
-   | 「没用，换一个」或「没用」 | 当天就回到第 2 步，去掉这个素材，再给 2–3 个 |
+   | 「没用，换一个」或「没用」 | 当天就回到第 2 步，去掉这个视频，再给 2–3 个 |
    | 连续 2 次「一般」 | 问一句是类型不对还是这一个不对（question 卡），再换 |
    | 累计 3 次「有用」 | 保留，记进 `learn.media.works` |
 
 ## 规则与红线
-1. 只给 2–3 个选项，让老大选。老大没选之前不写进计划，选了以后也要等 plan 卡确认。
+1. 只给 2–3 个选项，让老大选。网上找到的，老大点头之前不出片；出好片以后也要等 plan 卡确认再写进计划。
 2. 素材只做放松，不当治疗。不选标题写着「治愈失眠」「根治焦虑」的，也不选卖课、卖产品的。
-3. 睡前素材不要选亮屏的长视频。拉伸视频安排在床外、上床前做完，躺到床上只听音频或者不听。
+3. 拉伸在床外做，上床前做完。躺到床上只听声音：练习视频和对话里的音频卡锁屏后都能接着放，老大可以锁屏听。
 4. 拉伸动作要温和：不倒立，不做高强度动作，不做需要器械的。老大有伤的部位（`sport.preference.injury`）不做对应动作。
 5. 呼吸练习出现头晕、胸闷就停，恢复自然呼吸。反复出现就按 clinical-safety 处理。
 6. 老大说「算了」：今天不再推荐素材，第二天也不追问。
+7. 白噪音、雨声不是练习：只在对话里发音频卡，不做成练习卡。
+8. 找不到合格的候选：请老大发一个他喜欢的博主视频（一天最多问一次，见 follow-video 的「还没有视频」），不写文字步骤的卡。
 
 ## 模板
 选项 question 卡：
 ```json
-{"type":"question","title":"选一个今晚试","fields":[{"id":"pick","label":"用哪个","type":"options","options":["身体扫描 · 12 分钟 · 素材库","睡前冥想引导 · 15 分钟 · B 站","雨声白噪音 · 60 分钟 · B 站","都不要，换一批"],"allow_text":true}],"submit_label":"就它"}
+{"type":"question","title":"选一个今晚试","fields":[{"id":"pick","label":"用哪个","type":"options","options":["睡前拉伸 · 10 分钟 · 已做好的视频","睡前身体扫描 · 15 分钟 · B 站","温和拉伸 · 8 分钟 · 小红书","都不要，换一批"],"allow_text":true}],"submit_label":"就它"}
 ```
-单次 follow 卡（B 站视频）：
+单次练习视频卡（url 是 follow 出片给的地址）：
 ```json
-{"board":"sleep","when":"23:30","title":"睡前身体扫描","kind":"follow","note":"在床外坐着做","duration_min":15,
- "steps":[{"title":"身体扫描引导","media":{"kind":"video","title":"身体扫描引导","url":"https://www.bilibili.com/video/BV1xxxxxxxxx","duration_min":15}}],
- "verbs":["start","later","skip"]}
+{"board":"sleep","when":"23:30","title":"睡前身体扫描","kind":"follow","note":"躺下只听声音，可以锁屏",
+ "media":{"kind":"video","title":"身体扫描 · 15 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":15}}
 ```
-（url 换成第 3 步核对过的真实链接。）
 打分卡：
 ```json
 {"board":"sleep","title":"昨晚的放松有用吗","kind":"options",

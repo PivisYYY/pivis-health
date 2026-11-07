@@ -4,7 +4,7 @@
 **这些是示例时间，写入前必须换成开始前第 3 步算出的时间。** `start` 用 `./pivis-health now` 的今天。`reviews` 写开始满 7 天后的每个周日。开始不满 7 天的那个周日，复盘卡照样会出，只看执行情况，不调窗口。
 
 ## 1. 项目（project-set）
-媒体 url 只能从 `./pivis-health media-library` 里选（或用 relaxation-media 选定的 B 站链接），不要照抄占位符。
+睡前流程（winddown）是「这个项目 + 一个视频」：url 只能用 follow 出片给的地址（`./pivis-health follow session list` 里的 video），不要照抄占位符，不用素材库里的音频或 B 站链接。还没有视频，就先不写 winddown 这一项，请老大发一个睡前拉伸的博主视频（一天最多问一次，见 follow-video），出好片再用同一个 id 加上。
 ```json
 {"id":"cbti","name":"CBT-I","board":"sleep","start":"2026-11-06","days":42,
  "goal":"固定起床、压缩在床时间，让睡眠变整，再慢慢加回来",
@@ -30,15 +30,15 @@
              {"id":"quality","label":"睡得怎么样","type":"scale","min":1,"max":5,"min_label":"很差","max_label":"很好","submit":"agent"},
              {"id":"relax","label":"昨晚的睡前放松","type":"options","options":["有用","一般","没用","没做"],"submit":"agent"}]},
   {"key":"caffeine","title":"16:30 后不喝咖啡","kind":"done","note":"浓茶、能量饮料也算"},
-  {"key":"winddown","when":"23:30","title":"床外拉伸 + 呼吸","kind":"follow","note":"在床外做，手机放远","duration_min":17,
-   "steps":[{"title":"床外站立拉伸","media":{"kind":"audio","title":"床外站立拉伸","url":"<media-library 里的 url>","duration_min":11}},
-            {"title":"4-7-8 呼吸","media":{"kind":"audio","title":"4-7-8 呼吸跟练","url":"<media-library 里的 url>","duration_min":6}}],
-   "verbs":["start","later","skip"]},
+  {"key":"winddown","when":"23:30","title":"床外拉伸","kind":"follow","note":"在床外做，手机放远",
+   "media":{"kind":"video","title":"睡前拉伸 · 10 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":10}},
   {"key":"bed","when":"00:30","title":"00:30 后再上床","kind":"done","auto":"bedtime","note":"困了再上床，床只用来睡"},
   {"key":"review","weekdays":[7],"title":"本周睡眠复盘","kind":"proposal","until":"22:00",
    "inputs":[{"id":"go","label":"花 3 分钟看这周的数据","type":"options","options":["现在看","明天再看"],"submit":"chat"}]}]}
 ```
 写入：`./pivis-health project-set --json '<上面的 JSON>'`。每周调窗口时用同一个 id 再 set 一次，只改 rules 里的时间，以及 caffeine、winddown、bed 三项的 title 和 when。
+- 拉伸在床外做。睡前流程只放一个视频；老大想再加呼吸或身体扫描，是另一项、另一个视频，不并进同一张卡。
+- 上床以后只听声音，不看屏幕：视频和对话里的音频卡锁屏也能接着放。白噪音、雨声在对话里发音频卡，不写进 daily。
 
 ## 2. 追问卡（每天最多一张，todo-add）
 | 破例 | title | options |
@@ -60,7 +60,7 @@
 | 没听到闹钟 | 闹钟放到床外够不着的地方，响了必须起身去关 |
 | 太困起不来 / 想多睡会 | 头两周会这样。起来先拉开窗帘、到床外坐 5 分钟。困意会让今晚更好睡，这正是要的效果 |
 | 太困了（早上床） | 困了先在床外坐着做睡前流程，到点再上床。困而不上床，今晚的睡眠会更整 |
-| 没事做 / 想早点睡着 | 列 2 件睡前能做的安静事（看纸质书、听播客），写进睡前流程 |
+| 没事做 / 想早点睡着 | 列 2 件睡前能做的安静事（看纸质书、听播客），写进项目的 rules |
 | 太冷不想动 / 怕更清醒 | 床边放一件外套；下床后只开暗光，做安静的事，困了就回去，不会越来越清醒 |
 | 没意识到 | 不看表，感觉「躺了好一会还清醒」就下床 |
 | 开会或应酬（咖啡） | 下午换成无咖啡因的饮品，开会时可以喝温水 |

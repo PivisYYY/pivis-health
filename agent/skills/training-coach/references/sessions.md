@@ -1,41 +1,44 @@
 # 训练模板
 
-## 1. 热身（开始前 8–10 分钟，kind=follow 的 steps）
-| 项目 | steps |
+每次课在卡上只是「这个项目 + 一个视频」（kind=follow，follow 出的片）。下面写的是**每次课该练什么**：用来从 `./pivis-health follow session list` 里挑合适的片，或者告诉老大该找什么样的博主视频（小红书或 B 站），也用来复盘时判断要不要换片、调秒数。**不要把它写成卡上的文字步骤。** 还没有视频的课，先请老大发博主视频，follow 出片后再排（follow-video skill 的「还没有视频」，一天最多问一次）。
+
+## 1. 热身（开始前 8–10 分钟，一个热身视频）
+| 项目 | 视频里该有的 |
 |---|---|
 | 网球 | 慢跑 + 开合跳 2 分钟 → 肩绕环 + 手臂画圈 2 分钟 → 弓步转体 2 分钟 → 侧滑步 + 交叉步 1 分钟 → 挥拍空练 2 分钟 |
 | 力量 | 快走或单车 3 分钟 → 猫牛式 + 世界上最伟大的拉伸 2 分钟 → 徒手深蹲 10 次 + 臀桥 10 次 2 分钟 → 第一个动作做 2 组轻重量 |
 | 跑步 | 快走 3 分钟 → 高抬腿 + 后踢腿 2 分钟 → 摆腿（前后、左右）2 分钟 → 慢跑 3 分钟后再提速 |
 | 灵活性 | 不用单独热身，从最轻的动作开始 |
+- 请老大找视频时，一句话说清：「打球前的动态热身，8 分钟左右，一个人出镜、全身入镜」。
 
-```json
-[{"title":"慢跑 + 开合跳","duration_min":2},{"title":"肩绕环 + 手臂画圈","duration_min":2},
- {"title":"弓步转体","duration_min":2},{"title":"侧滑步 + 交叉步","duration_min":1},{"title":"挥拍空练","duration_min":2}]
-```
-
-## 2. 放松（结束后 5–10 分钟）
-| 项目 | steps |
+## 2. 放松（结束后 5–10 分钟，一个拉伸视频）
+| 项目 | 视频里该有的 |
 |---|---|
 | 网球 | 慢走 2 分钟 → 肩后侧拉伸（每边 30 秒）→ 前臂伸肌、屈肌拉伸（每边 30 秒）→ 股四头肌、小腿拉伸（每边 30 秒） |
 | 力量 | 慢走 2 分钟 → 练过的肌群各拉 30 秒 → 4-7-8 呼吸 4 轮 |
 | 跑步 | 慢走 3 分钟 → 小腿、腘绳肌、髋屈肌拉伸（每边 30 秒） |
-有合适的拉伸视频，就按 relaxation-media 选好之后放进 steps 的 media。
+- 一张卡只放一个视频：拉伸是拉伸的片，呼吸要做就是另一张呼吸视频卡（stress-recovery）。网上找到的候选按 relaxation-media 先给老大看，他同意了再 follow 出片。
 
 ## 3. 每周结构（按 `sport.preference.freq` 选）
 | 每周能练 | 结构 |
 |---|---|
 | 1–2 次 | 全身力量 1 次 + 网球或跑步 1 次；每天 8 分钟灵活性（可选） |
 | 3–4 次 | 全身力量 2 次（A、B 交替）+ 网球或跑步 1–2 次 |
-| 5 次以上 | 力量 3 次 + 网球或跑步 2 次，周中安排一天只做灵活性 |
+| 5 次以上 | 力量 3 次（A、B、C）+ 网球或跑步 2 次，周中安排一天只做灵活性 |
 - 力量和高强度网球之间至少隔 24 小时；同一天都要做，就先打球后力量，力量减量。
 - 在用 GLP-1 类药物减重：力量每周至少 2 次。
+- 力量 A / B / C 各是一个视频、一个 daily key，用 `weekdays` 分天。
+- 跑步、打球本身是活动，不是练习：用打勾卡（「轻松跑 30 分钟」kind=done）或练完记录卡；只有热身、放松用练习视频。
 
-## 4. 力量课（全身 A / B）
-| 课 | 动作（组 × 次，最后一组还能做 2 个左右） |
+## 4. 力量课（全身 A / B / C）
+| 课 | 视频里该有的动作（组 × 次，最后一组还能做 2 个左右） |
 |---|---|
 | A | 深蹲或高脚杯深蹲 3×8–12 · 卧推或俯卧撑 3×8–12 · 划船 3×8–12 · 平板支撑 3×30–45 秒 |
 | B | 罗马尼亚硬拉 3×8–12 · 站姿推举 3×8–12 · 高位下拉或弹力带下拉 3×8–12 · 臀桥 3×12–15 · 肩外旋（弹力带）2×15 |
-- 在家没有器械：深蹲换徒手或负重背包，卧推换俯卧撑，划船换弹力带或单手哑铃。
+| C（每周 3 次力量时） | 按老大选的博主视频来；还没有就请老大发一个（一天最多问一次） |
+- 在家没有器械：深蹲换徒手或负重背包，卧推换俯卧撑，划船换弹力带或单手哑铃。找视频时按老大的器械条件（`sport.preference`）说清楚。
+- 视频可以是老大发的博主视频出片，也可以用动作库里的动作编一套（`follow lib` 看动作，`follow session create`，见 follow-video）。
+- 组 × 次用来判断视频合不合适、复盘时调量（调秒数、换动作、加组，重出片），不写到卡上。
 - 加量：每组都做到次数上限，且最后一组还能做 ≥ 2 个，下次上肢 +2.5 kg、下肢 +5 kg。
 - 新手前两周只练动作，RPE ≤ 6。
 
@@ -47,10 +50,11 @@
 | 长跑 | 每周最长的一次不超过当周总量的 30% |
 - 每周总时长最多 +10%。连续 3 周加量后，第 4 周回到第 1 周的量。
 
-## 6. 网球专项预防（每周 2 次，每次 8 分钟）
-弹力带肩外旋 2×15 → 前臂伸肌离心（哑铃慢放）2×15 → 肩胛后缩 2×15 → 侧桥每边 30 秒。
+## 6. 网球专项预防（每周 2 次，每次 8 分钟，一个视频）
+视频里该有：弹力带肩外旋 2×15 → 前臂伸肌离心（哑铃慢放）2×15 → 肩胛后缩 2×15 → 侧桥每边 30 秒。
 
 ## 7. 项目 JSON（示例：周一、周四力量，周六网球；时间按老大定的）
+url 只能填 follow 出片给的地址（`follow session list` 里的 video）。哪一课还没有视频，就先不写那一项，出好片再用同一个 id project-set 加上。
 ```json
 {"id":"strength","name":"力量 + 网球","board":"sport","start":"2026-11-09","days":28,
  "goal":"每周 2 次全身力量，配合网球，4 周后加量",
@@ -58,40 +62,29 @@
  "reviews":[{"date":"2026-11-15","title":"第 1 周复盘"},{"date":"2026-11-22","title":"第 2 周复盘"},
             {"date":"2026-11-29","title":"第 3 周复盘"},{"date":"2026-12-06","title":"第 4 周复盘：决定加量还是减量周"}],
  "daily":[
-  {"key":"str_a","weekdays":[1],"when":"19:00","title":"力量 A · 40 分钟","kind":"follow","duration_min":40,
-   "steps":[{"title":"热身：单车 + 动态拉伸","duration_min":5},
-            {"title":"高脚杯深蹲","note":"3 组 × 8–12","duration_min":8},
-            {"title":"俯卧撑或卧推","note":"3 组 × 8–12","duration_min":8},
-            {"title":"单手哑铃划船","note":"3 组 × 8–12","duration_min":8},
-            {"title":"平板支撑","note":"3 组 × 30–45 秒","duration_min":5},
-            {"title":"放松拉伸","duration_min":6}]},
-  {"key":"str_b","weekdays":[4],"when":"19:00","title":"力量 B · 40 分钟","kind":"follow","duration_min":40,
-   "steps":[{"title":"热身：单车 + 动态拉伸","duration_min":5},
-            {"title":"罗马尼亚硬拉","note":"3 组 × 8–12","duration_min":8},
-            {"title":"站姿推举","note":"3 组 × 8–12","duration_min":8},
-            {"title":"弹力带下拉","note":"3 组 × 8–12","duration_min":8},
-            {"title":"臀桥 + 肩外旋","note":"各 2–3 组","duration_min":5},
-            {"title":"放松拉伸","duration_min":6}]},
+  {"key":"str_a","weekdays":[1],"when":"19:00","title":"力量 A","kind":"follow",
+   "media":{"kind":"video","title":"力量 A · 全身 · 20 分钟","url":"/media/follow/<力量 A 的 ssid>/out.mp4","duration_min":20}},
+  {"key":"str_b","weekdays":[4],"when":"19:00","title":"力量 B","kind":"follow",
+   "media":{"kind":"video","title":"力量 B · 全身 · 20 分钟","url":"/media/follow/<力量 B 的 ssid>/out.mp4","duration_min":20}},
   {"key":"str_log","weekdays":[1,4],"title":"练完记一下","kind":"fields","submit_label":"记好了",
    "inputs":[{"id":"rpe","label":"整体多累","type":"scale","min":1,"max":10,"min_label":"很轻松","max_label":"极限","submit":"agent"},
              {"id":"rir","label":"最后一组还能做几个","type":"options","options":["0","1–2","3–4","5+"],"submit":"agent"},
              {"id":"done","label":"完成度","type":"options","options":["全做完","做了大半","一半以下"],"submit":"agent"},
              {"id":"body","label":"哪里不舒服","type":"multi","options":["都还好","肩","肘","腰","膝"],"submit":"agent"}]},
-  {"key":"tennis_warm","weekdays":[6],"when":"16:50","title":"打球前热身","kind":"follow","duration_min":9,
-   "steps":[{"title":"慢跑 + 开合跳","duration_min":2},{"title":"肩绕环 + 手臂画圈","duration_min":2},
-            {"title":"弓步转体","duration_min":2},{"title":"侧滑步 + 交叉步","duration_min":1},{"title":"挥拍空练","duration_min":2}]},
+  {"key":"tennis_warm","weekdays":[6],"when":"16:50","title":"打球前热身","kind":"follow",
+   "media":{"kind":"video","title":"网球热身 · 9 分钟","url":"/media/follow/<热身的 ssid>/out.mp4","duration_min":9}},
   {"key":"tennis_log","weekdays":[6],"title":"打完记一下","kind":"fields",
    "inputs":[{"id":"rpe","label":"整体多累","type":"scale","min":1,"max":10,"min_label":"很轻松","max_label":"极限","submit":"agent"},
              {"id":"body","label":"哪里不舒服","type":"multi","options":["都还好","肩","肘","腰","膝"],"submit":"agent"}]},
   {"key":"review","weekdays":[7],"title":"本周训练复盘","kind":"proposal","until":"22:00",
    "inputs":[{"id":"go","label":"花 3 分钟看这周练得怎么样","type":"options","options":["现在看","明天再看"],"submit":"chat"}]}]}
 ```
+`duration_min` 照出片结果写。每周 3 次力量就再加一项 `str_c`（力量 C 的视频），weekdays 按老大定的天。
 
 ## 8. 每天 8 分钟灵活性（可以单独做成项目，也可以并进上面的项目）
+视频里该有：猫牛式 1 分钟 → 世界上最伟大的拉伸每边 1 分钟 → 90/90 髋转换 2 分钟 → 胸椎旋转每边 1 分钟 → 深蹲停留 1 分钟。
 ```json
-{"key":"mobility","when":"21:00","title":"8 分钟灵活性","kind":"follow","duration_min":8,
- "steps":[{"title":"猫牛式","duration_min":1},{"title":"世界上最伟大的拉伸","note":"每边 1 分钟","duration_min":2},
-          {"title":"90/90 髋转换","duration_min":2},{"title":"胸椎旋转","note":"每边 1 分钟","duration_min":2},
-          {"title":"深蹲停留","duration_min":1}]}
+{"key":"mobility","when":"21:00","title":"8 分钟灵活性","kind":"follow",
+ "media":{"kind":"video","title":"灵活性 · 8 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":8}}
 ```
-如果老大同时在做 CBT-I，晚上已经有睡前流程，灵活性就不要单独再占一个提醒时间点：并进睡前流程的 steps，或者不写 when。
+如果老大同时在做 CBT-I，晚上已经有睡前流程，灵活性就不要单独再占一个提醒时间点：不写 when，或者睡前拉伸的视频本身就选带这几个动作的。

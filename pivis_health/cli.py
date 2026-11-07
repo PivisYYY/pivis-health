@@ -12,10 +12,14 @@ from .tools import HealthTools
 
 
 # 命令帮助：P-Health 不读源码，字段怎么写都要能在 --help 里查到
-TODO_ADD_HELP = """新增一张待办卡。常用字段（全部字段和 14 种形式见 ./pivis-health todo-forms）：
+TODO_ADD_HELP = """新增一张待办卡。常用字段（全部字段和 13 种形式见 ./pivis-health todo-forms）：
   board   sleep / sport / stress / life（life＝日常，显示在「此刻」页；App 只有 此刻 / 休息 / 运动 / 压力 四页）
   title   ≤14 字    when  HH:MM（到点 App 提醒，错过 15 分钟再催一次）    date  YYYY-MM-DD，默认今天
-  kind    done / options / number / fields / counter / timer / checklist / follow / proposal / confirm …
+  kind    done / options / number / fields / counter / timer / follow / proposal / confirm …
+  练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习）只用视频：kind=follow + 一个 follow 出的片
+          "media":{"kind":"video","title":"…","url":"/media/follow/<ssid>/out.mp4","duration_min":8}
+          不写文字步骤；B 站链接、音频、计时、子清单都会被拒。还没有视频：先请老大发博主视频，用 follow 出片
+  timer   只用于午睡、闭眼歇这类休息
   note    一行说明    until  提议卡必填（几点前没答就收起）
 例：./pivis-health todo-add --json '{"board":"life","when":"15:00","title":"喝一杯水","kind":"done"}'"""
 
@@ -25,6 +29,7 @@ PROJECT_SET_HELP = """新建或修改一个项目（同 id 即修改，旧版本
   rules  ["一句话规则", …]        reviews  [{"date":"YYYY-MM-DD","title":"一周复盘：…"}]
   daily  每日待办模板：[{"key":"唯一键","when":"HH:MM","title":"…","kind":"…", 其余同 todo-add}]
          只在某几天出现：加 "weekdays":[1,3,5]（1=周一 … 7=周日；每周重复、隔天练、周末才做都这样写）
+         练习类模板同 todo-add：kind=follow + 一个 follow 出的片（力量 A / B 各一个视频，用 weekdays 分天）
 例：./pivis-health project-set --json '{"id":"meds","name":"每天吃药","board":"life","start":"2026-11-08","days":365,
       "daily":[{"key":"am","when":"08:00","title":"吃药","kind":"done"},{"key":"wk","weekdays":[7],"when":"20:00","title":"本周复盘","kind":"proposal","until":"22:00"}]}'"""
 
@@ -147,7 +152,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--text"); sp.add_argument("--json")
     sp = sub.add_parser("parts", help="画布零件说明书：默认每个一行（名字、中文名、什么时候用、输入示例），--name 看全文")
     sp.add_argument("--group", choices=["基础", "占比", "时间", "趋势", "进度"]); sp.add_argument("--name")
-    sp = sub.add_parser("todo-forms", help="待办卡的 14 种形式：默认列出名字、用途、kind；--form 看那一种的模板 JSON")
+    sp = sub.add_parser("todo-forms", help="待办卡的 13 种形式：默认列出名字、用途、kind；--form 看那一种的模板 JSON")
     sp.add_argument("--form")
     sp = sub.add_parser("serve"); sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8943); sp.add_argument("--tls-cert"); sp.add_argument("--tls-key")
 

@@ -1,7 +1,7 @@
 ---
 name: stress-recovery
 version: 1.0.0
-description: "压力和恢复：只用工具里的生理信号（HRV 趋势、静息心率、呼吸频率、恢复）判断有没有生理压力信号，给有时长的呼吸练习（叹息式、箱式、4-7-8、慢呼吸）和短正念，帮老大定工作边界，知道什么时候转诊。压力板块的【每日整理】、老大说累、紧张、压力大、问 HRV 为什么低时使用。"
+description: "压力和恢复：只用工具里的生理信号（HRV 趋势、静息心率、呼吸频率、恢复）判断有没有生理压力信号，给呼吸练习（叹息式、箱式、4-7-8、慢呼吸）和短正念的练习视频（只认 follow 出的片），帮老大定工作边界，知道什么时候转诊。压力板块的【每日整理】、老大说累、紧张、压力大、问 HRV 为什么低时使用。"
 ---
 
 # 压力与恢复
@@ -11,7 +11,7 @@ description: "压力和恢复：只用工具里的生理信号（HRV 趋势、�
 - 老大说「压力好大」「心很乱」「最近好累」「HRV 怎么这么低」。
 - 训练、睡眠 skill 发现恢复持续偏低，需要减压安排时。
 
-呼吸和正念的具体做法、时长、注意事项见 `references/breathing.md`。
+呼吸和正念的具体做法、时长、注意事项见 `references/breathing.md`（用来挑视频、请老大找对的视频，不写成卡上的步骤）。
 
 ## 怎么做
 
@@ -49,8 +49,10 @@ description: "压力和恢复：只用工具里的生理信号（HRV 趋势、�
   | 都没有 | 先观察 1–2 天，不加待办 |
 
 ### 3. 呼吸和正念（给具体的，不给「放松一下」）
-- 先发 proposal 卡让老大选时间（模板见下）。选了以后写一张 follow 卡，steps 写清楚做法和时长。
-- 默认：白天紧张用**叹息式呼吸 5 分钟**；开会或比赛前用**箱式呼吸 3 分钟**；睡前用 **4-7-8 呼吸 4 轮**，或者身体扫描（素材按 relaxation-media 选）。焦虑一下子上来时用 **5-4-3-2-1 着陆**。
+- 先看 `./pivis-health follow session list` 里有没有这种呼吸的视频（follow 出的片）。
+- 有：发 proposal 卡让老大选时间（模板见下）。选了以后把这张卡改成练习视频卡，只放这一个视频。
+- 没有：不出卡，不写文字步骤，不用素材库里的音频代替。在对话里请老大发一个博主的呼吸跟练视频（一天最多问一次，见 follow-video 的「还没有视频」），出好片再排。
+- 默认：白天紧张用**叹息式呼吸 5 分钟**；开会或比赛前用**箱式呼吸 3 分钟**；睡前用 **4-7-8 呼吸 4 轮**，或者身体扫描（候选按 relaxation-media 找，老大同意后 follow 出片）。焦虑一下子上来时用 **5-4-3-2-1 着陆**。
 - 第二天按 relaxation-media 第 7 步打分：有用就保留，没用就换一种。
 
 ### 4. 工作边界（老大选一条，写进项目 rules 或一张 done 卡）
@@ -79,19 +81,17 @@ proposal（有信号时，`until` 必须写）：
 {"board":"stress","title":"今天做 5 分钟呼吸？","kind":"proposal","until":"18:00",
  "inputs":[{"id":"choice","label":"","type":"options","options":["午后做","睡前做","今天不用"],"submit":"agent"}]}
 ```
-老大选了「午后做」以后，把这张卡改成 follow（todo-update）：
+老大选了「午后做」以后，把这张卡改成练习视频卡（todo-update，视频写在 steps 里，只放一项）：
 ```json
-{"title":"叹息式呼吸 5 分钟","when":"14:30","kind":"follow","duration_min":5,"note":"呼气要比吸气长","inputs":[],
- "steps":[{"title":"坐好，肩膀放松","duration_min":0.5},
-          {"title":"鼻子吸一口，再补吸一小口","note":"然后嘴巴慢慢呼到底","duration_min":4},
-          {"title":"恢复自然呼吸，感受一下","duration_min":0.5}],
- "verbs":["start","later","skip"]}
+{"title":"叹息式呼吸 5 分钟","when":"14:30","kind":"follow","note":"呼气要比吸气长","inputs":[],
+ "steps":[{"title":"叹息式呼吸","media":{"kind":"video","title":"叹息式呼吸 · 5 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":5}}]}
 ```
-箱式呼吸（开会前）：
+箱式呼吸（开会前，todo-add）：
 ```json
-{"board":"stress","title":"箱式呼吸 3 分钟","kind":"follow","duration_min":3,"note":"吸、停、呼、停各 4 秒",
- "steps":[{"title":"吸 4 秒，停 4 秒，呼 4 秒，停 4 秒","duration_min":3}]}
+{"board":"stress","title":"箱式呼吸 3 分钟","kind":"follow","note":"吸、停、呼、停各 4 秒",
+ "media":{"kind":"video","title":"箱式呼吸 · 3 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":3}}
 ```
+url 只能是 follow 出片给的地址；没有这种呼吸的视频就不出这张卡，先请老大发视频。
 
 ## 成长
 - `stress.profile`：压力来源、老大习惯的应对方式、收工时间。

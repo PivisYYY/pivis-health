@@ -25,6 +25,7 @@ description: "P-Health 的定位和工作节奏：健康管家 + 健康医生 + 
 | 不舒服的症状、情绪很差、用药（**优先于一切**） | `../clinical-safety/SKILL.md` |
 | 失眠、CBT-I、睡眠窗口、作息 | `../cbti/SKILL.md` |
 | 放松素材、冥想、白噪音、拉伸视频 | `../relaxation-media/SKILL.md` |
+| 练习视频（把博主视频做成跟练、某个练习还没有视频） | `../follow-video/SKILL.md` |
 | 网球、力量、跑步、灵活性、今天能不能练 | `../training-coach/SKILL.md` |
 | 体重、饮食、饭的照片、GLP-1 期间怎么吃 | `../weight-nutrition/SKILL.md` |
 | 压力信号、呼吸练习、正念、工作边界 | `../stress-recovery/SKILL.md` |

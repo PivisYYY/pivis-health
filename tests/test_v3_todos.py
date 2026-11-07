@@ -9,6 +9,8 @@ from datetime import date, datetime
 
 import pytest
 
+from clips import make_clip
+
 from pivis_health.config import Config
 from pivis_health.todos import TodoError, TodoStore, normalize, sort_key
 from pivis_health import clock
@@ -18,7 +20,13 @@ D1 = date(2026, 10, 27)
 
 @pytest.fixture()
 def store(tmp_path) -> TodoStore:
+    make_clip(tmp_path, "flow", 11, "拉伸")
+    make_clip(tmp_path, "med", 10, "冥想")
     return TodoStore(replace(Config(), data_dir=tmp_path))
+
+
+FLOW = {"kind": "video", "title": "拉伸", "url": "/media/follow/flow/out.mp4", "duration_min": 11}
+MED = {"kind": "video", "title": "冥想", "url": "/media/follow/med/out.mp4", "duration_min": 10}
 
 
 def _project(**over):
@@ -26,8 +34,7 @@ def _project(**over):
          "daily": [
              {"key": "diary", "when": "08:40", "title": "记一下昨晚", "kind": "fields",
               "inputs": [{"id": "latency", "label": "多久睡着", "type": "options", "options": ["15 分内", "30+"]}]},
-             {"key": "flow", "when": "22:30", "title": "床外拉伸 + 呼吸", "kind": "follow",
-              "steps": [{"title": "拉伸", "duration_min": 11}]},
+             {"key": "flow", "when": "22:30", "title": "床外拉伸 + 呼吸", "kind": "follow", "media": FLOW},
              {"key": "bed", "when": "00:00", "title": "上床", "kind": "done", "auto": "bedtime"},
          ]}
     p.update(over)
@@ -48,9 +55,8 @@ def test_normalize_rejects_bad_board_kind_time_and_private_media():
 
 
 def test_normalize_accepts_server_media_path():
-    t = normalize({"board": "sleep", "title": "呼吸", "kind": "follow", "date": "2026-10-27",
-                   "media": {"kind": "audio", "url": "/media/sleep-audio/04.m4a", "title": "4-7-8"}})
-    assert t["media"]["url"].startswith("/media/")
+    t = normalize({"board": "sleep", "title": "呼吸", "kind": "follow", "date": "2026-10-27", "media": FLOW})
+    assert t["steps"][0]["media"]["url"].startswith("/media/follow/")
 
 
 # ---- 项目展开 ----
@@ -77,8 +83,7 @@ def test_template_change_updates_not_started_instance_only(store):
     store.user_submit(f"cbti-{d3}-diary", "done", {"latency": "30+"}, None, "多久睡着 30+",
                       datetime(2026, 10, 29, 8, 45))
     new = _project()
-    new["daily"][1] = {"key": "flow", "when": "22:30", "title": "睡前冥想", "kind": "follow",
-                       "steps": [{"title": "冥想", "duration_min": 10}]}
+    new["daily"][1] = {"key": "flow", "when": "22:30", "title": "睡前冥想", "kind": "follow", "media": MED}
     p = store.project_set(new, d3, datetime(2026, 10, 29, 22, 10))
     assert p["revision"] == 2 and len(p["history"]) == 1
     flow = store.get(f"cbti-{d3}-flow")
@@ -112,14 +117,15 @@ def test_agent_submit_goes_processing_and_agent_update_releases(store):
 
 
 def test_escalate_kept_when_agent_sets_it(store):
-    t = store.add({"board": "sleep", "title": "流程", "kind": "follow"}, D1)
+    t = store.add({"board": "sleep", "title": "流程", "kind": "follow", "media": FLOW}, D1)
     store.user_submit(t["id"], "agent", {}, "换一套", None, datetime(2026, 10, 27, 22, 0))
     u = store.update(t["id"], {"escalate": "chat"})
     assert u["escalate"] == "chat" and u["status"] == "scheduled"
 
 
-def test_later_moves_time_and_skip_marks_skipped(store):
-    t = store.add({"board": "sleep", "title": "拉伸", "kind": "follow", "when": "22:30"}, D1)
+def test_old_app_later_and_skip_still_work(store):
+    """build 42 及更早的 App 还会发「晚点」「算了」：服务器照样处理（新卡上已经没有这两个按钮）。"""
+    t = store.add({"board": "sleep", "title": "拉伸", "kind": "follow", "when": "22:30", "media": FLOW}, D1)
     s = store.user_submit(t["id"], "later", {"minutes": 10}, None, None, datetime(2026, 10, 27, 22, 31))
     assert s["when"] == "22:41"
     s = store.user_submit(t["id"], "skip", {}, "太累了", None, datetime(2026, 10, 27, 22, 50))

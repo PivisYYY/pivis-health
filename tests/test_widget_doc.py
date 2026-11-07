@@ -1,6 +1,7 @@
 """小组件数据：此刻主卡、今天没做的待办（带绝对时间、能不能直接打勾）、上床时间、近 7 晚。"""
 from __future__ import annotations
 
+from clips import make_clip
 from pivis_health import v3
 from pivis_health.todos import TodoStore
 
@@ -10,7 +11,7 @@ def test_widget_doc_shape_and_todos(tools_env):
     day = tools._now().date()
     st = TodoStore(tools.cfg)
     st.add({"id": "w1", "board": "stress", "when": "21:45", "title": "慢呼吸 5 分钟", "kind": "follow",
-            "steps": [{"title": "慢呼吸", "duration_min": 5}]}, day)
+            "media": make_clip(tools.cfg.data_dir, "breath", 5, "慢呼吸")}, day)
     st.add({"id": "w2", "board": "sleep", "when": "21:50", "title": "把明天写下来", "kind": "done", "note": "写完合上纸"}, day)
     st.add({"id": "w3", "board": "sleep", "when": "00:15", "title": "上床", "kind": "done", "auto": "bedtime"}, day)
     done = st.add({"id": "w4", "board": "sleep", "when": "08:40", "title": "记一下昨晚", "kind": "done"}, day)

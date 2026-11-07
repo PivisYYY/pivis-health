@@ -38,10 +38,9 @@ def test_timer_restart_is_ignored_for_same_op(tmp_path):
 
 def test_ops_list_is_bounded(tmp_path):
     st = _st(tmp_path)
-    t = st.add({"board": "life", "date": D.isoformat(), "title": "列清单", "kind": "checklist",
-                "items": ["一", "二", "三"]}, D)
+    t = st.add({"board": "life", "date": D.isoformat(), "title": "喝水", "kind": "counter", "target": 20, "unit": "杯"}, D)
     for i in range(40):
-        t = st.user_submit(t["id"], "check", {"index": i % 3, "on": i % 2 == 0}, None, None, NOW, op_id=f"op-{i}")
+        t = st.user_submit(t["id"], "inc", {"n": 0}, None, None, NOW, op_id=f"op-{i}")
     assert len(t["ops"]) == 30 and t["ops"][-1] == "op-39"
 
 

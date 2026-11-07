@@ -16,6 +16,7 @@ from typing import Any
 from . import content
 from .agent_context import AgentContextStore
 from .todos import BOARD_LABEL, BOARDS, PENDING, TodoError, TodoStore
+from .todos import _sort_when as _sort_when_key
 
 PAGES = ("now", "sleep", "sport", "stress")
 LEVELS = ("act", "watch", "steady")   # 「数据不足」不再做主卡：断更就换一个有数的指标
@@ -140,7 +141,8 @@ def media_library(tools=None) -> list[dict]:
     if tools is not None:
         from .coach import user_media
         lib += [{**m, "source": "老大的素材库"} for m in user_media(tools)]
-    return lib
+    # 能不能排成练习卡：只有 follow 出的片可以；其余只能在对话里发媒体卡（白噪音、雨声这类）
+    return [{**m, "plannable": str(m.get("url", "")).startswith("/media/follow/")} for m in lib]
 
 
 # ---------------------------------------------------------------- 发布存储
@@ -609,18 +611,12 @@ def page_doc(tools, page: str) -> dict:
             hero = {**hero, "layout": {"t": "v", "gap": 12, "align": "leading", "children": [
                 {"t": "text", "text": "数据暂时读不到，P-Health 会自动恢复；先按昨天的安排来", "role": "body", "tone": 2}]}}
     board = hero.get("board") or (page if page in BOARDS else None)
-    proj = store.project_for_board(board, day) if board else None
-    handling = None
-    if proj:
-        n = (day - date.fromisoformat(proj["start"])).days + 1
-        clean = re.sub(r"\s*[·・]\s*\d+\s*天$", "", proj["name"])
-        handling = {"project": proj["id"], "name": clean, "day": n, "days": proj["days"],
-                    "label": f"{clean} · 第 {n} 天 / {proj['days']}"}
     return {
         "page": page, "now": now.isoformat(timespec="minutes"), "date": day.isoformat(),
         "headline": (pub or {}).get("headline") or {"text": ""},
-        "hero": {**hero, "level_label": LEVEL_LABEL.get(hero.get("level"), ""), "board_label": BOARD_LABEL.get(board, ""),
-                 "handling": handling},
+        "hero": {**hero, "level_label": LEVEL_LABEL.get(hero.get("level"), ""), "board_label": BOARD_LABEL.get(board, "")},
+        # 主卡下面每个习惯一行（此刻页 = 所有板块）：点进去是这个板块的对话，顶部是习惯卡（GET /api/v3/habit/<id>）
+        "habits": habit_rows(store, page, day),
         "todos": pending, "more": more, "done": done, "hidden": hidden,
         "details": (pub or {}).get("details") or [],
         "notices": (pub or {}).get("notices") or [],
@@ -630,6 +626,183 @@ def page_doc(tools, page: str) -> dict:
         "publication": {k: v for k, v in (pub or {}).items() if k in ("published_at", "producer")},
         "stale": stale,
     }
+
+
+# ---------------------------------------------------------------- 坚持习惯（项目）
+WD_CN = "一二三四五六日"
+
+
+def _clean_name(name: str) -> str:
+    return re.sub(r"\s*[·・]\s*\d+\s*天$", "", name or "")
+
+
+def _tpl_on(tpl: dict, d: date) -> bool:
+    wd = tpl.get("weekdays")
+    return not wd or d.isoweekday() in wd
+
+
+def _tpl_video(tpl: dict, cfg) -> dict | None:
+    """模板里的练习视频（follow 出的片）：url、标题、时长，有封面就带上。"""
+    media = tpl.get("media") or next((s.get("media") for s in tpl.get("steps") or [] if s.get("media")), None)
+    if not media or media.get("kind") != "video" or not str(media.get("url", "")).startswith("/media/follow/"):
+        return None
+    out = {"url": media["url"], "title": media.get("title") or tpl.get("title") or "",
+           "duration_min": media.get("duration_min") or tpl.get("duration_min")}
+    from .follow import media_path
+    poster = media["url"].rsplit("/", 1)[0] + "/poster.jpg"
+    if media_path(cfg, poster) is not None:
+        out["poster"] = poster
+    return out
+
+
+def _short_label(title: str) -> str:
+    """周视图圆点里的一两个字：「全身力量 B」→ B；否则取第一个字。"""
+    last = (title or "").split()[-1] if (title or "").split() else ""
+    return last if 0 < len(last) <= 2 and last.isascii() else (title or "")[:1]
+
+
+def _when_text(d: date, today: date, when: str) -> str:
+    if d == today:
+        head = "今天"
+    elif d == today + timedelta(days=1):
+        head = "明天"
+    else:
+        mon = today - timedelta(days=today.isoweekday() - 1)
+        head = ("周" if d < mon + timedelta(days=7) else "下周") + WD_CN[d.isoweekday() - 1]
+    return f"{head} {when}".strip()
+
+
+def _project_state(p: dict, day: date) -> tuple[str, int]:
+    start = date.fromisoformat(p["start"])
+    n = (day - start).days + 1
+    if day < start:
+        return "not_started", n
+    if n > int(p.get("days") or 0):
+        return "ended", n
+    return "active", n
+
+
+def _next_text(p: dict, day: date) -> str:
+    """明天起最近一次要做的：「明天 10:00」「周六 20:00」"""
+    start = date.fromisoformat(p["start"])
+    end = start + timedelta(days=int(p.get("days") or 0))
+    for k in range(1, 15):
+        d = day + timedelta(days=k)
+        if not (start <= d < end):
+            continue
+        whens = sorted((t.get("when") or "" for t in p.get("daily") or [] if _tpl_on(t, d)), key=_sort_when_key)
+        if whens:
+            return _when_text(d, day, whens[0])
+    return ""
+
+
+def habit_rows(store: TodoStore, page: str, day: date) -> list[dict]:
+    """主卡下面的「坚持习惯」行：本板块进行中、还没结束的项目（此刻页 = 所有板块），按开始日排。"""
+    rows = []
+    todos = store.for_date(day, None)
+    for p in sorted(store.projects(active_only=True), key=lambda p: (p["start"], p["id"])):
+        if page != "now" and p["board"] != page:
+            continue
+        state, n = _project_state(p, day)
+        if state == "ended":
+            continue
+        name = _clean_name(p["name"])
+        mine = sorted((t for t in todos if t.get("project") == p["id"]), key=lambda t: _sort_when_key(t["when"]))
+        if state == "not_started":
+            right = f"{date.fromisoformat(p['start']).strftime('%m-%d')} 开始"
+        elif any(t["status"] in PENDING for t in mine):
+            nxt = next(t for t in mine if t["status"] in PENDING)
+            right = f"今天 {nxt['when']}" if nxt["when"] else "今天待做"
+        elif mine and all(t["status"] == "done" for t in mine):
+            right = "今天做完了"
+        else:
+            # 今天没有要做的（休息日），或今天的都过点了：写下一次
+            right = _next_text(p, day) or "今天休息"
+        label = f"{name} · 第 {n} 天 / {p['days']}" if state == "active" else name
+        rows.append({"id": p["id"], "name": name, "board": p["board"], "board_label": BOARD_LABEL.get(p["board"], ""),
+                     "day": n if state == "active" else 0, "days": p["days"], "state": state,
+                     "label": label, "today": right})
+    return rows
+
+
+def habit_doc(tools, project_id: str) -> dict | None:
+    """习惯卡（对话顶部）：名字、第几天、本周 7 天、每套训练（标题、哪几天、下次、时长、视频）。只读。"""
+    now = tools._now()
+    day = now.date()
+    store = TodoStore(tools.cfg)
+    store.materialize(day, now)
+    p = next((x for x in store.projects() if x["id"] == project_id), None)
+    if not p:
+        return None
+    start = date.fromisoformat(p["start"])
+    end = start + timedelta(days=int(p["days"]))          # 不含
+    state, n = _project_state(p, day)
+    tpls = list(p.get("daily") or [])
+    practice_titles = {t.get("title") for t in tpls if t.get("kind") == "follow"}
+    multi = len(practice_titles) > 1
+
+    def day_label(d: date) -> str:
+        if not multi:
+            return ""
+        t = next((t for t in tpls if t.get("kind") == "follow" and _tpl_on(t, d)), None)
+        return _short_label(t["title"]) if t else ""
+
+    mon = day - timedelta(days=day.isoweekday() - 1)
+    week = []
+    for i in range(7):
+        d = mon + timedelta(days=i)
+        on = start <= d < end and any(_tpl_on(t, d) for t in tpls)
+        mine = [t for t in store.for_date(d, None) if t.get("project") == p["id"]] if d <= day else []
+        done = [t for t in mine if t["status"] == "done"]
+        if not on:
+            st = "rest"
+        elif d < day:
+            st = "done" if mine and len(done) == len(mine) else ("part" if done else "missed")
+        elif d == day:
+            st = "done" if mine and len(done) == len(mine) else "today"
+        else:
+            st = "plan"
+        week.append({"date": d.isoformat(), "wd": WD_CN[i], "state": st, "label": day_label(d) if on else "",
+                     "today": d == day})
+
+    sessions = []
+    for tpl in tpls:
+        nxt = None
+        for k in range(0, 15):
+            d = day + timedelta(days=k)
+            if not (start <= d < end) or not _tpl_on(tpl, d):
+                continue
+            if d == day:
+                inst = store.get(f"{p['id']}-{d.isoformat()}-{tpl['key']}")
+                if inst and inst["status"] not in PENDING:
+                    continue
+            nxt = d
+            break
+        video = _tpl_video(tpl, tools.cfg)
+        dur = tpl.get("duration_min") or (video or {}).get("duration_min")
+        next_text = _when_text(nxt, day, tpl.get("when") or "") if nxt else ""
+        meta = " · ".join(x for x in (next_text, f"{dur:g} 分钟" if dur else "") if x)
+        sessions.append({"key": tpl["key"], "title": tpl.get("title") or "", "kind": tpl.get("kind") or "done",
+                         "weekdays": tpl.get("weekdays"), "when": tpl.get("when") or "",
+                         "next": next_text, "today": nxt == day, "duration_min": dur, "meta": meta, "video": video,
+                         "_d": nxt})
+    by_next = lambda s: (s["_d"] or date.max, _sort_when_key(s["when"]))  # noqa: E731
+    first = min((s for s in sessions if s["_d"]), key=by_next, default=None)
+    # 练习（有视频的）排前面，各自按下次时间
+    sessions.sort(key=lambda s: (s["video"] is None, *by_next(s)))
+    for x in sessions:
+        x.pop("_d")
+    name = _clean_name(p["name"])
+    if state == "not_started":
+        summary = f"{start.strftime('%m-%d')} 开始"
+    elif state == "ended":
+        summary = f"{p['days']} 天已结束"
+    else:
+        summary = f"第 {n} 天" + (f" · 下次 {first['next']} {first['title']}" if first else "")
+    return {"id": p["id"], "name": name, "board": p["board"], "board_label": BOARD_LABEL.get(p["board"], ""),
+            "state": state, "day": n if state == "active" else 0, "days": p["days"], "start": p["start"],
+            "status": p.get("status"), "week": week, "sessions": sessions, "summary": summary,
+            "label": f"{name} · 第 {n} 天 / {p['days']}" if state == "active" else name}
 
 
 # ---------------------------------------------------------------- 用户提交
@@ -815,6 +988,10 @@ def widget_doc(tools) -> dict:
         "title": t["title"], "note": t.get("note") or "", "board": t["board"],
         "board_label": BOARD_LABELS.get(t["board"], ""), "kind": t["kind"], "status": t["status"],
         "auto": bool(t.get("auto")),        # 设备自动记的（上床）：小组件上写「自动记」，不让手点
+        "duration_min": t.get("duration_min"),
+        # 练习（follow 出的片）：小组件、到点提醒点开直接全屏播
+        "play": t["kind"] == "follow" and any(str((st.get("media") or {}).get("url", "")).startswith("/media/follow/")
+                                              for st in t.get("steps") or []),
         # 小组件上能直接打勾的：只要知道做没做的（跟做、填写、计时这些要进 App）
         "check": t["kind"] == "done" and not t.get("auto") and t["status"] != "processing",
     } for t in pending]
@@ -934,7 +1111,8 @@ def _recommend_message(slot: str, now: datetime) -> str:
     return (f"{RECOMMEND_PREFIX}{now.date().isoformat()} {now.strftime('%H:%M')}｜{name}\n"
             f"系统的定时推荐，老大看不到这条。现在是{name}（老大{scene}的时候）。"
             f"按 daily-recommend skill 里「{name}」那一节做：看数据和今天已有的待办，主动给老大推荐 1–2 件现在最合适的事，"
-            "用待办卡写进对应板块（要占时间或改计划的用 proposal，几分钟的小事直接给跟做卡）；不要和项目里已有的重复。"
+            "用待办卡写进对应板块（要占时间或改计划的用 proposal，几分钟的小事直接给打勾卡）；不要和项目里已有的重复。"
+            "练习只推荐 follow 出过片的（follow session list 能查）；没有就请老大发一个博主视频，今天已经问过就别再问。"
             "做完只回一句话，例如「早上推荐了：晨光散步、网球前臂离心」。")
 
 

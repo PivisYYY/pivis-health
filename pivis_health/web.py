@@ -2,6 +2,7 @@
 
 - /api/v3/*            页面、待办、照片、画布、小组件、同步状态（App 的全部日常接口）
 - /media/*             跟练视频、睡眠音频（支持 Range）
+- /api/v3/habit/<id>   习惯卡（对话顶部）：本周 7 天、每套训练和它的视频
 - /api/chat、/api/chat/send   对话历史与发送（会话不存在时先建好）
 - /api/v2/apns-token、/api/v2/device-data、/api/v2/push-test   推送令牌、设备数据上报、推送自测（带密钥）
 - /api/dsh-token、/dsh  只给本机和带设备密钥的 App
@@ -125,6 +126,10 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                     return True
                 # 和跟练视频共用一套 Range：越界回 416，只读要的那一段
                 self._send_file(f, "audio/mpeg" if f.suffix == ".mp3" else "audio/mp4")
+                return True
+            if u.path.startswith("/api/v3/habit/"):
+                doc = v3mod.habit_doc(tools, unquote(u.path.rsplit("/", 1)[-1]))
+                self._json(doc if doc else {"error": "not_found"}, 200 if doc else 404)
                 return True
             if u.path.startswith("/api/v3/page/"):
                 self._json(v3mod.page_doc(tools, u.path.rsplit("/", 1)[-1]))

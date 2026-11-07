@@ -34,7 +34,7 @@ MEDIA_KINDS = ("audio", "video", "embed")
 _HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
-# 待办的 14 种形式（todo-cards skill 和 `./pivis-health todo-forms` 都从这里读，别在提示词里抄一份）
+# 待办的 13 种形式（todo-cards skill 和 `./pivis-health todo-forms` 都从这里读，别在提示词里抄一份）
 TODO_FORMS: list[dict] = [
     {"form": "check", "name": "打勾", "kind": "done", "use": "做了点一下就行的事",
      "template": {"board": "sleep", "when": "23:00", "title": "放下手机", "kind": "done", "note": "开勿扰，放远"}},
@@ -53,16 +53,14 @@ TODO_FORMS: list[dict] = [
                              {"id": "more", "label": "还想说的", "type": "text", "submit": "agent"}]}},
     {"form": "counter", "name": "计数", "kind": "counter", "use": "一天点好几次的事，点一下加一格（喝水、站起来）",
      "template": {"board": "life", "title": "喝水", "kind": "counter", "target": 6, "unit": "杯"}},
-    {"form": "timer", "name": "计时", "kind": "timer", "use": "有时长的事，开始后倒计时、到点响（午睡、冥想不跟视频时）",
+    {"form": "timer", "name": "计时", "kind": "timer", "use": "只用于午睡、闭眼歇这类休息：开始后倒计时、到点响。任何练习都不用它（练习用「练习视频」）",
      "template": {"board": "sleep", "when": "13:30", "title": "午睡 20 分钟", "kind": "timer", "duration_min": 20, "alarm": "13:50"}},
-    {"form": "follow", "name": "跟做", "kind": "follow", "use": "要跟着音频 / 视频 / 步骤做（拉伸、身体扫描）",
-     "template": {"board": "sleep", "when": "00:30", "title": "床外身体扫描", "kind": "follow", "note": "在床外做",
-                  "steps": [{"title": "坐好，肩膀放松", "duration_min": 1},
-                            {"title": "身体扫描引导", "media": {"kind": "audio", "title": "身体扫描引导", "url": "<media-library 里的 url>", "duration_min": 10}},
-                            {"title": "慢慢睁眼，困了再上床", "duration_min": 1}]}},
-    {"form": "checklist", "name": "子清单", "kind": "checklist", "use": "一件事拆成几小步，每步单独勾（睡前流程）",
-     "template": {"board": "sleep", "when": "22:40", "title": "睡前流程", "kind": "checklist",
-                  "items": ["把明天写下来", "调暗灯光", "手机放到卧室外", "温水洗个澡"]}},
+    {"form": "follow", "name": "练习视频", "kind": "follow",
+     "use": "所有练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习）：这个项目 + 一个视频（只认 follow 出的片），点开就播；老大点对勾才算做完",
+     "template": {"board": "sleep", "when": "22:40", "title": "睡前拉伸", "kind": "follow",
+                  "steps": [{"title": "睡前拉伸", "media": {"kind": "video", "title": "睡前拉伸 · 8 分钟",
+                                                            "url": "<follow 出片给的 /media/follow/<ssid>/out.mp4>",
+                                                            "duration_min": 8}}]}},
     {"form": "photo", "name": "拍照", "kind": "fields", "use": "拍饭、试纸；交上来你看图、写一句点评到 summary",
      "template": {"board": "life", "when": "19:30", "title": "晚饭拍一张", "kind": "fields",
                   "inputs": [{"id": "photo", "label": "", "type": "photo", "submit": "agent"}]}},
@@ -74,10 +72,10 @@ TODO_FORMS: list[dict] = [
                   "note": "身体扫描 3 次都跳了，理由都是太晚太困",
                   "inputs": [{"id": "fix", "label": "", "type": "options",
                               "options": ["提前到 23:10，换 6 分钟呼吸", "只换 6 分钟短版", "先不动，再跑一周"], "submit": "agent"}]}},
-    {"form": "ask", "name": "追问 + 文字", "kind": "options", "use": "破了规则后的追问：选一个原因，也能自己写一句",
+    {"form": "ask", "name": "追问", "kind": "options", "use": "破了规则后的追问：选一个原因（想多说的，老大会点卡上的图标进对话说）",
      "template": {"board": "sleep", "title": "起晚了，是什么原因", "kind": "options",
                   "inputs": [{"id": "why", "label": "", "type": "options", "options": ["没听到闹钟", "太困起不来", "想多睡会", "别的原因"],
-                              "allow_text": True, "submit": "agent"}]}},
+                              "submit": "agent"}]}},
     {"form": "auto", "name": "设备自动完成", "kind": "done", "use": "设备能识别的事（入睡），不用老大点",
      "template": {"board": "sleep", "when": "01:30", "title": "01:30 后再上床", "kind": "done", "auto": "bedtime"}},
     {"form": "confirm", "name": "确认 + 时间", "kind": "confirm", "use": "要留下完成时间的事（按医嘱用药），卡上不写剂量",
@@ -169,8 +167,7 @@ def _norm_input(i: Any, idx: int) -> dict:
         if not 2 <= len(norm) <= 6:
             raise TodoError("选项需要 2–6 个")
         out["options"] = norm
-        if i.get("allow_text"):
-            out["allow_text"] = True       # 选项下面再给一行自己写（「别的原因」）
+        # build 43 起卡上不再有「自己写一句」（allow_text 忽略）：想多说的，老大点卡上的图标带着这张卡进对话
     if typ == "scale":
         out["min"] = int(i.get("min", 1))
         out["max"] = int(i.get("max", 5))
@@ -201,6 +198,29 @@ def _norm_input(i: Any, idx: int) -> dict:
     return out
 
 
+PRACTICE_RULE = ("练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习……）一律是「这个项目 + 一个视频」："
+                 "kind=follow，steps 只放一项、带一个 video，url 是 follow 出片给的 /media/follow/<ssid>/out.mp4。"
+                 "B 站等公开链接、音频、文字步骤、计时、子清单都不能当练习；还没有视频就先请老大发一个博主视频，用 follow 命令出片")
+
+
+def check_practice(t: dict, cfg: Config | None = None) -> None:
+    """2026-11-07 起的产品约束：练习只用视频，只认 follow 出的片。只在新建 / 修改时检查，旧数据照常能读。"""
+    kind = t.get("kind")
+    if kind == "checklist":
+        raise TodoError("子清单不再用于练习。" + PRACTICE_RULE)
+    if kind != "follow":
+        return
+    steps = t.get("steps") or []
+    media = (steps[0].get("media") if len(steps) == 1 else None) or {}
+    url = str(media.get("url") or "")
+    if len(steps) != 1 or media.get("kind") != "video" or not url.startswith("/media/follow/"):
+        raise TodoError(PRACTICE_RULE)
+    if cfg is not None:
+        from .follow import media_path
+        if media_path(cfg, url) is None:
+            raise TodoError(f"这个视频还不在素材库里：{url}。先用 follow 出片，用它给的地址（follow session list 能查已出的片）")
+
+
 def normalize(t: dict, existing: dict | None = None) -> dict:
     base = dict(existing or {})
     base.update({k: v for k, v in t.items() if v is not None})
@@ -218,8 +238,9 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
     status = base.get("status") or ("proposed" if kind == "proposal" else "scheduled")
     if status not in STATUSES:
         raise TodoError(f"status 只能是 {STATUSES}")
-    verbs = base.get("verbs") or {"follow": ["start", "later", "skip"], "timer": ["start", "later", "skip"],
-                                  "done": ["done", "later", "skip"], "counter": ["skip"]}.get(kind, ["later", "skip"])
+    # 卡上只有一个主动作（build 43 起没有「晚点」「算了」：要改时间、今天不做，老大点卡上的图标进对话说）
+    verbs = base.get("verbs") or {"follow": ["start", "done"], "timer": ["start"], "done": ["done"]}.get(kind, [])
+    verbs = [v for v in verbs if v not in ("later", "skip")]   # 老卡里的「晚点」「算了」不再显示
     for v in verbs:
         if v not in VERBS:
             raise TodoError(f"verbs 只能从 {VERBS} 里选")
@@ -262,6 +283,13 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
                 "duration_min": float(s["duration_min"]) if s.get("duration_min") else None,
                 "media": _norm_media(s.get("media"))}
         out["steps"].append(step)
+    if kind == "follow" and not out["steps"] and out["media"]:
+        out["steps"] = [{"title": out["title"], "note": "", "duration_min": out["media"].get("duration_min"),
+                         "media": out["media"]}]
+        out["media"] = None
+    if kind == "follow" and out["duration_min"] is None and len(out["steps"]) == 1:
+        d = out["steps"][0].get("duration_min") or (out["steps"][0].get("media") or {}).get("duration_min")
+        out["duration_min"] = float(d) if d else None
     if out["kind"] in ("options", "scale", "number", "fields") and not out["inputs"]:
         raise TodoError(f"kind={kind} 需要 inputs")
     if kind == "counter":
@@ -322,6 +350,7 @@ class TodoStore:
         todo.setdefault("date", today.isoformat())
         with self._locked() as data:
             t = normalize(todo)
+            check_practice(t, self.cfg)
             if t["id"] in data["todos"]:
                 raise TodoError(f"id 已存在: {t['id']}")
             data["todos"][t["id"]] = t
@@ -338,7 +367,11 @@ class TodoStore:
                 patch["status"] = "proposed" if (patch.get("kind") or cur["kind"]) == "proposal" else "scheduled"
             if by == "agent" and "escalate" not in patch and patch.get("status") != "processing":
                 patch["escalate"] = None
+            if patch.get("media") and "steps" not in patch and (patch.get("kind") or cur.get("kind")) == "follow":
+                patch = {**patch, "steps": []}      # 换视频只给了 media：替换掉卡上原来的那一段，不是叠在旁边
             t = normalize(patch, cur)
+            if any(k in patch for k in ("kind", "steps", "media", "items")):
+                check_practice(t, self.cfg)
             t["id"] = todo_id
             if by == "agent" and cur.get("status") == "processing":
                 t["request"] = None
@@ -413,7 +446,10 @@ class TodoStore:
                 wd = tpl.get("weekdays")
                 if wd is not None and (not isinstance(wd, list) or not wd or any(d not in range(1, 8) for d in wd)):
                     raise TodoError("weekdays 是 1–7 的列表（1=周一，7=周日）")
-                normalize(tpl)  # 校验模板
+                norm = normalize(tpl)
+                check_practice(norm, self.cfg)  # 校验模板（练习只用视频）
+                if tpl.get("duration_min") in (None, "") and norm["duration_min"]:
+                    tpl = {**tpl, "duration_min": norm["duration_min"]}   # 时长写在视频里的，模板上也带一份（复盘、习惯卡要用）
                 daily.append(tpl)
             merged["daily"] = daily
             merged["reviews"] = merged.get("reviews") or []

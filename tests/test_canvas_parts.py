@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from clips import make_clip
 from pivis_health import canvas, canvas_parts, v3
 from pivis_health.canvas import CanvasError
 
@@ -54,7 +55,8 @@ def env(tools_env, whoop_snapshot, tmp_path):
                        "goal": "固定起床、压缩在床时间", "rules": ["每天 08:30 起床，周末也一样"],
                        "reviews": [{"date": "2026-10-25", "title": "第 1 次复盘：按效率调窗口"},
                                    {"date": "2026-11-01", "title": "第 2 次复盘"}],
-                       "daily": [{"key": "scan", "when": "00:30", "title": "床外身体扫描", "kind": "follow", "duration_min": 12},
+                       "daily": [{"key": "scan", "when": "00:30", "title": "床外身体扫描", "kind": "follow",
+                                  "media": make_clip(tools.cfg.data_dir, "scan", 12, "身体扫描")},
                                  {"key": "bed", "when": "01:30", "title": "01:30 后再上床", "kind": "done"}]}, start)
     for i in range(10):
         d = start + timedelta(days=i)
