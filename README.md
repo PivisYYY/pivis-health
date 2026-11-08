@@ -2,6 +2,10 @@
 
 **一个会盯着你的健康数据、告诉你今天该做什么、并推着你去做的私人健康管家。**
 
+[![P-Health 介绍视频（112 秒）](docs/media/phealth-promo-cover.png)](docs/media/phealth-promo.mp4)
+
+> ▶ 点上图看介绍视频（[docs/media/phealth-promo.mp4](docs/media/phealth-promo.mp4)，112 秒）。画面里的界面是对照 App 重画的，数字是演示数据；跟练画面是示意人物，不是真人素材。
+
 P-Health 由三部分组成：
 
 - **iOS App**（SwiftUI，黑白细线风格，在 [`ios/`](ios/)）：四个板块页、生成式待办、和 P-Health 对话、锁屏通知。
