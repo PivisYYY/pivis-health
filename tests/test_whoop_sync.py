@@ -260,7 +260,7 @@ def test_snapshot_schema_and_reader_roundtrip(cfg, fake):
     rec = whoop_mod.recovery_by_night(view, "Asia/Shanghai")
     last = max(rec)
     assert last.isoformat() == "2026-11-04" and rec[last]["hrv_rmssd"] == 40.0
-    assert out["latest_recovery_night"] == "2026-11-04" and out["hrv_rmssd_ms"] == 40.0
+    assert out["latest_recovery_date"] == "2026-11-05" and out["hrv_rmssd_ms"] == 40.0   # 11-04 那晚 → 11-05 早上的恢复
     assert not list(snap_path.parent.glob(".*.tmp"))  # 原子写，没有残留临时文件
 
 
@@ -323,29 +323,29 @@ def test_no_tokens_is_not_authorised(cfg, fake):
     assert fake.log == []
 
 
-def test_quiet_hours_skip_without_network(cfg, fake):
+def test_syncs_at_night_too(cfg, fake):
+    """以前北京 02:00–09:00 不同步，醒来那一刻的恢复要等到 9 点后才进页面；现在夜里照常拉。"""
     _seed_tokens(cfg, fake)
-    quiet = datetime(2026, 11, 5, 19, 30, tzinfo=timezone.utc)  # 北京 03:30
-    out = ws.sync(cfg, endpoints=ws.Endpoints(fake.base), now=quiet)
-    assert out["skipped"] == "quiet_hours" and fake.log == []
-    forced = ws.sync(cfg, endpoints=ws.Endpoints(fake.base), now=quiet, force=True, sleep=lambda _s: None)
-    assert forced["ok"] and "skipped" not in forced
+    night = datetime(2026, 11, 5, 23, 50, tzinfo=timezone.utc)  # 北京 07:50，刚醒
+    out = ws.sync(cfg, endpoints=ws.Endpoints(fake.base), now=night, sleep=lambda _s: None)
+    assert out["ok"] and "skipped" not in out and fake.log
 
 
-@pytest.mark.parametrize("last_bj, now_bj, stale", [
-    ("2026-11-05 01:59", "2026-11-05 09:30", False),  # 静默时段不计：只算 1 分钟 + 30 分钟
-    ("2026-11-05 01:59", "2026-11-05 11:58", False),
-    ("2026-11-05 01:59", "2026-11-05 12:05", True),
-    ("2026-11-05 13:00", "2026-11-05 15:30", False),
-    ("2026-11-05 13:00", "2026-11-05 16:30", True),
-    ("2026-11-01 21:58", "2026-11-05 21:30", True),   # 这次事故：卡在 11-01
-])
-def test_freshness_ignores_quiet_hours(cfg, last_bj, now_bj, stale):
-    bj = timezone(timedelta(hours=8))
-    last = datetime.strptime(last_bj, "%Y-%m-%d %H:%M").replace(tzinfo=bj)
-    now = datetime.strptime(now_bj, "%Y-%m-%d %H:%M").replace(tzinfo=bj)
-    ws.write_private_json(Path(cfg.whoop_snapshot), {"window_end_utc": last.astimezone(timezone.utc).isoformat()})
+@pytest.mark.parametrize("age_min, stale", [(30, False), (59, False), (61, True), (6 * 60, True)])
+def test_freshness_one_hour(cfg, age_min, stale):
+    now = datetime(2026, 11, 5, 23, 50, tzinfo=timezone.utc)
+    end = now - timedelta(minutes=age_min)
+    ws.write_private_json(Path(cfg.whoop_snapshot), {"window_end_utc": end.isoformat(), "collections": {}})
     assert ws.freshness(cfg, now)["stale"] is stale
+
+
+def test_new_scored_records_are_detected(cfg, fake):
+    """有新的已评分恢复 / 睡眠 / 训练才算「有新数据」（当天进行中的周期 strain 每次都变，不算）。"""
+    _seed_tokens(cfg, fake)
+    first = ws.sync(cfg, endpoints=ws.Endpoints(fake.base), now=NOW, sleep=lambda _s: None)
+    assert first["new_records"] > 0
+    again = ws.sync(cfg, endpoints=ws.Endpoints(fake.base), now=NOW, sleep=lambda _s: None)
+    assert again["new_records"] == 0 and "republish" not in again
 
 
 def test_missing_snapshot_is_stale(cfg):

@@ -77,6 +77,16 @@ def facts(tools, day: date) -> dict:
                         "recent": vals[-7:]}
         except Exception:
             out[key] = {"today": None, "recent": []}
+    # 运动页用：WHOOP 记到的训练（近 7 天，含今天）。没有训练也要明说 0 次，别让运动页只剩步数
+    try:
+        from . import whoop as whoop_mod
+        start = (day - timedelta(days=6)).isoformat()
+        ws = [w for w in whoop_mod.workouts(tools._whoop or {}, tools.cfg.timezone) if start <= w["date"] <= day.isoformat()]
+        if tools._whoop:
+            out["workouts"] = {"last_7d": ws, "count_7d": len(ws), "min_7d": sum(w["min"] for w in ws),
+                               "today": [w for w in ws if w["date"] == day.isoformat()], "source": "WHOOP"}
+    except Exception:
+        pass
     # 压力页用：静息心率、呼吸频率（带数据日期）和 HRV 近 3 天对比之前（个人范围没学满时自己和自己比）
     for metric, key, nd in (("resting_heart_rate", "resting_hr", 0), ("respiratory_rate", "resp_rate", 1)):
         try:
@@ -402,6 +412,7 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
 - 所有数字只能来自 facts，禁止自己加减乘除推算新数字；fields 和 table 里的每个数也一样。
 - 正在进行的项目由客户端显示在主卡下，不写进 hero；有进行中的项目时结论要体现计划，早上写成对昨晚执行的总结。
 - 压力页（stress）：从 hrv_trend（近 3 天对比之前）、hrv_ms、resting_hr（对比 avg_prev7）、resp_rate、recovery_pct 里挑最能说明当前生理压力信号的一个。HRV 个人范围没学满时就用这些自己和自己比。都在正常波动内就 level=steady，结论写「压力这块没问题」这类，主卡放最能说明没问题的那个数。不诊断、不推测情绪、不说「因为…所以压力大」。
+- 运动页（sport）：从 recovery_pct（今早醒来测的恢复，决定今天能练多大强度）、workouts（近 7 天练了什么、几次、多久、strain）、strain（每天的负荷）、steps 里挑。早上 recovery_pct.today 有数时，优先用它讲「今天适合怎么练」，可以配上这周练了几次；12 点前今天的步数还没攒起来，不拿今天的步数（steps.today / bind 今天步数）做主卡。
 - 不用「数据不足」做主卡：某个指标断更就换一个有数的指标，note 里写数据日期（如「10-31 的数据」）。
 - sleep_nights 里的 short_h 是「每晚缺觉」，不是睡眠债（睡眠债是 sleep_debt_5n_h 一个数）。
 - 老大对某项图表定过的偏好（pref.viz.<metric>：画法、天数、警戒线、目标）和页面偏好（pref.page.<page>）优先于上面的默认值。
@@ -486,6 +497,8 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
         try:
             doc = validate_page(page, _parse_json(_new_assistant_text(new)), evidence["facts"])
             doc = enforce_page_pref(page, doc, confirmed, evidence["facts"], final=tries >= 2)
+            if not confirmed and tries < 2:
+                _check_live_hero(tools, page, doc)
             doc.update({"published_at": tools._now().isoformat(timespec="seconds"), "session": session,
                         "producer": "P-Health Agent"})
             return V3PageStore(tools.cfg).save(page, doc)
@@ -496,6 +509,28 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
             before = len(events)
             dsh_chat.send_message(f"上一次输出没通过校验：{exc}。请按同样格式重新输出完整 JSON。", context)
     raise TimeoutError(f"v3 publish timeout {page}")
+
+
+def _check_live_hero(tools, page: str, doc: dict) -> None:
+    """主卡发出去之前现算一遍：绑的数现在全都算不出来（比如早上 8 点拿「今天步数」做主卡），
+    App 上就只剩一行「算不出来」。退回去让 P-Health 换一个今天有数的指标。"""
+    from . import canvas
+    from . import viz as vizmod
+    hero = doc.get("hero") or {}
+    day, now = tools._now().date(), tools._now()
+    if hero.get("viz"):
+        try:
+            vizmod.build(tools, hero["viz"], day, now)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"主卡的图现在画不出来（{str(exc)[:40]}）：换一个 facts 里今天有数的指标") from exc
+    if hero.get("layout"):
+        try:
+            resolved = canvas.resolve(tools, hero["layout"], day, now, hero.get("board"))
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"主卡现在画不出来（{str(exc)[:40]}）：换一个 facts 里今天有数的指标") from exc
+        bound, gaps = canvas.live_gaps(hero["layout"], resolved)
+        if bound and len(gaps) >= bound:
+            raise ValueError(f"主卡绑的数现在全都算不出来（{gaps[0][:40]}）：换一个 facts 里今天有数的指标")
 
 
 # ---------------------------------------------------------------- 页面文档
@@ -1018,7 +1053,6 @@ def _turn(context: str) -> dict | None:
 
 def sync_health(tools, now: datetime | None = None) -> dict:
     """老大在 App 里下拉刷新：马上拉一次 WHOOP（App 同时把 Apple 健康的数据传上来）。
-    - 这是老大自己要的同步，北京 02:00–09:00 的静默时段也照拉（静默只管后台自动同步）；
     - 60 秒内重复下拉不重复拉，直接说刚同步过；
     - 模拟回放 / 演示环境不连 WHOOP。"""
     cfg = tools.cfg

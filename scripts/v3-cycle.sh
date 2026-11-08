@@ -9,6 +9,7 @@ case "$H" in
   08|13|18) ;;
   *) exit 0 ;;
 esac
+/usr/bin/python3 -m pivis_health.cli whoop-sync >/dev/null 2>&1   # 先拿最新的恢复 / 睡眠 / 训练，推荐和页面才是今早的数
 /usr/bin/python3 -m pivis_health.cli daily-review
 sleep 150   # 给 P-Health 一点时间加待办，再编排页面
 /usr/bin/python3 -m pivis_health.cli publish-v3 all

@@ -162,9 +162,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--no-browser", action="store_true", help="只打印授权地址，不自动打开浏览器")
     sp.add_argument("--reset-client", action="store_true", help="重新输入 client id / secret")
     sp.add_argument("--timeout", type=int, default=300)
-    sp = sub.add_parser("whoop-sync", help="拉 WHOOP 官方 API 刷新 14 天快照（北京 02:00–09:00 跳过）；失败 exit≠0")
+    sp = sub.add_parser("whoop-sync", help="拉 WHOOP 官方 API 刷新 14 天快照（launchd 每 15 分钟一次；有新的恢复 / 睡眠 / 训练就重排页面）；失败 exit≠0")
     sp.add_argument("--days", type=int, default=14); sp.add_argument("--force", action="store_true", help="静默时段也跑")
-    sub.add_parser("whoop-status", help="WHOOP 快照新鲜度（不联网）；扣掉静默时段超过 3 小时 exit 2")
+    sub.add_parser("whoop-status", help="WHOOP 快照新鲜度（不联网）；超过 1 小时没成功同步 exit 2")
     return p
 
 

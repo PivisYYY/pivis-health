@@ -657,14 +657,14 @@ def _radar_week(ctx: Ctx, end: date, hrv_base: float | None) -> list[int | None]
     nights = [n for n in _nights(ctx, (ctx.day - start).days + 2) if start - timedelta(days=1) <= n["date"] <= end -
               timedelta(days=1) and n["need"]]
     sleep = _mean([min(100.0, n["slept"] / n["need"] * 100) for n in nights])
-    rec = _by_date(ctx, "recovery", start - timedelta(days=1), end - timedelta(days=1))
+    rec = _by_date(ctx, "recovery", start, end)        # 恢复 / HRV 按醒来那天记，今早的算今天
     recovery = _mean(list(rec.values()))
     goal = _steps_goal(ctx)
     steps = ctx.tools.daily_series("steps", end, (ctx.day - start).days + 2)
     sv = [min(100.0, v / goal * 100) for d, v in steps.items()
           if v is not None and start - timedelta(days=1) <= d <= end - timedelta(days=1)]
     move = _mean(sv)
-    hv = _by_date(ctx, "hrv", start - timedelta(days=1), end - timedelta(days=1))
+    hv = _by_date(ctx, "hrv", start, end)
     stress = None
     if hv and hrv_base:
         drop = (hrv_base - _mean(list(hv.values()))) / hrv_base * 200

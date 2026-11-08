@@ -10,7 +10,8 @@
 - 老大自己在浏览器里登录 WHOOP；本模块只在 127.0.0.1 上等回调。
 - 刷新令牌一用就作废（轮换）：整个同步持文件锁，新令牌先落盘再拉数据。
 - 任何一类拉取失败都不写快照（旧快照原样保留），并把失败写进状态文件 —— 不允许假 PASS。
-- 北京时间 02:00–09:00 不同步（老大定的规则）；新鲜度只算非静默时段，超过 3 小时即 stale。
+- launchd 每 15 分钟一次，夜里也拉（同步不发消息）；超过 1 小时没成功即 stale。
+- 有新的已评分恢复 / 睡眠 / 训练：马上重排页面（v3.republish_async）。
 """
 from __future__ import annotations
 
@@ -43,8 +44,10 @@ COVERAGE_WARNING = "API分页完整不等于每天有数据；缺失不代表正
 SCOPES = "offline read:recovery read:cycles read:workout read:sleep"
 DEFAULT_REDIRECT = "http://127.0.0.1:8765/callback"
 WINDOW_DAYS = 14
-QUIET_HOURS = (2, 9)  # 本地（cfg.timezone，北京）02:00–09:00 不同步
-STALE_HOURS = 3.0
+# 不再有静默时段：同步不发任何消息，夜里照常拉，醒来那一刻的恢复 / 睡眠才能最快进页面。
+# （以前 02:00–09:00 不同步，是因为老的 Hermes 任务每次同步都往飞书群发消息。）
+QUIET_HOURS: tuple[int, int] | None = None
+STALE_HOURS = 1.0  # launchd 每 15 分钟一次；超过 1 小时没成功就是断了
 PAGE_LIMIT = 25  # WHOOP v2 上限
 MAX_PAGES = 200
 USER_AGENT = "pivis-health-whoop-sync/1"
@@ -354,6 +357,8 @@ class WhoopClient:
 # ---------------------------------------------------------------------------
 
 def in_quiet_hours(now: datetime, tz_name: str) -> bool:
+    if not QUIET_HOURS:
+        return False
     h = now.astimezone(ZoneInfo(tz_name)).hour
     return QUIET_HOURS[0] <= h < QUIET_HOURS[1]
 
@@ -363,7 +368,7 @@ def eligible_hours(since: datetime, until: datetime, tz_name: str) -> float:
     if until <= since:
         return 0.0
     total = (until - since).total_seconds()
-    if total > 400 * 86400:
+    if total > 400 * 86400 or not QUIET_HOURS:
         return total / 3600
     tz = ZoneInfo(tz_name)
     d: date = since.astimezone(tz).date() - timedelta(days=1)
@@ -389,7 +394,7 @@ def _parse_utc(text: Any) -> Optional[datetime]:
 
 
 def freshness(cfg, now: datetime | None = None) -> dict:
-    """快照新鲜度（不联网、不碰令牌）。stale = 扣掉静默时段后超过 3 小时没成功同步。"""
+    """快照新鲜度（不联网、不碰令牌）。stale = 超过 STALE_HOURS 没成功同步。"""
     now = now or datetime.now(timezone.utc)
     path = Path(cfg.whoop_snapshot)
     snap = None
@@ -432,12 +437,12 @@ def _latest_summary(snap: dict, tz_name: str) -> dict:
     """同步结果里带上最近一晚的恢复数据（只是回显 WHOOP 原值，方便核对）。"""
     from . import whoop as whoop_mod
 
-    rec = whoop_mod.recovery_by_night(snap.get("collections") or {}, tz_name)
+    rec = whoop_mod.recovery_by_day(snap.get("collections") or {}, tz_name)
     if not rec:
-        return {"latest_recovery_night": None}
-    night = max(rec)
-    r = rec[night]
-    return {"latest_recovery_night": night.isoformat(), "recovery_score": r.get("recovery_score"),
+        return {"latest_recovery_date": None}
+    day = max(rec)
+    r = rec[day]
+    return {"latest_recovery_date": day.isoformat(), "recovery_score": r.get("recovery_score"),
             "hrv_rmssd_ms": r.get("hrv_rmssd"), "resting_heart_rate": r.get("resting_heart_rate"),
             "score_state": r.get("score_state")}
 
@@ -447,13 +452,13 @@ def _latest_summary(snap: dict, tz_name: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def sync(cfg, *, endpoints: Endpoints = Endpoints(), now: datetime | None = None,
-         days: int = WINDOW_DAYS, force: bool = False,
+         days: int = WINDOW_DAYS, force: bool = False, republish: bool = False,
          sleep: Callable[[float], None] = _time.sleep) -> dict:
     now = now or datetime.now(timezone.utc)
     if not force and in_quiet_hours(now, cfg.timezone):
-        return {"ok": True, "skipped": "quiet_hours",
-                "note": "北京时间 02:00–09:00 不同步（老大的规则）", **_fresh_brief(cfg, now)}
+        return {"ok": True, "skipped": "quiet_hours", **_fresh_brief(cfg, now)}
     at = now.isoformat()
+    before = _record_sigs(_read_json(Path(cfg.whoop_snapshot)))
     try:
         with _locked(cfg.whoop_auth_dir):
             client = WhoopClient(cfg.whoop_auth_dir, endpoints, sleep=sleep)
@@ -490,6 +495,27 @@ def sync(cfg, *, endpoints: Endpoints = Endpoints(), now: datetime | None = None
         out.update(_latest_summary(snap, cfg.timezone))
     if not complete:
         out["warning"] = "分页不完整：数据可能缺页"
+    changed = sorted(_record_sigs(snap) - before)
+    out["new_records"] = len(changed)
+    if changed and republish:
+        # 新的恢复 / 睡眠 / 训练进来了：马上重排页面，不等下一个整点节拍（重排自带单实例锁、节流和退避）
+        with contextlib.suppress(Exception):
+            from . import v3
+            out["republish"] = v3.republish_async(cfg)
+    return out
+
+
+def _record_sigs(snap: Optional[dict]) -> set[tuple]:
+    """快照里「已评分」的恢复 / 睡眠 / 训练记录的指纹。当天还在进行的周期（strain 每次都在涨）不算，
+    免得每 15 分钟都重排一次页面。"""
+    cols = (snap or {}).get("collections") or {}
+    out: set[tuple] = set()
+    for name in ("recovery", "sleep", "workout"):
+        for r in cols.get(name) or []:
+            if r.get("score_state") != "SCORED":
+                continue
+            rid = r.get("id") or r.get("sleep_id") or r.get("cycle_id")
+            out.add((name, str(rid), str(r.get("updated_at") or "")))
     return out
 
 
@@ -629,7 +655,7 @@ def run_cli(cfg, args) -> tuple[dict, int]:
                             timeout=args.timeout)
             return out, 0
         if args.cmd == "whoop-sync":
-            out = sync(cfg, days=args.days, force=args.force)
+            out = sync(cfg, days=args.days, force=args.force, republish=True)   # 只有真同步（CLI / launchd）才触发重排
             return out, 0
         if args.cmd == "whoop-status":
             out = freshness(cfg)

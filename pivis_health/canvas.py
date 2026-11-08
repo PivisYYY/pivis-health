@@ -345,7 +345,14 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
         t = n["t"]
         try:
             if t in ("v", "h"):
-                return {**n, "children": [one(k) for k in n["children"]]}
+                kids, seen = [], set()
+                for k in (one(k) for k in n["children"]):
+                    if k.get("fallback"):        # 同一个原因算不出来的几格，只留一行说明（以前会重复两遍）
+                        if k["text"] in seen:
+                            continue
+                        seen.add(k["text"])
+                    kids.append(k)
+                return {**n, "children": kids}
             if t in ("value", "stat"):
                 if "bind" in n:
                     s = scalar(n["bind"])
@@ -375,11 +382,29 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
                 return {"t": t, **parts.RESOLVERS[t](ctx, n)}
             return dict(n)
         except (vizmod.VizUnavailable, KeyError, ValueError) as exc:
-            return {"t": "text", "text": f"这里的数暂时算不出来（{str(exc)[:20]}）", "role": "caption", "tone": 3}
+            return {"t": "text", "text": f"这里的数暂时算不出来（{str(exc)[:20]}）", "role": "caption", "tone": 3,
+                    "fallback": True}
         except Exception:  # noqa: BLE001  读库失败这类意外：只影响这一格，整张卡照样画
-            return {"t": "text", "text": "这里的数据暂时读不到，稍后自动恢复", "role": "caption", "tone": 3}
+            return {"t": "text", "text": "这里的数据暂时读不到，稍后自动恢复", "role": "caption", "tone": 3,
+                    "fallback": True}
 
     return one(layout)
+
+
+def live_gaps(source: Any, resolved: Any) -> tuple[int, list[str]]:
+    """发布前看看主卡现在能不能画出来：（绑了数据的零件数，算不出来的说明）。"""
+    def count(n: Any) -> int:
+        if not isinstance(n, dict):
+            return 0
+        own = 1 if any(k in n for k in ("bind", "metric")) else 0
+        return own + sum(count(k) for k in n.get("children") or [])
+
+    def gaps(n: Any) -> list[str]:
+        if not isinstance(n, dict):
+            return []
+        own = [n["text"]] if n.get("fallback") else []
+        return own + [g for k in n.get("children") or [] for g in gaps(k)]
+    return count(source), gaps(resolved)
 
 
 def _dots(tools, b: str, days: int, day: date, now: datetime, vz) -> dict:
@@ -470,7 +495,12 @@ def _columns(metric: str, days: int, day: date, vz) -> dict:
         series = (v.get("series") or [])[-days:]
         if not series:
             raise vizmod.VizUnavailable(f"没有{m['label']}数据")
-        goal = (vz("steps").get("goal") or vizmod.STEPS_GOAL) if metric == "steps" else None
+        goal = None
+        if metric == "steps":
+            try:
+                goal = vz("steps").get("goal") or vizmod.STEPS_GOAL
+            except vizmod.VizUnavailable:     # 今天的数出不来也照样画前几天的柱
+                goal = vizmod.STEPS_GOAL
         for i, p in enumerate(series):
             d = date.fromisoformat(p["date"])
             val = p["value"]

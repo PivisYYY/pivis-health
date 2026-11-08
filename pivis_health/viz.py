@@ -318,10 +318,13 @@ def _range(tools, metric, day, now, s, pref) -> dict:
 
 
 def _progress(tools, metric, day, now, s, pref) -> dict:
-    daily = tools.daily_series("steps", day, 1)
+    daily = tools.daily_series("steps", day, 3)
     value = daily.get(day)
     if value is None:
-        raise VizUnavailable("今天还没有步数数据")
+        # 早上还没走、手机还没传今天的数：前两天有数说明手机在正常上传，今天就是「还没走」= 0，别让整张卡空着
+        if not any(daily.get(day - timedelta(days=k)) for k in (1, 2)):
+            raise VizUnavailable("步数最近没有数据（手机没传上来）")
+        value = 0.0
     goal = _num(pref, "goal") or STEPS_GOAL
     try:
         from .params import Params

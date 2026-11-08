@@ -35,7 +35,7 @@ def gate_and_send(tools, title: str, body: str, kind: str,
             result["skipped"] = "not_configured"
         else:
             for t in tokens:
-                r = client.send(t["token"], title, body, data=data)
+                r = client.send(t["token"], title, body, data=data, env=t.get("env"))
                 item = {"token": t["token"][:16] + "…", "env": t["env"], **r}
                 (sent if r["ok"] else errors).append(item)
             result.update({"ok": bool(sent), "sent": sent, "errors": errors,

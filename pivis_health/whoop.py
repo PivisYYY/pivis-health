@@ -76,6 +76,12 @@ def recovery_by_night(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") 
     return out
 
 
+def recovery_by_day(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") -> dict[date, dict]:
+    """恢复分数按「醒来那天」归档：和 WHOOP App 一样，今早醒来测出的恢复 / HRV / 静息心率就是「今天的」。
+    （睡眠时长仍按夜归档：sleep_by_night。）"""
+    return {night + timedelta(days=1): v for night, v in recovery_by_night(snapshot, tz_name).items()}
+
+
 def sleep_by_night(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") -> dict[date, dict]:
     tz = ZoneInfo(tz_name)
     out: dict[date, dict] = {}
@@ -143,7 +149,7 @@ def strain_by_day(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") -> d
         except Exception:
             continue
         score = c.get("score") or {}
-        out[start.date()] = {
+        out[_night_of(start) + timedelta(days=1)] = {   # 周期从入睡开始：算到醒来那天（23:30 睡也不会盖掉当天）
             "strain": score.get("strain"),
             "kilojoule": score.get("kilojoule"),
             "avg_hr": score.get("average_heart_rate"),
@@ -151,6 +157,37 @@ def strain_by_day(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") -> d
             "step_count": c.get("step_count"),
         }
     return out
+
+
+SPORT_NAMES = {
+    "tennis": "网球", "running": "跑步", "cycling": "骑行", "walking": "步行", "hiking": "徒步",
+    "swimming": "游泳", "yoga": "瑜伽", "pilates": "普拉提", "weightlifting": "力量训练",
+    "powerlifting": "力量训练", "functional-fitness": "功能训练", "hiit": "HIIT", "stretching": "拉伸",
+    "basketball": "篮球", "soccer": "足球", "badminton": "羽毛球", "table-tennis": "乒乓球",
+    "golf": "高尔夫", "boxing": "拳击", "elliptical": "椭圆机", "rowing": "划船", "spin": "动感单车",
+    "activity": "运动", "other": "运动",
+}
+
+
+def workouts(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") -> list[dict]:
+    """WHOOP 记到的训练（已评分的），按开始时间排：日期、项目、分钟、strain、平均心率。"""
+    tz = ZoneInfo(tz_name)
+    out = []
+    for w in snapshot.get("workout", []):
+        if w.get("score_state") not in (None, "SCORED"):
+            continue
+        try:
+            start, end = _to_local(str(w["start"]), tz), _to_local(str(w["end"]), tz)
+        except Exception:
+            continue
+        score = w.get("score") or {}
+        name = str(w.get("sport_name") or "activity").strip().lower().replace(" ", "-").replace("_", "-")
+        out.append({"date": start.date().isoformat(), "start": start.strftime("%H:%M"),
+                    "sport": SPORT_NAMES.get(name, name),
+                    "min": int(round((end - start).total_seconds() / 60)),
+                    "strain": round(float(score["strain"]), 1) if score.get("strain") is not None else None,
+                    "avg_hr": int(round(float(score["average_heart_rate"]))) if score.get("average_heart_rate") else None})
+    return sorted(out, key=lambda x: (x["date"], x["start"]))
 
 
 def latest_timestamps(snapshot: dict[str, Any], tz_name: str = "Asia/Shanghai") -> dict[str, str]:

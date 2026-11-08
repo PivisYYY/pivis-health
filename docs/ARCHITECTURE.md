@@ -8,7 +8,7 @@
 
 ```text
 Apple 健康 ──(App 每次打开上报当天聚合 + 睡眠分段)──┐
-WHOOP 官方 API ──(whoop-sync 每小时，14 天滚动快照)──┤
+WHOOP 官方 API ──(whoop-sync 每 15 分钟，14 天滚动快照)──┤
                                                       ▼
                     只读数据层（同一样本跨 App 重装只算一次）
                                                       ▼

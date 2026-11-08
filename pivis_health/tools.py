@@ -64,7 +64,7 @@ class HealthTools:
 
     @property
     def _whoop(self) -> dict | None:
-        """WHOOP 快照。serve 进程常驻，whoop-sync 每小时原子替换文件 → 按 mtime 重新加载。"""
+        """WHOOP 快照。serve 进程常驻，whoop-sync 每 15 分钟原子替换文件 → 按 mtime 重新加载。"""
         try:
             st = Path(self.cfg.whoop_snapshot).stat()
             sig: object = (st.st_mtime_ns, st.st_size)
@@ -114,14 +114,14 @@ class HealthTools:
     def _whoop_views(self) -> dict:
         snap = self._whoop or {}
         return {
-            "recovery": whoop_mod.recovery_by_night(snap, self.cfg.timezone),
+            "recovery": whoop_mod.recovery_by_day(snap, self.cfg.timezone),   # 按醒来那天：今早的恢复 = 今天的
             "sleep": whoop_mod.sleep_by_night(snap, self.cfg.timezone),
             "strain": whoop_mod.strain_by_day(snap, self.cfg.timezone),
             "latest": whoop_mod.latest_timestamps(snap, self.cfg.timezone),
         }
 
     def _whoop_freshness(self) -> dict:
-        """WHOOP 同步是否跟上（扣掉北京 02–09 点静默后超过 3 小时算 stale）。"""
+        """WHOOP 同步是否跟上（超过 1 小时没成功算 stale）。"""
         try:
             from .whoop_sync import freshness
             return freshness(self.cfg)
@@ -143,8 +143,8 @@ class HealthTools:
         if canonical in source:
             raw = source[canonical]
             return {d: float(v[{"whoop_recovery": "recovery_score", "whoop_strain": "strain"}[canonical]]) for d, v in raw.items() if v.get({"whoop_recovery": "recovery_score", "whoop_strain": "strain"}[canonical]) is not None}
-        if canonical == "whoop_resp_rate":      # 呼吸频率在 WHOOP 的睡眠评分里，按睡眠夜归档
-            return {d: float(v["respiratory_rate"]) for d, v in views["sleep"].items()
+        if canonical == "whoop_resp_rate":      # 呼吸频率在 WHOOP 的睡眠评分里：和 HRV、静息心率一样算到醒来那天
+            return {d + timedelta(days=1): float(v["respiratory_rate"]) for d, v in views["sleep"].items()
                     if v.get("respiratory_rate") is not None}
         key = {"whoop_hrv_rmssd": "hrv_rmssd", "whoop_skin_temp": "skin_temp_celsius",
                "whoop_resting_hr": "resting_heart_rate"}[canonical]

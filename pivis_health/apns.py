@@ -65,7 +65,8 @@ class APNS:
         return self._token
 
     def send(self, device_token: str, title: str, body: str,
-             data: dict[str, Any] | None = None, badge: int | None = None) -> dict[str, Any]:
+             data: dict[str, Any] | None = None, badge: int | None = None,
+             env: str | None = None) -> dict[str, Any]:
         """发一条 alert 推送。返回 {ok, status, reason}。未配置密钥时 ok=False reason=not_configured。"""
         if not self.configured:
             return {"ok": False, "status": 0, "reason": "not_configured"}
@@ -75,7 +76,8 @@ class APNS:
         if data:
             for k, v in data.items():
                 payload.setdefault(k, v)
-        host = _PROD_HOST if self.env == "production" else _SANDBOX_HOST
+        # 令牌是哪个环境就发哪个环境：安装页装的开发签名是 development，TestFlight 装的是 production
+        host = _PROD_HOST if (env or self.env) == "production" else _SANDBOX_HOST
         url = f"{host}/3/device/{device_token}"
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         r = subprocess.run(
