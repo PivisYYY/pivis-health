@@ -37,6 +37,10 @@ Health/
 *.png
 # README 截图（只放合成演示数据的截图）
 !docs/images/*.png
+!ios/docs/images/*.png
+# App 图标和小组件图标（不是个人照片）
+!ios/PivisHealth/Assets.xcassets/**/*.png
+!ios/PivisHealthWidgets/Assets.xcassets/**/*.png
 *.heic
 *.webp
 *.pdf
