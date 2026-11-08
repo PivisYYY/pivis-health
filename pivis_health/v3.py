@@ -1186,7 +1186,8 @@ def widget_doc(tools) -> dict:
         "play": t["kind"] == "follow" and any(str((st.get("media") or {}).get("url", "")).startswith("/media/follow/")
                                               for st in t.get("steps") or []),
         # 小组件上能直接打勾的：只要知道做没做的（跟做、填写、计时这些要进 App）
-        "check": t["kind"] == "done" and not t.get("auto") and t["status"] != "processing",
+        # 打勾卡（包括「上床」这种设备也会自动记的）：小组件上直接点 ✓（老大 11-08：上床也应该是对勾）
+        "check": t["kind"] == "done" and t["status"] != "processing",
     } for t in pending]
     bed = next((t for t in today if t.get("auto") == "bedtime"), None)
     nights = []

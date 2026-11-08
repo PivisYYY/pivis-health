@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - 待办卡（build 43 起 13 种统一一套）
 // 行尾 = P-Health 图标 + 这张卡的主动作。build 45 起每张卡行尾都有一个细线圆圈图标：
-// 一点就完成的（打勾 / 练习 / 计数 / 计时 / 拍照 / 确认）点了就做；要选的（？）、要填的（笔 / 链接）、设备自动记的（波形）、
+// 一点就完成的（打勾，包括设备会自动记的「上床」/ 练习 / 计数 / 计时 / 拍照 / 确认）点了就做；要选的（？）、要填的（笔 / 链接）、
 // 清单（进度）点了展开，选项和输入在展开后的内容里。展开后 P-Health 图标和主动作并排，下面只放内容。
 // 没有回复框、没有「晚点」「算了」：想改时间、今天不做、补充说明，点图标带着这张卡进对话说。
 // P-Health 想追问（escalate=chat）时不自己弹出对话：图标上一个小白点，收起时图标也露出来，点了再进对话。
@@ -168,10 +168,8 @@ struct TodoCardView: View {
             circle(system: "checkmark", label: "做完了", id: "todo-done") {
                 submit(action: "done", summary: practiceSummary)
             }
-        case "done" where todo.auto != nil:
-            // 设备自动记：不用点；波形图标说明是设备在记，点了展开（展开后有 P-Health 图标，记错了点它说）
-            openCircle(system: "waveform", label: "设备会自动记，点一下展开", id: "todo-auto")
         case "done":
+            // 「上床」这种设备会自动记的也是对勾（老大 11-08）：设备识别到入睡会自己打上，没识别到就自己点
             circle(system: "checkmark", label: "做完了", id: "todo-done") { submit(action: "done", summary: "做到了") }
         case "counter":
             circle(text: "+1", label: "加一次", id: "todo-inc") { increment() }

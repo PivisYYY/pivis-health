@@ -361,15 +361,15 @@ final class ReleaseDailyUITests: XCTestCase {
                       "选了方案没反应")
     }
 
-    // build 43：设备自动记的不用点，卡上没有手动按钮；记错了点 P-Health 图标说
+    // 设备自动记的卡：写「设备会自动记」，行尾也是对勾（build 47 起，没识别到可以自己点）；记错了点 P-Health 图标说
     func test14_AutoDoneManualRecord() {
         launch()
         tab("tab-sport", "运动")
         reveal("QA 自动记")
         let c = card("qa-auto")
         XCTAssertTrue(text(containing: "设备会自动记").exists, "自动记的卡没写「设备会自动记」")
-        XCTAssertFalse(c.buttons["做完了"].exists, "自动记的卡收起时不该有对勾")
-        XCTAssertTrue(c.buttons["todo-auto"].firstMatch.exists, "自动记的卡行尾没有波形图标（build 45：每张卡都有图标）")
+        // build 47：「上床」这种设备会自动记的也是对勾（没识别到可以自己点）
+        XCTAssertTrue(c.buttons["todo-done"].firstMatch.exists, "自动记的卡行尾没有对勾")
         row("QA 自动记").tap()
         XCTAssertTrue(c.buttons["todo-chat"].firstMatch.waitForExistence(timeout: 3), "展开后没有 P-Health 图标")
         XCTAssertFalse(c.buttons["手动记一下"].exists, "还有「手动记一下」")
@@ -639,4 +639,24 @@ final class ReleaseDailyUITests: XCTestCase {
         XCTAssertTrue(row.label.contains("今天"), "习惯行右边没写今天要做的：\(row.label)")
     }
 
+
+    // build 47：习惯卡里的视频全屏后，右上角 × 能关掉（以前全屏挂在卡上，卡一收起 × 就没反应）
+    func test29_FullscreenVideoCloses() {
+        launch()
+        tab("tab-sport", "运动")
+        let row = any("habit-qa-habit")
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "运动页没有习惯行")
+        row.tap()
+        XCTAssertTrue(any("habit-card").waitForExistence(timeout: 8), "对话顶部没有习惯卡")
+        let full = app.buttons["practice-video-fullscreen"].firstMatch
+        XCTAssertTrue(full.waitForExistence(timeout: 8), "习惯卡的视频上没有全屏按钮")
+        full.tap()
+        let close = app.buttons["practice-fullscreen-close"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "全屏没打开")
+        shot("29-fullscreen")
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5), "点右上角 × 没关掉全屏")
+        XCTAssertTrue(any("habit-card").exists || text(containing: "P-Health · 运动").exists, "关掉全屏后没回到对话")
+        closeChat()
+    }
 }

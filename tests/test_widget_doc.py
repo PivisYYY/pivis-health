@@ -25,7 +25,7 @@ def test_widget_doc_shape_and_todos(tools_env):
     by = {t["title"]: t for t in doc["todos"]}
     assert by["把明天写下来"]["check"] is True             # 打勾类：小组件上直接 ✓
     assert by["慢呼吸 5 分钟"]["check"] is False           # 跟做要进 App
-    assert by["上床"]["check"] is False and by["上床"]["auto"] is True   # 设备自动记的不让手点
+    assert by["上床"]["check"] is True and by["上床"]["auto"] is True    # 设备会自动记的也是对勾（build 47：没识别到可以自己点）
     assert by["把明天写下来"]["at"].startswith(f"{day.isoformat()}T21:50")
     assert by["把明天写下来"]["board_label"] == "休息"
     # 00:15 算当晚：绝对时间是第二天
