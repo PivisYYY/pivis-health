@@ -86,7 +86,7 @@ flowchart LR
     Server["pivis-health 服务<br/>页面 / 待办 / 图表 / 同步状态 API"]
     Kernel["健康内核<br/>只读数据层 · 睡眠重建 · 个人基线 · 图表计算"]
     Sync["whoop-sync（每小时）"]
-    Agent["P-Health Agent（DSH）<br/>对话 · 页面编排 · 每日整理"]
+    Agent["P-Health Agent（DSH）<br/>对话 · 每日推荐（早上顺带整理）<br/>页面编排（单独的轻量会话）"]
   end
   WHOOP["WHOOP 官方 API"]
   HK --> App

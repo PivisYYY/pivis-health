@@ -60,6 +60,7 @@ class HealthTools:
         self._whoop_sig: object = object()  # 快照文件 (mtime, size)；变了就重读
         self._whoop_cache: dict | None = None
         self._rows_cache: dict[date, tuple] = {}
+        self._rows_sig: object = object()   # 健康库 + WAL 的 (mtime, size)；有新数据进来就清缓存
 
     @property
     def _whoop(self) -> dict | None:
@@ -78,7 +79,23 @@ class HealthTools:
         from .clock import now as clock_now
         return clock_now(self.cfg)
 
+    def _vault_sig(self) -> object:
+        sig = []
+        for suffix in ("", "-wal"):
+            try:
+                st = Path(str(self.cfg.vault_db) + suffix).stat()
+                sig.append((st.st_mtime_ns, st.st_size))
+            except OSError:
+                sig.append(None)
+        return tuple(sig)
+
     def _rows(self, day: date) -> tuple[dict, ...]:
+        """按天缓存健康库的读数。serve 进程常驻：库或 WAL 变了（Apple 健康、设备数据刚写进来）就整体作废，
+        以前缓存一次就不再更新，第二天早上上传的睡眠要等服务器重启才看得到。"""
+        sig = self._vault_sig()
+        if sig != self._rows_sig:
+            self._rows_cache.clear()
+            self._rows_sig = sig
         if day not in self._rows_cache:
             self._rows_cache[day] = self.store.projection_rows(day)
         return self._rows_cache[day]
@@ -563,14 +580,7 @@ class HealthTools:
     # -- 与P-Health对话（dsh web API 直连）------------------------------------------
     def chat_history(self, limit: int = 20, after_time: str | None = None, context: str = "") -> dict:
         from . import dsh_chat
-        result = dsh_chat.chat_history(limit, after_time, context)
-        self.subj.chat_mirror_upsert([
-            {"message_id": f"dsh-{i}", "role": m["role"], "text": m["text"],
-             "create_time": m.get("time", ""), "position": i}
-            for i, m in enumerate(result["messages"])
-        ])
-        result["mirror"] = self.subj.chat_mirror_history(limit)
-        return result
+        return dsh_chat.chat_history(limit, after_time, context)
 
     def chat_send(self, text: str, context: str = "") -> dict:
         from . import dsh_chat

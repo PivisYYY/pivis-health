@@ -15,7 +15,7 @@
 - [ ] 停 hermes 侧 WHOOP 同步 cron（`2ff06193d841`）→ 启 pivis-health collector → 首次同步数据连续性核对（快照窗口无空洞）
 - [ ] Apple webhook 路由切到 pivis-health（gateway 路由摘除前，先双观察一天导入成功率）
 - [ ] sqlite 写权交棒：pivis-health 从只读连接转为写入者（readonly.py 的 ro 门禁仅用于旧库；新写入走 collector 自己的库文件）
-- [ ] CBT-I 三任务在 hermes 自然结束（12-06 最后一晚），F5 常态就寝流程次日起由 dsh 接棒
+- [ ] CBT-I 三任务在 hermes 自然结束（12-06 最后一晚），F5 常态就寝流程次日起由 P-Health 的项目待办接棒（带 `when` 的卡，App 到点提醒；不建 dsh 定时任务）
 - [ ] hermes 健康 cron 退役归档：`03636a24aa7d / 1380cace / a43987fe / b8d481f4 / a6f788bb / 8072c47b / 50571433 / 5db69088 / 55573eaf / ab82cfefd093`（逐个核对 `hermes cron list`，防止"孤儿脚本"事故重演——注释声称的调用必须核实）
 - [ ] 微信镜像首条真实投递人工核验
 - [ ] Time Machine 确认备份到交棒后状态

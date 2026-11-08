@@ -71,10 +71,10 @@ def test_weekly_review_note_only_on_sunday(tmp_path):
     cfg = _cfg(tmp_path)
     TodoStore(cfg).project_set(_project(), D1, datetime(2026, 10, 27, 8, 0))
     tools = SimpleNamespace(cfg=cfg)
-    assert coach.weekly_review_note(tools, "sleep", date(2026, 11, 7)) == ""          # 周六
-    note = coach.weekly_review_note(tools, "sleep", date(2026, 11, 8))                 # 周日
+    assert coach.weekly_review_note(tools, date(2026, 11, 7), "sleep") == ""          # 周六
+    note = coach.weekly_review_note(tools, date(2026, 11, 8), "sleep")                 # 周日
     assert "project-stats --id <id>" in note and "CBT-I（cbti）" in note
-    assert coach.weekly_review_note(tools, "sport", date(2026, 11, 8)) == ""
+    assert coach.weekly_review_note(tools, date(2026, 11, 8), "sport") == ""
 
 
 def test_known_facts_render_into_agents_block():

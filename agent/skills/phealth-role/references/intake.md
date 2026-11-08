@@ -69,7 +69,7 @@
  {"id":"media","label":"放松素材喜欢","type":"multi","options":["呼吸引导","身体扫描","白噪音 / 自然声","拉伸视频","轻音乐"]}]
 ```
 - 三条分开记，例：`pref.remind` `{"rule":"每天最多提醒 2 次，上午工作时不打扰","max":2}`。
-- 老大选的提醒次数比 3 少，就按他的来；比 3 多，仍然最多 3 次。
+- 选的次数怎么用，按 daily-reminders 第 1 步的上限（比 3 少就按他的）。
 
 ## 问完以后
 - `profile.intake` 记 `{"done":["goals","schedule","sleep","sport","diet","stress","prefs"],"finished":"<日期>"}`。

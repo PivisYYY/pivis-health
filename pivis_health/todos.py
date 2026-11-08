@@ -8,16 +8,17 @@
 from __future__ import annotations
 
 import fcntl
-import ipaddress
 import json
+import os
 import re
 import time
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Any
-from urllib.parse import urlparse
 
 from .config import Config
+from .media import MediaError
+from .media import check_url as _media_check_url
 
 BOARDS = ("sleep", "sport", "stress", "life")   # life＝日常（饭、试纸这类记录），只出待办，不单独成页
 BOARD_LABEL = {"sleep": "休息", "sport": "运动", "stress": "压力", "life": "日常"}
@@ -26,6 +27,7 @@ KINDS = ("done", "follow", "options", "scale", "number", "fields", "proposal",
 # counter：一天点好几次（喝水 3/6 杯）；timer：有时长、开始后倒计时（午睡 20 分钟）；
 # checklist：一件事拆几小步、每步单独勾；confirm：要留下完成时间的事（按医嘱打针 08:05）
 STATUSES = ("proposed", "scheduled", "in_progress", "processing", "done", "skipped", "expired")
+ARCHIVE_AFTER_DAYS = 60
 PENDING = ("proposed", "scheduled", "in_progress", "processing")
 VERBS = ("start", "done", "later", "skip")
 INPUT_TYPES = ("options", "multi", "scale", "number", "text", "time", "photo")
@@ -83,12 +85,25 @@ TODO_FORMS: list[dict] = [
 ]
 
 
+NIGHT_END_HOUR = 6   # 00:00–05:59 的事属于前一天的「当晚」（全系统只在这里定义）
+
+
+def due_at(day: date | str, hhmm: str) -> datetime | None:
+    """这张卡真正到点的时刻（不带时区）：date 那天的 hh:mm；00:00–05:59 算当晚，即第二天凌晨。"""
+    if not hhmm:
+        return None
+    d = date.fromisoformat(day) if isinstance(day, str) else day
+    h, m = (int(x) for x in hhmm.split(":"))
+    at = datetime(d.year, d.month, d.day, h, m)
+    return at + timedelta(days=1) if h < NIGHT_END_HOUR else at
+
+
 def _sort_when(when: str) -> str:
     """00:00–05:59 属于当晚，排在晚上之后。"""
     if not when:
         return "99:99"
     h = int(when[:2])
-    return f"{h + 24:02d}{when[2:]}" if h < 6 else when
+    return f"{h + 24:02d}{when[2:]}" if h < NIGHT_END_HOUR else when
 
 
 def sort_key(t: dict) -> tuple:
@@ -106,32 +121,12 @@ def _now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-# 公开网盘 / 临时文件站 / 图床：用户和博主的视频绝不能传到这些地方
-FILE_HOSTS = ("uguu.se", "catbox.moe", "litterbox", "gofile.io", "tmpfiles.org", "0x0.st", "pixeldrain", "bashupload",
-              "envs.sh", "transfer.sh", "file.io", "wetransfer", "filebin", "temp.sh", "anonfiles", "mega.nz", "dropbox",
-              "drive.google", "pan.baidu", "aliyundrive", "alipan", "lanzou", "123pan", "cowtransfer", "imgur", "sm.ms")
-
-
 def _check_url(url: str) -> None:
-    if url.startswith("/media/"):
-        return
-    p = urlparse(url)
-    if p.scheme not in ("http", "https") or not p.hostname:
-        raise TodoError(f"媒体链接必须是公网 http(s) 地址或 /media/ 下的文件: {url}")
-    host = p.hostname
-    if host in ("localhost",) or host.endswith(".local"):
-        raise TodoError(f"媒体链接不能用本地地址: {url}")
+    """媒体链接规则在 media.py（唯一来源），这里换成待办的错误类型。"""
     try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:  # 域名，不是 IP
-        ip = None
-    if ip is not None and (ip.is_private or ip.is_loopback or ip in ipaddress.ip_network("100.64.0.0/10")):
-        raise TodoError(f"媒体链接不能用内网地址: {url}")
-    if "youtube.com" in host or "youtu.be" in host:
-        raise TodoError("不使用 YouTube，国内平台优先 B 站")
-    if any(h in host for h in FILE_HOSTS):
-        raise TodoError("不能用网盘 / 临时文件站 / 图床的链接（用户和博主的视频不能传到公开网站）；"
-                        "自己做的跟练视频用 follow 命令出片后给的 /media/follow/... 地址")
+        _media_check_url(url)
+    except MediaError as exc:
+        raise TodoError(str(exc)) from exc
 
 
 def _norm_media(m: Any) -> dict | None:
@@ -269,6 +264,8 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
         "request": base.get("request") or None,
         "source": base.get("source") or "agent",
         "template_rev": base.get("template_rev"),
+        "ops": list(base.get("ops") or [])[-30:],
+        "edited": bool(base.get("edited")),
         "created_at": base.get("created_at") or _now_iso(),
         "updated_at": _now_iso(),
     }
@@ -309,6 +306,12 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
     return out
 
 
+def _same_template(a: dict, b: dict) -> bool:
+    """同一个模板没改过（忽略系统补上的 board / date / 时长）。"""
+    skip = {"board", "date", "duration_min"}
+    return {k: v for k, v in a.items() if k not in skip} == {k: v for k, v in b.items() if k not in skip}
+
+
 class TodoStore:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
@@ -321,8 +324,10 @@ class TodoStore:
         with open(self.lock_path, "w") as fh:
             fcntl.flock(fh, fcntl.LOCK_EX)
             data = self._read()
+            before = json.dumps(data, ensure_ascii=False, sort_keys=True)
             yield data
-            self._write(data)
+            if json.dumps(data, ensure_ascii=False, sort_keys=True) != before:
+                self._write(data)
             fcntl.flock(fh, fcntl.LOCK_UN)
 
     def _read(self) -> dict:
@@ -337,7 +342,15 @@ class TodoStore:
 
     def _write(self, data: dict) -> None:
         data["log"] = data["log"][-500:]
-        tmp = self.path.with_suffix(".tmp")
+        cutoff = (date.today() - timedelta(days=ARCHIVE_AFTER_DAYS)).isoformat()
+        old = {k: t for k, t in data["todos"].items() if str(t.get("date") or "9999") < cutoff}
+        if old:
+            with open(self.path.with_name("todos_archive.jsonl"), "a", encoding="utf-8") as f:
+                for t in old.values():
+                    f.write(json.dumps(t, ensure_ascii=False) + "\n")
+            for k in old:
+                data["todos"].pop(k, None)
+        tmp = self.path.with_suffix(f".{os.getpid()}.tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
         tmp.replace(self.path)
 
@@ -373,6 +386,8 @@ class TodoStore:
             if any(k in patch for k in ("kind", "steps", "media", "items")):
                 check_practice(t, self.cfg)
             t["id"] = todo_id
+            if by == "agent" and cur.get("source") == "project" and set(patch) - {"status", "escalate", "summary", "record"}:
+                t["edited"] = True
             if by == "agent" and cur.get("status") == "processing":
                 t["request"] = None
             # P-Health 重写 record 时，老大提交过的历史（submitted）保留
@@ -438,6 +453,7 @@ class TodoStore:
             merged["status"] = merged.get("status") or "active"
             merged["rules"] = [str(r) for r in merged.get("rules") or []]
             daily = []
+            changed = "daily" in project      # 只有传了 daily 才校验模板
             for n, tpl in enumerate(merged.get("daily") or []):
                 tpl = dict(tpl)
                 tpl.setdefault("key", f"k{n + 1}")
@@ -447,7 +463,8 @@ class TodoStore:
                 if wd is not None and (not isinstance(wd, list) or not wd or any(d not in range(1, 8) for d in wd)):
                     raise TodoError("weekdays 是 1–7 的列表（1=周一，7=周日）")
                 norm = normalize(tpl)
-                check_practice(norm, self.cfg)  # 校验模板（练习只用视频）
+                if changed and not any(_same_template(tpl, old) for old in cur.get("daily") or []):
+                    check_practice(norm, self.cfg)  # 新加 / 改过的模板才校验（练习只用视频），老模板照常能读
                 if tpl.get("duration_min") in (None, "") and norm["duration_min"]:
                     tpl = {**tpl, "duration_min": norm["duration_min"]}   # 时长写在视频里的，模板上也带一份（复盘、习惯卡要用）
                 daily.append(tpl)
@@ -525,13 +542,11 @@ class TodoStore:
                     tid = f"{p['id']}-{day.isoformat()}-{tpl['key']}"
                     cur = data["todos"].get(tid)
                     if cur and (cur["status"] not in ("scheduled", "proposed")
-                                or cur.get("template_rev") == p["revision"]):
+                                or cur.get("template_rev") == p["revision"] or cur.get("edited")
+                                or (cur.get("record") or {}).get("count")):
                         continue
                     if not cur and now is not None and tpl.get("when") and day == start:
-                        due = datetime.combine(day, datetime.strptime(tpl["when"], "%H:%M").time())
-                        if due.hour < 6:
-                            due += timedelta(days=1)
-                        if due < now.replace(tzinfo=None) - timedelta(minutes=30):
+                        if due_at(day, tpl["when"]) < now.replace(tzinfo=None) - timedelta(minutes=30):
                             continue
                     body = {k: v for k, v in tpl.items() if k != "key"}
                     body.update({"id": tid, "date": day.isoformat(), "project": p["id"],

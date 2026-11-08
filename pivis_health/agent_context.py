@@ -29,6 +29,20 @@ def _empty() -> dict:
     return {"schema_version": 1, "revision": 0, "entries": []}
 
 
+# 记忆只收这几类（以前随便起名，三天长出 21 个分类，学到的规律散在 habit.* 里别的会话看不到）
+SCOPE_PREFIXES = ("pref.", "profile.", "learn.", "request.", "ask.", "plan.", "device.",
+                  "sleep.", "sport.", "stress.", "life.")
+
+
+def check_agent_scope(scope: str) -> str:
+    """P-Health 用 context-record 写记忆时的分类检查（内部老代码写的 ui.* 等不走这里）。"""
+    text = str(scope or "").strip()
+    if not text.startswith(SCOPE_PREFIXES):
+        raise ValueError(f"scope 要以这些开头之一：{'、'.join(SCOPE_PREFIXES)}。学到的规律用 learn.（比如 learn.habit.late_bath），"
+                         "偏好用 pref.，关于老大的事实用 profile.；habit. / ui. / dialogue. 已停用")
+    return text
+
+
 class AgentContextStore:
     def __init__(self, cfg: Config) -> None:
         self.path = cfg.data_dir / "agent_context.json"
@@ -99,6 +113,21 @@ class AgentContextStore:
         if not text or len(text) > 200:
             raise ValueError("scope must contain 1–200 characters")
         return text
+
+    def retire(self, scope: str, reason: str = "") -> int:
+        """把某个 scope 的生效条目标成 retired（历史保留）。返回改了几条。用于把停用的分类迁走。"""
+        with self.lock():
+            raw = self.all()
+            n = 0
+            for e in raw["entries"]:
+                if e.get("scope") == scope and e.get("status") == ACTIVE:
+                    e["status"] = "retired"
+                    e["retired_reason"] = reason
+                    n += 1
+            if n:
+                raw["revision"] = int(raw["revision"]) + 1
+                self._write(raw)
+            return n
 
     def _write(self, raw: dict) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

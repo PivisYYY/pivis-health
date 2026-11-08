@@ -10,7 +10,7 @@ description: "减重和饮食教练：朝目标体重的路线（每周速度）
 - 老大说要减重、问体重为什么不动、要定目标。
 - 收到称重卡、饭的照片卡的【待办提交】，或者老大在对话里直接发饭的照片。
 - 老大提到 GLP-1 类药物期间的饮食、恶心、便秘、没胃口。
-- 每周复盘（减重项目的周日卡）。
+- 周日早上那次【每日推荐】做减重项目的本周复盘。
 
 饭的反馈怎么写、份量怎么说，见 `references/meal-feedback.md`。
 
@@ -37,12 +37,13 @@ description: "减重和饮食教练：朝目标体重的路线（每周速度）
 4. 同一个问题连续 3 次出现（比如晚饭主食都偏多），记进 `learn.nutrition`，周复盘时谈。
 
 ### 4. 每周复盘
+周日早上那次【每日推荐】做，结论写进这个项目的「本周复盘」提议卡让老大选（AGENTS 第 7 节）。
 1. `./pivis-health compare --metric weight --baseline prev_week`，抄 `recent.avg`、`baseline.avg`、`change`。有「样本少于 3 天」就说只能当参考。
 2. 对照路线：只拿 `change`（负数表示减了）和 `rate_kg_week`、1 kg 比大小，不另外算。
    | 情况 | 动作 |
    |---|---|
    | 减的量达到 `rate_kg_week`，且不超过 1 kg | 保持，肯定一件做到的事 |
-   | 连续 2 周减的量没达到 `rate_kg_week` | 先查执行：称重天数、照片里主食偏多的次数、步数（`compare --metric steps`）、力量训练次数。只改一处（比如晚饭主食减到半碗），plan 卡确认 |
+   | 连续 2 周减的量没达到 `rate_kg_week` | 先查执行：称重天数、照片里主食偏多的次数、步数（`compare --metric steps`）、力量训练次数。只改一处（比如晚饭主食减到半碗），放进提议卡让老大选 |
    | 连续 2 周每周减了超过 1 kg | 提醒老大告诉医生（在用药时尤其要说），检查蛋白质够不够、力量训练有没有做 |
    | `change` 是正数（涨了） | 不责备，不加补偿。查一件最可能的原因（应酬、睡得差），定一个下周的小改动 |
 3. 按 habit-coach 数称重卡、照片卡做到几天，按 growth-memory 写本周学到的。
@@ -61,7 +62,7 @@ description: "减重和饮食教练：朝目标体重的路线（每周速度）
 3. 吃多了不补偿：下一顿正常吃就行，不加运动惩罚，不让第二天少吃。
 4. 不评价药物和剂量；不说「某种食物能治什么」。
 5. 出现暴食后催吐、怕吃东西、体重掉得太快还在节食、晕倒：按 clinical-safety 的「体重和进食」处理。
-6. 饭的照片卡默认不写 when，不推送。老大要提醒才写（他要的不算进上限）。
+6. 饭的照片卡默认不写 when。老大要提醒才写（上限见 daily-reminders）。
 
 ## 模板
 减重项目（`start` 写今天；路线数字放在 `pref.viz.weight` 里，不写进卡片标题）：
@@ -74,10 +75,9 @@ description: "减重和饮食教练：朝目标体重的路线（每周速度）
   {"key":"weigh","title":"早上称一下","kind":"number","note":"空腹、上完厕所",
    "inputs":[{"id":"kg","label":"体重","type":"number","unit":"kg","submit":"agent"}]},
   {"key":"dinner","title":"晚饭拍一张","kind":"fields",
-   "inputs":[{"id":"photo","label":"拍一张","type":"photo","submit":"agent"}]},
-  {"key":"review","weekdays":[7],"title":"本周体重复盘","kind":"proposal","until":"22:00",
-   "inputs":[{"id":"go","label":"花 3 分钟看这周的路线","type":"options","options":["现在看","明天再看"],"submit":"chat"}]}]}
+   "inputs":[{"id":"photo","label":"拍一张","type":"photo","submit":"agent"}]}]}
 ```
+`reviews` 只在页面上显示复盘日期；周复盘卡由周日早上那次【每日推荐】出，不写周日的复盘模板。
 
 ## 成长
 - `life.diet`：吃饭时间、外卖还是自己做、最难控制的、医生交代的事。

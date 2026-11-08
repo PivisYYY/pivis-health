@@ -993,7 +993,8 @@ def r_countdown(ctx, n):
     now = ctx.now
     hh, mm = (int(x) for x in to.split(":"))
     target = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    if hh < 6 and now.hour >= 6:
+    from .todos import NIGHT_END_HOUR
+    if hh < NIGHT_END_HOUR and now.hour >= NIGHT_END_HOUR:      # 凌晨的点算今晚
         target += timedelta(days=1)
     wh, wm = (int(x) for x in _wake_anchor(ctx).split(":"))
     anchor = now.replace(hour=wh, minute=wm, second=0, microsecond=0)
@@ -1689,24 +1690,24 @@ def n_quote(node, ck, t):
 
 
 def _media_kind(url: str) -> str:
-    if "bilibili.com/video/" in url or url.endswith((".mp4", ".m4v", ".mov")):
-        return "video"
-    if url.endswith((".m4a", ".mp3")):
-        return "audio"
-    return "embed"
+    from .media import kind_of
+    return kind_of(url)
 
 
 def n_media(node, ck, t):
+    """跟练入口：只放 follow 出的片（和练习卡同一条规则；以前文档这么写、校验却放过音频和 B 站）。"""
     if node.get("id"):
         return {"t": t, "id": _s(node, "id", 60, t)}
     url = str(node.get("url") or "").strip()
     if not url:
-        raise CanvasError("media 要写 id（./pivis-health media-library 里的）或 url + title")
-    from .todos import TodoError, _check_url
+        raise CanvasError("media 要写 url + title（follow 出的片，follow session list 能查）")
+    from .media import MediaError, check_url, is_follow_video
     try:
-        _check_url(url)
-    except TodoError as exc:
+        check_url(url)
+    except MediaError as exc:
         raise CanvasError(f"media：{exc}") from exc
+    if not is_follow_video(url):
+        raise CanvasError("media 只放 follow 出的片（/media/follow/<ssid>/out.mp4），不放音频、不放 B 站链接")
     out = {"t": t, "url": url, "title": _s(node, "title", TITLE, t, ck, required=True)}
     if node.get("duration_min") not in (None, ""):
         out["duration_min"] = _number(node["duration_min"], "media 的 duration_min")

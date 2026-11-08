@@ -31,7 +31,8 @@ PROJECT_SET_HELP = """新建或修改一个项目（同 id 即修改，旧版本
          只在某几天出现：加 "weekdays":[1,3,5]（1=周一 … 7=周日；每周重复、隔天练、周末才做都这样写）
          练习类模板同 todo-add：kind=follow + 一个 follow 出的片（力量 A / B 各一个视频，用 weekdays 分天）
 例：./pivis-health project-set --json '{"id":"meds","name":"每天吃药","board":"life","start":"2026-11-08","days":365,
-      "daily":[{"key":"am","when":"08:00","title":"吃药","kind":"done"},{"key":"wk","weekdays":[7],"when":"20:00","title":"本周复盘","kind":"proposal","until":"22:00"}]}'"""
+      "daily":[{"key":"am","when":"08:00","title":"吃药","kind":"done"}]}'
+周复盘不写进模板：周日早上那次【每日推荐】会让你给每个进行中的项目出一张「本周复盘」"""
 
 
 def _json(obj) -> None:
@@ -121,18 +122,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("need-feedback"); sp.add_argument("--type", required=True); sp.add_argument("--action", choices=["做了", "不做", "换一个", "今天算了"], required=True)
     sp = sub.add_parser("hero-skip"); sp.add_argument("--hero", required=True, help="要换掉的当前异常指标名（恢复/睡眠债/HRV）")
     sp = sub.add_parser("agent-pages-status", help="查看 Agent 组件发布版本")
-    sp = sub.add_parser("agent-pages-publish", help="由 P-Health Agent 生成并发布业务组件")
-    sp.add_argument("--page", choices=["all", "now", "sleep", "sport", "stress", "relax"], default="all")
-    sp.add_argument("--timeout", type=int, default=480)
     sp = sub.add_parser("agent-events-status", help="查看尚未交给 P-Health 的原始事件")
     sp = sub.add_parser("agent-events-dispatch", help="把未分发原始事件交给 P-Health 处理")
     sp.add_argument("--limit", type=int, default=20)
     sp.add_argument("--dry-run", action="store_true", help="只列出待分发事件，不发送")
 
-    sp = sub.add_parser("pushd", help="主动触达守护：命中时刻表则推当日待办")
+    sp = sub.add_parser("pushd", help="已退役：旧规则引擎的定时推送（build 44 停用）")
     sp.add_argument("--once", action="store_true", help="跑一轮退出（launchd 模式）")
     sp.add_argument("--interval", type=int, default=0, help="循环间隔秒数；0=只跑一轮")
-    sp = sub.add_parser("push", help="立即推送（bot 触达用）")
+    sp = sub.add_parser("push", help="已停用：P-Health 不推送，到点提醒用带 when 的待办卡")
     sp.add_argument("--title", required=True); sp.add_argument("--body", required=True)
     sp.add_argument("--page", choices=["today", "sleep", "sport", "stress"])
     sp.add_argument("--pending", help="生成式 UI 问句（点通知直达对话）")
@@ -288,7 +286,8 @@ def main(argv: list[str] | None = None) -> int:
             _json(Experience(tools.cfg, tools.subj).ui_reset(
                 args.page, args.component, source_session=args.source_session))
         elif args.cmd == "context-record":
-            from .agent_context import AgentContextStore
+            from .agent_context import AgentContextStore, check_agent_scope
+            check_agent_scope(args.scope)
             payload = json.loads(args.payload)
             if not isinstance(payload, dict):
                 raise ValueError("payload must be a JSON object")
@@ -369,9 +368,6 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "agent-pages-status":
             from .publications import PublicationStore
             _json({"pages": PublicationStore(tools.cfg).all()["pages"]})
-        elif args.cmd == "agent-pages-publish":
-            from .publications import publish_all, publish_page
-            _json(publish_all(tools) if args.page == "all" else publish_page(tools, args.page, args.timeout))
         elif args.cmd == "agent-events-status":
             from .event_dispatch import EventDelivery
             _json({"pending": EventDelivery(tools.cfg).pending()})
@@ -414,23 +410,10 @@ def main(argv: list[str] | None = None) -> int:
             from .v3 import page_doc
             _json(page_doc(tools, args.page))
         elif args.cmd == "publish-v3":
-            from .v3 import publish
+            from .v3 import publish_all
             pages = ["now", "sleep", "sport", "stress"] if args.page == "all" else [args.page]
-            out = {}
-            prog = tools.cfg.data_dir / "republish.progress.json"
-            for i, pg in enumerate(pages):
-                # 客户端据此知道哪几页正在重排（主卡显示「正在改」）
-                prog.write_text(json.dumps({"current": pg, "left": pages[i + 1:], "at": time.time()}))
-                try:
-                    out[pg] = publish(tools, pg, args.timeout)
-                except Exception as exc:  # noqa: BLE001
-                    out[pg] = {"error": str(exc)}
-            for f in (prog, tools.cfg.data_dir / "republish.lock"):
-                try:
-                    f.unlink()
-                except OSError:
-                    pass
-            _json(out)
+            # 单实例锁 + 失败退避都在 publish_all 里；指定一页时（手动）不管退避
+            _json(publish_all(tools, pages, args.timeout, force=args.page != "all"))
         elif args.cmd == "daily-review":
             from .v3 import daily_review
             _json(daily_review(tools, [args.board] if args.board else None, args.force, args.slot))
@@ -448,9 +431,9 @@ def main(argv: list[str] | None = None) -> int:
                     break
                 _time.sleep(args.interval)
         elif args.cmd == "push":
-            from .push import send_push
-            _json(send_push(tools, args.title, args.body, page=args.page,
-                            pending=args.pending, level=args.level, kind=args.kind))
+            # build 44：锁屏推送只由服务器发（红线 7）。要老大到点做事 / 回答，用带 when 的待办卡
+            _json({"error": "not_allowed", "message": "锁屏推送只由服务器发，P-Health 不推送；到点提醒用带 when 的待办卡（todo-add）"})
+            return 1
         return 0
     except Exception as exc:  # 对 agent 友好：错误也是结构化输出
         _json({"error": type(exc).__name__, "message": str(exc)})

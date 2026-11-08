@@ -1,6 +1,6 @@
 # 训练模板
 
-每次课在卡上只是「这个项目 + 一个视频」（kind=follow，follow 出的片）。下面写的是**每次课该练什么**：用来从 `./pivis-health follow session list` 里挑合适的片，或者告诉老大该找什么样的博主视频（小红书或 B 站），也用来复盘时判断要不要换片、调秒数。**不要把它写成卡上的文字步骤。** 还没有视频的课，先请老大发博主视频，follow 出片后再排（follow-video skill 的「还没有视频」，一天最多问一次）。
+每次课在卡上只是「这个项目 + 一个视频」（kind=follow，follow 出的片）。下面写的是**每次课该练什么**：用来从 `./pivis-health follow session list` 里挑合适的片，或者告诉老大该找什么样的博主视频（小红书或 B 站），也用来复盘时判断要不要换片、调秒数。**不要把它写成卡上的文字步骤。** 还没有视频的课，先请老大发博主视频，follow 出片后再排（follow-video skill 的「还没有视频」）。
 
 ## 1. 热身（开始前 8–10 分钟，一个热身视频）
 | 项目 | 视频里该有的 |
@@ -35,7 +35,7 @@
 |---|---|
 | A | 深蹲或高脚杯深蹲 3×8–12 · 卧推或俯卧撑 3×8–12 · 划船 3×8–12 · 平板支撑 3×30–45 秒 |
 | B | 罗马尼亚硬拉 3×8–12 · 站姿推举 3×8–12 · 高位下拉或弹力带下拉 3×8–12 · 臀桥 3×12–15 · 肩外旋（弹力带）2×15 |
-| C（每周 3 次力量时） | 按老大选的博主视频来；还没有就请老大发一个（一天最多问一次） |
+| C（每周 3 次力量时） | 按老大选的博主视频来；还没有就请老大发一个（见 follow-video） |
 - 在家没有器械：深蹲换徒手或负重背包，卧推换俯卧撑，划船换弹力带或单手哑铃。找视频时按老大的器械条件（`sport.preference`）说清楚。
 - 视频可以是老大发的博主视频出片，也可以用动作库里的动作编一套（`follow lib` 看动作，`follow session create`，见 follow-video）。
 - 组 × 次用来判断视频合不合适、复盘时调量（调秒数、换动作、加组，重出片），不写到卡上。
@@ -75,11 +75,9 @@ url 只能填 follow 出片给的地址（`follow session list` 里的 video）�
    "media":{"kind":"video","title":"网球热身 · 9 分钟","url":"/media/follow/<热身的 ssid>/out.mp4","duration_min":9}},
   {"key":"tennis_log","weekdays":[6],"title":"打完记一下","kind":"fields",
    "inputs":[{"id":"rpe","label":"整体多累","type":"scale","min":1,"max":10,"min_label":"很轻松","max_label":"极限","submit":"agent"},
-             {"id":"body","label":"哪里不舒服","type":"multi","options":["都还好","肩","肘","腰","膝"],"submit":"agent"}]},
-  {"key":"review","weekdays":[7],"title":"本周训练复盘","kind":"proposal","until":"22:00",
-   "inputs":[{"id":"go","label":"花 3 分钟看这周练得怎么样","type":"options","options":["现在看","明天再看"],"submit":"chat"}]}]}
+             {"id":"body","label":"哪里不舒服","type":"multi","options":["都还好","肩","肘","腰","膝"],"submit":"agent"}]}]}
 ```
-`duration_min` 照出片结果写。每周 3 次力量就再加一项 `str_c`（力量 C 的视频），weekdays 按老大定的天。
+`duration_min` 照出片结果写。`reviews` 只在页面上显示复盘日期；周复盘卡由周日早上那次【每日推荐】出（AGENTS 第 7 节），不写周日的复盘模板。每周 3 次力量就再加一项 `str_c`（力量 C 的视频），weekdays 按老大定的天。
 
 ## 8. 每天 8 分钟灵活性（可以单独做成项目，也可以并进上面的项目）
 视频里该有：猫牛式 1 分钟 → 世界上最伟大的拉伸每边 1 分钟 → 90/90 髋转换 2 分钟 → 胸椎旋转每边 1 分钟 → 深蹲停留 1 分钟。

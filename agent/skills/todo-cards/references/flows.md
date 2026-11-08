@@ -22,7 +22,7 @@
  "media":{"kind":"video","title":"睡前拉伸 · 10 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":10}}
 ```
 - 拉伸在床外做。上床以后只听声音：视频锁屏也能接着放，老大可以锁屏听。
-- 还没有视频：不写文字步骤，请老大发一个博主视频（小红书或 B 站分享链接），一天最多问一次；follow 出片后发视频卡 + plan 卡，老大点「就这样」再 todo-add / project-set（做法见 follow-video skill）。
+- 还没有视频：不写文字步骤，按 follow-video skill 的「还没有视频」请老大发；follow 出片后发视频卡 + plan 卡，老大点「就这样」再 todo-add / project-set。
 - 白噪音、雨声不是练习：在对话里发音频卡，不做成待办。
 
 ## 提议卡

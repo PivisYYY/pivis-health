@@ -49,7 +49,17 @@ def test_no_op_id_still_works(tmp_path):
     t = st.add({"board": "life", "date": D.isoformat(), "title": "喝水", "kind": "counter", "target": 3, "unit": "杯"}, D)
     t = st.user_submit(t["id"], "inc", {}, None, None, NOW)
     t = st.user_submit(t["id"], "inc", {}, None, None, NOW)
-    assert t["record"]["count"] == 2 and "ops" not in t
+    assert t["record"]["count"] == 2 and t["ops"] == []
+
+
+def test_ops_survive_agent_update_so_retries_stay_deduped(tmp_path):
+    """b44：P-Health 改过这张卡之后，App 断网重发的同一个 +1 也不会算两次（以前 update 会丢掉 ops）"""
+    st = _st(tmp_path)
+    t = st.add({"board": "life", "date": D.isoformat(), "title": "喝水", "kind": "counter", "target": 5, "unit": "杯"}, D)
+    st.user_submit(t["id"], "inc", {}, None, None, NOW, op_id="inc-1")
+    st.update(t["id"], {"note": "多喝点"})
+    t = st.user_submit(t["id"], "inc", {}, None, None, NOW, op_id="inc-1")
+    assert t["record"]["count"] == 1
 
 
 def test_client_time_used_when_recent():

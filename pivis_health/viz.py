@@ -87,6 +87,13 @@ def _num(p: dict, key: str) -> float | None:
         return None
 
 
+def sleep_debt(nights: list[dict], days: int = 5) -> tuple[float, list[dict]]:
+    """睡眠债的唯一算法（主卡、facts、结论都用它）：最近 days 个「知道需要睡多久」的晚上，每晚缺的相加。"""
+    known = [n for n in nights if n.get("need") is not None and n.get("actual") is not None][-days:]
+    blocks = [{"night_of": n["date"], "short": _r(max(0.0, n["need"] - n["actual"]), 1)} for n in known]
+    return _r(sum(b["short"] for b in blocks), 1), blocks
+
+
 def _sleep_nights(tools, day: date) -> list[dict]:
     from .pages import V2Pages
     sp = V2Pages(tools).sleep(day)
@@ -280,11 +287,10 @@ def _need(tools, metric, day, now, s, pref) -> dict:
 
 def _stack(tools, metric, day, now, s, pref) -> dict:
     days = s.get("days", 5)
-    nights = [n for n in _sleep_nights(tools, day) if n.get("need") is not None][-days:]
-    if not nights:
+    total, blocks = sleep_debt(_sleep_nights(tools, day), days)
+    if not blocks:
         raise VizUnavailable("最近没有睡眠记录")
-    blocks = [{"night_of": n["date"], "short": _r(max(0.0, n["need"] - n["actual"]), 1)} for n in nights]
-    total = sum(b["short"] for b in blocks)
+    nights = [{"date": b["night_of"]} for b in blocks]
     warn = _num(pref, "warn") or DEBT_WARN_H
     zone = "act" if total >= warn else ("watch" if total >= warn / 2 else "steady")
     return {"value": _r(total, 1), "asof": nights[-1]["date"], "blocks": blocks, "warn": _r(warn, 1),

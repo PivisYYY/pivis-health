@@ -405,118 +405,54 @@ def _schema_instruction(page: str) -> str:
 
 
 def _rpc(method: str, request: dict) -> dict:
-    token = dsh_chat._get_token()
-    if not token:
-        raise RuntimeError("DSH token unavailable")
-    ck = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
-    ck.close()
-    try:
-        subprocess.run(["/usr/bin/curl", "-s", "-m", "5", "-c", ck.name, "-o", "/dev/null",
-                        f"{dsh_chat.DSH_WEB}/?token={token}"], timeout=8, capture_output=True)
-        body = json.dumps({"rpcId": f"composer-{method}-{int(time.time()*1000)}", "type": "client-request",
-                           "method": method, "payload": {"args": {"request": request}}})
-        proc = subprocess.run(["/usr/bin/curl", "-s", "-m", "35", "-b", ck.name,
-                               "-X", "POST", "-H", "Content-Type: application/json", "-d", body,
-                               f"{dsh_chat.DSH_WEB}/api/{method}"], timeout=40, capture_output=True, text=True)
-        result = json.loads(proc.stdout).get("result", {})
-        if not result.get("ok"):
-            err = result.get("error") or {}
-            raise RuntimeError(f"{err.get('code')}: {err.get('message')}")
-        return result.get("value") or {}
-    finally:
-        os.unlink(ck.name)
+    return dsh_chat.dsh_api(method, request, timeout=35)
 
 
 def _ensure_composer(page: str, suffix: str) -> str:
+    """页面编排会话：单独的工作目录和轻量预设（phealth-composer）。DSH 还没有这个预设时退回 P-Health 预设。"""
     context = f"{COMPOSER_CONTEXT}:{page}:{suffix}"
     session = dsh_chat._session_id(context)
     if not dsh_chat._session_dir(context).exists():
-        _rpc("session/create", {"sessionId": session, "cwd": dsh_chat.DSH_CWD,
-                                "agentPreset": dsh_chat.AGENT_PRESET})
+        cwd = dsh_chat.ensure_composer_cwd()
+        try:
+            _rpc("session/create", {"sessionId": session, "cwd": cwd, "agentPreset": dsh_chat.COMPOSER_PRESET})
+        except Exception:  # noqa: BLE001
+            _rpc("session/create", {"sessionId": session, "cwd": cwd, "agentPreset": dsh_chat.AGENT_PRESET})
     return session
 
 
 def _new_assistant_text(events: list[dict]) -> str:
-    chunks = []
+    """这一轮最后一条助手消息（以前把整轮所有文字拼起来，前面多一句话就解析失败）。"""
+    last = ""
     for d in events:
         if d.get("type") != "assistant/message":
             continue
         data = d.get("data", d)
         message = data.get("message", data)
-        for c in message.get("content") or []:
-            if isinstance(c, dict) and c.get("type") == "text" and c.get("text"):
-                chunks.append(c["text"])
-    return "\n".join(chunks).strip()
+        texts = [c["text"] for c in message.get("content") or []
+                 if isinstance(c, dict) and c.get("type") == "text" and c.get("text")]
+        if texts:
+            last = "\n".join(texts)
+    return last.strip()
 
 
 def _parse_json(text: str) -> dict:
+    """取出回复里的那个 JSON 对象：允许前后有代码块标记或一两句多余的话。"""
     raw = text.strip()
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     try:
         value = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Agent did not return valid JSON: {exc}; prefix={text[:160]!r}") from exc
+    except json.JSONDecodeError:
+        start, end = raw.find("{"), raw.rfind("}")
+        try:
+            value = json.loads(raw[start:end + 1]) if 0 <= start < end else None
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Agent did not return valid JSON: {exc}; prefix={text[:160]!r}") from exc
+        if value is None:
+            raise ValueError(f"Agent did not return valid JSON; prefix={text[:160]!r}")
     if not isinstance(value, dict):
         raise ValueError("Agent publication must be a JSON object")
     return value
 
 
-def publish_page(tools: HealthTools, page: str, timeout: int = 480) -> dict:
-    if page not in PAGE_TYPES:
-        raise ValueError(f"unknown page: {page}")
-    store = PublicationStore(tools.cfg)
-    with store.lock():
-        # 每次发布使用一次性编排 Session：编排只依据当前证据和共享 revision，
-        # 不得继承上一次生成的视觉/内容偏好，避免 Session 上下文污染。
-        run_id = f"r{int(time.time() * 1000)}"
-        context = f"{COMPOSER_CONTEXT}:{page}:{run_id}"
-        session = _ensure_composer(page, run_id)
-        doc = raw_document(tools, page)
-        shared_revision = (doc.get("shared_context") or {}).get("revision", 0)
-        prompt = ("你是 P-Health 的组件编排 Agent，不是聊天客服。根据给定真实证据生成页面业务组件。"
-                  "shared_context 是当前生效决定，必须逐项继承，较新的 revision 优先；"
-                  "reset=true 表示对应展示偏好已撤销，不得恢复旧偏好；除非用户有新决定，不得自行推翻。\n"
-                  "只输出 JSON，不要 Markdown，不要解释，不要调用其他工具。\n"
-                  + _schema_instruction(page) + "\n页面：" + page
-                  + "\n真实证据：\n" + json.dumps(doc, ensure_ascii=False, default=str))
-        before = len(dsh_chat.read_session_events(context))
-        dsh_chat.send_message(prompt, context)
-        deadline = time.time() + timeout
-        corrections = 0
-        while time.time() < deadline:
-            time.sleep(2)
-            events = dsh_chat.read_session_events(context)
-            new = events[before:]
-            ended = [d for d in new if d.get("type") == "turn/end"]
-            if ended:
-                reason = ended[-1].get("data", {}).get("reason") or {}
-                if reason.get("kind") != "completed":
-                    raise RuntimeError(f"Agent publication turn failed: {reason}")
-                try:
-                    payload = _parse_json(_new_assistant_text(new))
-                    components = validate_components(page, payload.get("components"), doc)
-                    return store.save(page, components, session,
-                                      shared_revision=shared_revision)
-                except ValueError as exc:
-                    if corrections >= 3:
-                        raise
-                    corrections += 1
-                    before = len(events)
-                    dsh_chat.send_message(
-                        "上一次组件文档未通过校验。请重新输出完整 JSON，不要解释。"
-                        f"必须严格修正：{exc}。need_section 用 needs，evidence 用 chart 对象，类型只能用约定值。",
-                        context)
-        raise TimeoutError(f"Agent publication timed out for {page}")
-
-
-def publish_all(tools: HealthTools) -> dict:
-    results = {}
-    for page in PAGE_TYPES:
-        try:
-            record = publish_page(tools, page)
-            results[page] = {"ok": True, "published_at": record["published_at"],
-                             "components": len(record["components"])}
-        except Exception as exc:
-            results[page] = {"ok": False, "error": str(exc)}
-    return results

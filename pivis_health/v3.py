@@ -48,18 +48,19 @@ def facts(tools, day: date) -> dict:
                                 "short_h": _round((n.get("need") or 0) - (n.get("actual") or 0))}
                                for n in nights[-7:]]
         last5 = [n for n in nights[-5:] if n.get("actual") is not None]
+        from .viz import sleep_debt
+        debt, blocks = sleep_debt(nights, 5)          # 和主卡的「睡眠债」同一个算法
         if last5 and nights and nights[-1]["date"] == yday:
-            debt = sum(max(0.0, (n.get("need") or 0) - n["actual"]) for n in last5)
-            out["sleep_debt_5n_h"] = _round(debt)
+            if blocks:
+                out["sleep_debt_5n_h"] = debt
             out["sleep_avg_5n_h"] = _round(sum(n["actual"] for n in last5) / len(last5))
             out["last_night"] = out["sleep_nights"][-1]
         else:
             out["last_night"] = None
-            # 数据断了几天：仍给出最近 5 晚的缺觉合计，并标明是哪天的数据，免得 Agent 自己去算
-            if last5:
-                debt = sum(max(0.0, (n.get("need") or 0) - n["actual"]) for n in last5)
-                out["sleep_debt_latest"] = {"h": _round(debt), "nights": len(last5),
-                                            "asof": nights[-1]["date"], "avg_slept_h": _round(sum(n["actual"] for n in last5) / len(last5))}
+            # 数据断了几天：仍给出最近的缺觉合计，并标明是哪天的数据，免得 Agent 自己去算
+            if blocks:
+                out["sleep_debt_latest"] = {"h": debt, "nights": len(blocks), "asof": blocks[-1]["night_of"],
+                                            "avg_slept_h": _round(sum(n["actual"] for n in last5) / len(last5)) if last5 else None}
         tiles = sp.get("tiles") or {}
         if (tiles.get("latency") or {}).get("mean") is not None:
             out["sleep_latency_difficulty"] = {"mean": tiles["latency"]["mean"], "target": tiles["latency"].get("target"),
@@ -128,21 +129,14 @@ def facts(tools, day: date) -> dict:
 
 
 def media_library(tools=None) -> list[dict]:
-    def kind(url: str) -> str:
-        if url.endswith((".m4a", ".mp3")):
-            return "audio"
-        if url.endswith((".mp4", ".m4v", ".mov")) or "bilibili.com/video/" in url:
-            return "video"
-        return "link"
+    from .media import is_follow_video, kind_of as kind
     lib = [{"id": it["id"], "title": it["title"], "duration_min": it["duration_min"], "url": it["url"],
             "kind": kind(it["url"])} for it in content.LIBRARY]
-    lib.append({"id": "bedtime-stretch-15", "title": "睡前拉伸（14:54）", "duration_min": 15,
-                "url": "/media/sleep-audio/01_%E7%9D%A1%E5%89%8D%E6%8B%89%E4%BC%B8.m4a", "kind": "audio"})
     if tools is not None:
         from .coach import user_media
         lib += [{**m, "source": "老大的素材库"} for m in user_media(tools)]
     # 能不能排成练习卡：只有 follow 出的片可以；其余只能在对话里发媒体卡（白噪音、雨声这类）
-    return [{**m, "plannable": str(m.get("url", "")).startswith("/media/follow/")} for m in lib]
+    return [{**m, "plannable": is_follow_video(str(m.get("url", "")))} for m in lib]
 
 
 # ---------------------------------------------------------------- 发布存储
@@ -160,23 +154,44 @@ class V3PageStore:
         return self.all().get(page)
 
     def save(self, page: str, doc: dict) -> dict:
-        data = self.all()
-        data[page] = doc
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-        tmp.replace(self.path)
+        import fcntl
+        import os
+        with open(self.path.with_suffix(".lock"), "w") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            data = self.all()
+            data[page] = doc
+            tmp = self.path.with_suffix(f".{os.getpid()}.tmp")
+            tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+            tmp.replace(self.path)
         return doc
 
 
 # ---------------------------------------------------------------- 校验
+# 日期、钟点、编号不是「数」：不进来源池，也不当成要核对的数（以前日期里的每个数字都进了池，1–31 随便写都能过）
+_NOT_A_NUMBER = re.compile(
+    r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?"   # 2026-11-07、ISO 时间
+    r"|\b\d{1,2}:\d{2}\b"                                                                 # 01:00、22:40
+    r"|\b\d{1,2}/\d{1,2}\b"                                                               # 11/7
+    r"|\d{1,2}月\d{1,2}日?"                                                               # 11月7日
+    r"|[A-Za-z_]+[-_]?\d[\w-]*"                                                           # id、ssid、key 里的数字
+)
+# 「近 7 晚」「第 2 天」「连续 3 次」这类计数 / 窗口不是健康数据
+_COUNT_PHRASE = re.compile(r"(?:近|第|最近|连续|这|前|过去|每)\s*\d+\s*(?:天|晚|周|次|件|个|顿|组)")
+
+
+def _strip_non_numbers(text: str) -> str:
+    return _COUNT_PHRASE.sub(" ", _NOT_A_NUMBER.sub(" ", text))
+
+
 def _numbers(obj: Any) -> list[float]:
+    """来源池：facts 里的数值字段，加上文字字段里真正的数（去掉日期、钟点、编号）。"""
     out: list[float] = []
     if isinstance(obj, bool):
         return out
     if isinstance(obj, (int, float)):
         out.append(float(obj))
     elif isinstance(obj, str):
-        out += [float(x) for x in re.findall(r"\d+(?:\.\d+)?", obj)]
+        out += [float(x) for x in re.findall(r"\d+(?:\.\d+)?", _NOT_A_NUMBER.sub(" ", obj))]
     elif isinstance(obj, dict):
         for v in obj.values():
             out += _numbers(v)
@@ -191,9 +206,10 @@ def _has_number(pool: list[float], value: float) -> bool:
 
 
 def _check_numbers(pool: list[float], text: str, where: str) -> None:
-    for num in re.findall(r"\d+(?:\.\d+)?", text):
+    for num in re.findall(r"\d+(?:\.\d+)?", _strip_non_numbers(text)):
         if not _has_number(pool, float(num)):
-            raise ValueError(f"{where} 里的 {num} 在 facts 里找不到，数字只能抄 facts 里的值")
+            raise ValueError(f"{where} 里的 {num} 在 facts 里找不到：数字只能抄 facts 里的值"
+                             "（钟点、日期、「近 7 晚」这类计数不算）")
 
 
 def validate_page(page: str, doc: Any, evidence: dict) -> dict:
@@ -205,6 +221,7 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
     if not isinstance(head, dict) or not str(head.get("text") or "").strip():
         raise ValueError("headline.text 必填")
     headline = str(head["text"]).strip()
+    _check_numbers(pool, headline, "headline")
     hero = doc.get("hero") or {}
     if hero.get("level") == "nodata":
         raise ValueError("不要用 nodata（数据不足）做主卡：换一个 facts 里有数的指标，断更的在 note 里写数据日期")
@@ -218,9 +235,6 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
         raise ValueError("hero.label 必填")
     value = str(hero.get("value") or "")
     _check_numbers(pool, value, "hero.value")
-    for num in re.findall(r"\d+(?:\.\d+)?", value):
-        if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
-            raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
     fields = hero.get("fields") or []
     if not isinstance(fields, list) or len(fields) > 3:
         raise ValueError("hero.fields 最多 3 个")
@@ -265,9 +279,6 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
             raise ValueError(f"{m} 已经过了警戒线（facts.viz.{m}.zone=act），level 不能写 steady")
         value = str(avail.get("value_text") or value)     # 主卡数字以内核为准
         unit = str(avail.get("unit") or unit)
-        for num in re.findall(r"\d+(?:\.\d+)?", value):
-            if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
-                raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
     out_layout = None
     if hero.get("layout"):
         # 开放画布：主卡标题行（label + 档位）由 App 画，下面整块由 P-Health 用零件拼
@@ -278,17 +289,14 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
             out_layout = canvas.validate(hero["layout"], "hero", pool, _has_number)
         except canvas.CanvasError as exc:
             raise ValueError(f"hero.layout：{exc}") from exc
-
-        def _has_timeline(n: dict) -> bool:
-            return n.get("t") == "timeline" or any(_has_timeline(k) for k in n.get("children") or [])
-        if _has_timeline(out_layout):
-            raise ValueError("hero.layout 里不要放 timeline：页面下面「接下来」已经列了待办，主卡再放一遍就重复了")
-        for num in _layout_bound_numbers(out_layout):
-            if re.search(rf"(?<![\d.]){re.escape(num)}(?![\d.])", headline):
-                raise ValueError(f"结论里不要重复主卡的数字 {num}：结论说判断和该做什么，数字只放主卡")
+        # 「主卡别放 timeline」「结论别重复主卡的数」是写法建议（见 SCHEMA），不再硬拦：
+        # 老大明确要过的布局（pref.page）里有 timeline 时，以前三次都被拦，页面一直发不出去
+    _check_numbers(pool, str(hero.get("note") or ""), "hero.note")
     notices = doc.get("notices") or []
     if len(notices) > 2:
         raise ValueError("notices 最多 2 个")
+    for n in notices:
+        _check_numbers(pool, str(n.get("text") if isinstance(n, dict) else n), "notices")
     return {
         "headline": {"text": headline},
         "hero": {"level": hero["level"], "board": hero["board"], "label": str(hero["label"]),
@@ -517,13 +525,24 @@ def _auto_bedtime(tools, store: TodoStore, day: date) -> None:
 
 
 def _expire(store: TodoStore, day: date, now: datetime | None = None) -> None:
-    """昨天没做的收起；今天设了 until 且已过点、还没动过的也收起（例如没回的午睡提议）。"""
-    stale = [t for t in store.for_date(day - timedelta(days=1))
-             if t["status"] in ("scheduled", "proposed", "in_progress") and not t.get("auto")]
-    if now is not None:
-        hm = now.strftime("%H:%M")
-        stale += [t for t in store.for_date(day)
-                  if t.get("until") and t["status"] in ("scheduled", "proposed") and hm > t["until"]]
+    """昨天没做、已经过点的收起；设了 until 的，过了 until 也收起（例如没回的午睡提议）。
+    00:00–05:59 的卡算当晚（第二天凌晨才到点）：到点后再留 2 小时，不在零点一过就收起。"""
+    from .todos import due_at
+    nowl = now.replace(tzinfo=None) if now is not None else None
+    stale = []
+    for t in store.for_date(day - timedelta(days=1)):
+        if t["status"] not in ("scheduled", "proposed", "in_progress") or t.get("auto"):
+            continue
+        due = due_at(t["date"], t["when"]) if t.get("when") else None
+        if nowl is not None and due is not None and due.date() >= day and nowl < due + timedelta(hours=2):
+            continue
+        stale.append(t)
+    if nowl is not None:
+        for t in store.for_date(day - timedelta(days=1)) + store.for_date(day):
+            if t.get("until") and t["status"] in ("scheduled", "proposed") and t not in stale:
+                until = due_at(t["date"], t["until"])
+                if until is not None and nowl > until:
+                    stale.append(t)
     for t in stale:
         try:
             store.update(t["id"], {"status": "expired"}, by="system")
@@ -531,30 +550,141 @@ def _expire(store: TodoStore, day: date, now: datetime | None = None) -> None:
             pass
 
 
-def republish_async(cfg) -> bool:
-    """后台跑一次 publish-v3 all。正在跑时再来一次请求：记一个「再跑一遍」，跑完接着跑，不丢改动。
-    跑完自己清掉锁；锁超过 15 分钟算卡死，可以重来。返回是否新启动了一轮。"""
+REPUBLISH_THROTTLE_S = 60          # 页面过期时，客户端每次轮询都会来一次：一分钟内只拉起一次
+BACKOFF_FIRST_S, BACKOFF_MAX_S = 600, 7200
+
+
+def _republish_lock_busy(cfg) -> bool:
+    """有没有一个重排进程正持着锁（flock：进程退出锁就没了，不会卡死）。"""
+    import fcntl
+    try:
+        with open(cfg.data_dir / "republish.lock", "a") as fh:
+            try:
+                fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                return True
+            fcntl.flock(fh, fcntl.LOCK_UN)
+            return False
+    except OSError:
+        return False
+
+
+def _republish_state(cfg) -> dict:
+    try:
+        return json.loads((cfg.data_dir / "republish.state.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_republish_state(cfg, st: dict) -> None:
     import os
-    import shlex
+    path = cfg.data_dir / "republish.state.json"
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
+
+
+def republish_async(cfg) -> bool:
+    """后台跑一次 publish-v3 all（真正的单实例锁和退避在 publish_all 里）。
+    正在跑：记一个「再跑一遍」，跑完接着跑，不丢改动。一分钟内只拉起一次。返回是否新拉起了进程。"""
+    import os
     import subprocess
     import sys
-    lock = cfg.data_dir / "republish.lock"
-    again = cfg.data_dir / "republish.again"
     try:
-        if lock.exists() and time.time() - lock.stat().st_mtime < 900:
-            again.write_text(str(time.time()))
+        if _republish_lock_busy(cfg):
+            (cfg.data_dir / "republish.again").write_text(str(time.time()))
             return False
-        lock.write_text(str(os.getpid()))
-        py = shlex.quote(sys.executable)
-        run = f"{py} -m pivis_health.cli publish-v3 all"
-        script = (f"{run}; while [ -f {shlex.quote(str(again))} ]; do rm -f {shlex.quote(str(again))}; {run}; done; "
-                  f"rm -f {shlex.quote(str(lock))}")
+        st = _republish_state(cfg)
+        if time.time() - float(st.get("spawned_at") or 0) < REPUBLISH_THROTTLE_S:
+            return False
+        st["spawned_at"] = time.time()
+        _save_republish_state(cfg, st)
         log = open(cfg.data_dir / "republish.log", "a")
-        subprocess.Popen(["/bin/sh", "-c", script], stdout=log, stderr=log, stdin=subprocess.DEVNULL,
-                         start_new_session=True, env={**os.environ})
+        subprocess.Popen([sys.executable, "-m", "pivis_health.cli", "publish-v3", "all"], stdout=log, stderr=log,
+                         stdin=subprocess.DEVNULL, start_new_session=True, env={**os.environ})
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+def publish_all(tools, pages: list[str], timeout: int = 420, force: bool = False) -> dict:
+    """重排几页，同一时间只有一个进程在跑（定时任务和客户端触发都走这里）。
+    某页失败（DSH 不通、三次校验不过）：这一页按 10 分钟、20 分钟……最长 2 小时退避，不再整夜反复重来。"""
+    import fcntl
+    cfg = tools.cfg
+    lockf = open(cfg.data_dir / "republish.lock", "a")
+    try:
+        fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        (cfg.data_dir / "republish.again").write_text(str(time.time()))
+        lockf.close()
+        return {"busy": True}
+    out: dict[str, Any] = {}
+    prog = cfg.data_dir / "republish.progress.json"
+    again = cfg.data_dir / "republish.again"
+    try:
+        for _round in range(3):
+            again.unlink(missing_ok=True)
+            st = _republish_state(cfg)
+            todo = [pg for pg in pages
+                    if force or time.time() >= float((st.get("pages") or {}).get(pg, {}).get("next_try") or 0)]
+            for i, pg in enumerate(todo):
+                prog.write_text(json.dumps({"current": pg, "left": todo[i + 1:], "at": time.time()}))
+                t0 = time.time()
+                try:
+                    out[pg] = {"ok": True, "published_at": publish(tools, pg, timeout).get("published_at")}
+                    fails = 0
+                except Exception as exc:  # noqa: BLE001
+                    out[pg] = {"error": str(exc)[:300]}
+                    fails = int((st.get("pages") or {}).get(pg, {}).get("fails") or 0) + 1
+                st = _republish_state(cfg)
+                pst = st.setdefault("pages", {})
+                pst[pg] = {"fails": fails, "at": time.time(),
+                           "next_try": time.time() + min(BACKOFF_FIRST_S * 2 ** (fails - 1), BACKOFF_MAX_S) if fails else 0}
+                _save_republish_state(cfg, st)
+                _log_agent_error(cfg, "publish", pg, out[pg].get("error"), secs=round(time.time() - t0))
+            for skipped in set(pages) - set(todo):
+                out.setdefault(skipped, {"skipped": "backoff"})
+            if not again.exists():
+                break
+    finally:
+        prog.unlink(missing_ok=True)
+        fcntl.flock(lockf, fcntl.LOCK_UN)
+        lockf.close()
+    return out
+
+
+def _log_agent_error(cfg, kind: str, where: str, error: str | None, **extra) -> None:
+    """P-Health 后台工作的结果都记一行（成功也记，方便看失败率）：runtime/agent_runs.jsonl，超过 2000 行截断。"""
+    path = cfg.data_dir / "agent_runs.jsonl"
+    try:
+        row = {"at": datetime.now().isoformat(timespec="seconds"), "kind": kind, "where": where,
+               "ok": not error, "error": error, **extra}
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        if path.stat().st_size > 600_000:
+            lines = path.read_text(encoding="utf-8").splitlines()[-2000:]
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _with_poster(cfg, t: dict) -> dict:
+    """follow 出的片有封面就带上 media.poster（App 不再按视频路径猜封面）。"""
+    from .media import poster_for
+    if t.get("kind") != "follow":
+        return t
+    steps = []
+    for st in t.get("steps") or []:
+        m = st.get("media") or {}
+        poster = poster_for(cfg, str(m.get("url") or "")) if m else None
+        steps.append({**st, "media": {**m, "poster": poster}} if poster else st)
+    out = {**t, "steps": steps}
+    if t.get("media"):
+        poster = poster_for(cfg, str(t["media"].get("url") or ""))
+        if poster:
+            out["media"] = {**t["media"], "poster": poster}
+    return out
 
 
 def page_doc(tools, page: str) -> dict:
@@ -577,8 +707,8 @@ def page_doc(tools, page: str) -> dict:
     carry = [t for t in store.for_date(day - timedelta(days=1), None if page == "now" else page)
              if t.get("auto") == "bedtime" and t["status"] == "done"]
     pending = [t for t in todos if t["status"] in PENDING]
-    # 项目里的卡带上「上次」：跟做卡显示上次的评价，数值卡先填上次的数
-    pending = [{**t, "last": store.last_record(t)} if t.get("project") else t for t in pending]
+    # 项目里的卡带上「上次」：跟做卡显示上次的评价，数值卡先填上次的数；练习视频带上封面地址
+    pending = [_with_poster(tools.cfg, {**t, "last": store.last_record(t)} if t.get("project") else t) for t in pending]
     done = [t for t in todos if t["status"] in ("done", "skipped")] + carry
     more: list[dict] = []
     if page == "now" and len(pending) > 3:
@@ -600,7 +730,9 @@ def page_doc(tools, page: str) -> dict:
             live = vizmod.build(tools, hero["viz"], day, now)
             hero = {**hero, "viz": live, "value": live["value_text"], "unit": live["unit"]}
         except Exception:
-            hero = {**hero, "viz": None}      # 数据断了：退回只显示数字
+            # 数据断了：不拿发布时的旧数字冒充现在的数，留空并说明
+            hero = {**hero, "viz": None, "value": "", "unit": "",
+                    "note": "数据暂时读不到，P-Health 会自动恢复"}
     if hero.get("layout"):
         from . import canvas
         try:
@@ -632,8 +764,7 @@ def page_doc(tools, page: str) -> dict:
 WD_CN = "一二三四五六日"
 
 
-def _clean_name(name: str) -> str:
-    return re.sub(r"\s*[·・]\s*\d+\s*天$", "", name or "")
+from .canvas_parts import _clean_name   # 项目名去掉「· 56 天 / · 8 周」：习惯行和主卡同一个写法
 
 
 def _tpl_on(tpl: dict, d: date) -> bool:
@@ -930,10 +1061,7 @@ def sync_status(tools) -> dict:
     sig = "|".join(str(f.stat().st_mtime_ns) if f.exists() else "-" for f in files)
     lock, again, prog = d / "republish.lock", d / "republish.again", d / "republish.progress.json"
     updating: list[str] = []
-    try:
-        running = lock.exists() and time.time() - lock.stat().st_mtime < 900
-    except OSError:
-        running = False
+    running = _republish_lock_busy(cfg)
     if running:
         try:
             pr = json.loads(prog.read_text(encoding="utf-8"))
@@ -960,15 +1088,12 @@ def _abs_time(day_iso: str, hhmm: str, tz) -> str | None:
     """待办的绝对时间：00:00–05:59 的算当晚（第二天凌晨）。小组件按它排时间线。"""
     if not hhmm:
         return None
+    from .todos import due_at
     try:
-        d = date.fromisoformat(day_iso)
-        h, m = (int(x) for x in hhmm.split(":"))
+        at = due_at(day_iso, hhmm)
     except ValueError:
         return None
-    at = datetime(d.year, d.month, d.day, h, m, tzinfo=tz)
-    if h < 6:
-        at += timedelta(days=1)
-    return at.isoformat(timespec="minutes")
+    return at.replace(tzinfo=tz).isoformat(timespec="minutes") if at else None
 
 
 def widget_doc(tools) -> dict:
@@ -1094,7 +1219,7 @@ def submit(tools, todo_id: str, body: dict) -> dict:
 
 
 # ---- 每日整理：每天早上让各板块的 P-Health 看一眼数据和项目，决定要不要加 0–2 件待办 ----
-REVIEW_PREFIX = "【每日整理】"
+REVIEW_PREFIX = "【每日整理】"      # 已不再单独发送（早上那次【每日推荐】带上整理）；留给旧聊天记录的显示
 
 
 RECOMMEND_PREFIX = "【每日推荐】"
@@ -1114,6 +1239,20 @@ def _recommend_message(slot: str, now: datetime) -> str:
             "用待办卡写进对应板块（要占时间或改计划的用 proposal，几分钟的小事直接给打勾卡）；不要和项目里已有的重复。"
             "练习只推荐 follow 出过片的（follow session list 能查）；没有就请老大发一个博主视频，今天已经问过就别再问。"
             "做完只回一句话，例如「早上推荐了：晨光散步、网球前臂离心」。")
+
+
+DAILY_REVIEW_NOTE = ("\n这是早上那次【每日推荐】，顺带做每日整理：看昨天的待办做得怎么样（漏了的问原因，连续漏两次的按 habit-coach 处理）、"
+                     "昨天用过的素材该打分的出打分卡、今天训练该不该降强度（training-coach）、还没做的入门问卷（phealth-role）。")
+
+
+def _today_counts(tools, day: date) -> str:
+    """今天已经排了几张带时间的卡、锁屏推了几条：P-Health 据此守住「到点提醒一天最多 3 张」，不用自己记。"""
+    timed = [t for t in TodoStore(tools.cfg).for_date(day) if t.get("when") and t["status"] in PENDING]
+    try:
+        pushed = tools.subj.push_count(day.isoformat())
+    except Exception:  # noqa: BLE001
+        pushed = 0
+    return f"\n今天的计数：还没做的带时间待办 {len(timed)} 张；锁屏推送已发 {pushed} 条（上限 {tools.cfg.daily_push_limit}）。"
 
 
 def daily_review(tools, boards: list[str] | None = None, force: bool = False, slot: str | None = None) -> dict:
@@ -1136,14 +1275,19 @@ def daily_review(tools, boards: list[str] | None = None, force: bool = False, sl
         return {"slot": slot, "status": "already"}
     msg = _recommend_message(slot, now)
     from .coach import projects_truth
+    msg += _today_counts(tools, now.date())
     msg += projects_truth(tools, now.date())
     if slot == "morning":
-        msg += "".join(weekly_review_note(tools, b, now.date()) for b in PAGE_BOARDS)
+        msg += DAILY_REVIEW_NOTE
+        msg += weekly_review_note(tools, now.date())
     try:
         dsh_chat.send_message(msg, "")
         state[key] = now.isoformat(timespec="minutes")
         out = {"slot": slot, "status": "sent"}
     except Exception as exc:  # noqa: BLE001
         out = {"slot": slot, "status": f"error: {exc}"}
-    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=1))
+    _log_agent_error(tools.cfg, "daily_recommend", slot, None if out["status"] == "sent" else out["status"])
+    tmp = state_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False, indent=1))
+    tmp.replace(state_path)
     return out

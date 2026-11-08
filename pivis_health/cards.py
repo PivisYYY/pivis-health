@@ -101,8 +101,12 @@ def check(card: Any) -> list[str]:
         url = str(card.get("url") or "")
         if not url or url.startswith("<"):
             probs.append("media 卡的 url 还是空的 / 占位符：先在 media-library 里找到真的地址")
-        elif not (url.startswith("http://") or url.startswith("https://") or url.startswith("/media/")):
-            probs.append("media 的 url 要是 http(s):// 或 /media/ 开头")
+        else:
+            from .media import MediaError, check_url
+            try:
+                check_url(url)        # 和待办同一套：不用 YouTube、网盘、内网地址
+            except MediaError as exc:
+                probs.append(f"media 的 url 不能用：{exc}")
     elif t == "viz":
         if not card.get("metric"):
             probs.append("viz 卡缺 metric")

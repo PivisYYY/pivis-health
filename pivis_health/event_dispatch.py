@@ -23,6 +23,10 @@ def _empty_state() -> dict:
     return {"schema_version": 1, "delivered": []}
 
 
+PENDING_WINDOW = 500
+DELIVERED_KEEP = 5000
+
+
 class EventDelivery:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
@@ -45,8 +49,9 @@ class EventDelivery:
     def pending(self) -> list[dict]:
         delivered = set(self.state()["delivered"])
         with EventStore(self.store_path) as store:
-            return [e for e in store.query(order_by="received_at")
-                    if e["event_id"] not in delivered]
+            # 只看最近到达的 500 条（以前每 30 秒把整张事件表扫两遍，越用越慢）
+            recent = list(reversed(store.query(order_by="received_at", ascending=False, limit=PENDING_WINDOW)))
+        return [e for e in recent if e["event_id"] not in delivered]
 
     def dispatch(self, send: Callable[[dict], bool], limit: int | None = None) -> dict:
         """逐条分发未处理事件；失败继续下一条，只有 send 返回 True 才标记。"""
@@ -69,6 +74,7 @@ class EventDelivery:
                 raw = self.state()
                 known = set(raw["delivered"])
                 raw["delivered"].extend(i for i in delivered if i not in known)
+                raw["delivered"] = raw["delivered"][-DELIVERED_KEEP:]     # 只留最近的，文件不再一直长
                 self._write(raw)
         return {"dispatched": len(delivered), "failed": failed, "pending": len(self.pending())}
 

@@ -40,6 +40,7 @@ def tunnel_blocked(headers, path: str) -> bool:
 
 
 _LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+OPEN_API = ("/api/v3/app-version",)      # 不带设备密钥也能读：老版本 App 靠它提示更新
 
 
 def app_trusted(cfg: Config, client_ip: str, headers) -> bool:
@@ -241,8 +242,17 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             self._send(404, b"not found", "text/plain")
             return True
 
+        def _deny_untrusted(self) -> bool:
+            """/api 下的接口只给本机和带设备密钥的 App（对话、待办提交都能驱动 P-Health，不能让内网别的设备调）。
+            放行：应用内更新要读的版本号；/install 和 /media 不在 /api 下。"""
+            path = urlparse(self.path).path
+            if not path.startswith("/api/") or path in OPEN_API or app_trusted(cfg, self.client_address[0], self.headers):
+                return False
+            self._json({"error": "forbidden", "message": "只有 P-Health App 和本机能用"}, 403)
+            return True
+
         def do_GET(self):
-            if self._deny_tunnel():
+            if self._deny_tunnel() or self._deny_untrusted():
                 return
             u = urlparse(self.path)
             q = parse_qs(u.query)
@@ -277,31 +287,14 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 if not app_trusted(cfg, self.client_address[0], self.headers):
                     self._json({"error": "forbidden", "message": "只有 P-Health App 和本机能用"}, 403)
                     return
-                import re as _re2
-                log_path = cfg.data_dir / "dshweb.log"
-                token = None
-                if log_path.exists():
-                    tokens = _re2.findall(r"token=([A-Za-z0-9_-]+)", log_path.read_text(encoding="utf-8", errors="ignore"))
-                    token = tokens[-1] if tokens else None
-                self._json({"token": token})
+                self._json({"token": dsh_chat._get_token()})
                 return
             if u.path == "/dsh":
                 # 直连入口：从 dshweb 日志读最新 token，302 到 P-Health 会话（只给本机 / 带设备密钥的）
                 if not app_trusted(cfg, self.client_address[0], self.headers):
                     self._json({"error": "forbidden", "message": "只有 P-Health App 和本机能用"}, 403)
                     return
-                token = None
-                try:
-                    log = cfg.data_dir / "dshweb.log"
-                    if log.exists():
-                        import re as _re
-                        m = None
-                        for m in _re.finditer(r"token=([A-Za-z0-9_-]+)", log.read_text(encoding="utf-8", errors="ignore")):
-                            pass
-                        if m:
-                            token = m.group(1)
-                except OSError:
-                    token = None
+                token = dsh_chat._get_token()
                 if token:
                     self.send_response(302)
                     self.send_header(
@@ -344,7 +337,7 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             return {k: v[0] for k, v in parse_qs(raw).items()}
 
         def do_POST(self):
-            if self._deny_tunnel():
+            if self._deny_tunnel() or self._deny_untrusted():
                 return
             u = urlparse(self.path)
             if u.path.startswith("/api/v3/"):

@@ -36,9 +36,23 @@ def test_nodata_and_headline_repeating_value_rejected():
     with pytest.raises(ValueError, match="nodata"):
         validate_page("sleep", _doc(level="nodata"), FACTS)
     doc = _doc()
-    doc["headline"]["text"] = "昨晚只睡 5.5 小时"
-    with pytest.raises(ValueError, match="重复"):
-        validate_page("sleep", doc, FACTS)
+    doc["headline"]["text"] = "昨晚只睡 5.5 小时"          # 重复主卡的数：b44 起只是写法建议，不再硬拦
+    assert validate_page("sleep", doc, FACTS)["headline"]["text"] == "昨晚只睡 5.5 小时"
+
+
+def test_numbers_need_a_source_everywhere():
+    """b44：日期、钟点不进来源池；结论、备注、注脚里的数字也要能在 facts 里找到"""
+    evidence = {"facts": {"date": "2026-11-07", "sleep_h": 6.2, "updated": "2026-11-07T08:12:00+08:00"}}
+    base = {"headline": {"text": "今晚 01:00 上床，近 7 晚都欠觉"},
+            "hero": {"level": "watch", "board": "sleep", "label": "昨晚睡了", "value": "6.2", "unit": "h"}}
+    assert validate_page("sleep", base, evidence)["hero"]["value"] == "6.2"   # 钟点、「近 7 晚」不算数
+    for bad in ({"headline": {"text": "昨晚只睡了 5 小时，欠了 3 小时"}},          # 编的数
+                {"hero": {**base["hero"], "value": "7"}},                         # 7 只出现在日期里
+                {"hero": {**base["hero"], "note": "比平时少 1.5 小时"}},
+                {"notices": [{"text": "WHOOP 断更 4 天"}]}):
+        doc = {**base, **bad}
+        with pytest.raises(ValueError, match="找不到"):
+            validate_page("sleep", doc, evidence)
 
 
 def test_fields_and_table_together_rejected_and_negative_change_matches():

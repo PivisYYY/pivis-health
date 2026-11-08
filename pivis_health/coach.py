@@ -139,17 +139,17 @@ def projects_truth(tools, day: date, board: str | None = None) -> str:
             + "\n".join("- " + project_status(p, day) for p in ps))
 
 
-def weekly_review_note(tools, board: str, day: date) -> str:
-    """周日的每日整理里加一段：每个进行中的项目做一次周复盘。"""
+def weekly_review_note(tools, day: date, board: str | None = None) -> str:
+    """周日早上那次【每日推荐】里加一段：每个进行中的项目（所有板块，含日常）做一次周复盘。"""
     if day.isoweekday() != 7:
         return ""
     store = TodoStore(tools.cfg)
-    ps = [p for p in store.projects(active_only=True) if p["board"] == board]
+    ps = [p for p in store.projects(active_only=True) if board is None or p["board"] == board]
     if not ps:
         return ""
     names = "、".join(f"{p['name']}（{p['id']}）" for p in ps)
-    return ("\n5. 今天是周日，做周复盘：" + names + "。每个项目先跑 ./pivis-health project-stats --id <id> --days 7"
-            "（睡眠类再跑 ./pivis-health sleep-week），按 habit-coach / 对应专业 skill 的复盘规则判断要不要调整；"
-            "要调整就加一张 kind=proposal 的待办「本周复盘」，把数据和建议写清楚、给 2–3 个选项，老大选了再 project-set。"
-            "学到的规律用 context-record --scope learn.<主题> 记下。"
+    return ("\n今天是周日，做周复盘：" + names + "。每个项目先跑 ./pivis-health project-stats --id <id> --days 7"
+            "（睡眠类再跑 ./pivis-health sleep-week），按 habit-coach / 对应专业 skill 的复盘规则判断；"
+            "每个项目加一张 kind=proposal 的待办「本周复盘」：数据和建议写清楚，给 2–3 个选项（不用改也给「保持不变」），"
+            "老大选了再 project-set。学到的规律用 context-record --scope learn.<主题> 记下。"
             "说某个项目哪天开始、第几天，只按这条消息里「进行中的项目」的状态说。")

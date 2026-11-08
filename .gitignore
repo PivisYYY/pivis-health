@@ -73,3 +73,6 @@ ios/
 # Added 2026-11-05: deployment copies that carry personal profile/health details stay local
 agent/AGENTS-real.md
 agent/dsbot-p-health-instructions.md
+
+# 2026-11-07 (b44): AGENTS-real = AGENTS-v3 + this local appendix (personal details); built by scripts/install_agents.py
+agent/AGENTS-appendix.local.md

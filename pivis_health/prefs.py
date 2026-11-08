@@ -45,11 +45,17 @@ def baseline_pref(cfg) -> str | None:
     return None
 
 
+# 位置这类敏感档案不写进每个会话的规则（DS Bot 群里的 P-Health 也读这份）；要用时 context-list 查
+SENSITIVE_PROFILE = ("profile.home_place", "profile.travel", "profile.location", "profile.address")
+MAX_PREFS = 30
+
+
 def render_block(prefs: list[dict], known: list[dict] | None = None) -> str:
-    lines = [START, "## 老大定下的偏好（必须遵守；老大改口就用 context-record 覆盖同一个 scope）"]
+    lines = [START, "## 老大定下的偏好（要遵守；**红线优先**：和红线冲突时按红线做，并用 context-record 把这条偏好改成不冲突的说法；"
+             "老大改口就覆盖同一个 scope）"]
     if not prefs:
         lines.append("- 暂无")
-    for e in prefs:
+    for e in prefs[-MAX_PREFS:]:
         rule = str((e.get("payload") or {}).get("rule") or "").strip() or str(e.get("payload"))
         when = str(e.get("recorded_at") or "")[:10]
         lines.append(f"- {rule}（{e['scope']}，{when}）")
@@ -95,7 +101,8 @@ def _fact_line(p: dict) -> str:
 def known_facts(cfg) -> list[dict]:
     from .agent_context import AgentContextStore
     return [e for e in AgentContextStore(cfg).snapshot()["entries"]
-            if str(e.get("scope", "")).startswith(("profile.", "learn."))]
+            if str(e.get("scope", "")).startswith(("profile.", "learn."))
+            and not str(e.get("scope", "")).startswith(SENSITIVE_PROFILE)]
 
 
 def agents_md_path() -> Path:

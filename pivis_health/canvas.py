@@ -514,11 +514,12 @@ def _ring(tools, b: str, day: date, vz) -> dict:
 
 
 def _timeline(tools, n: int, day: date, now: datetime, board: str | None) -> list[dict]:
-    from .todos import PENDING, TodoStore
-    hm = now.strftime("%H:%M")
+    from .todos import PENDING, TodoStore, _sort_when, due_at
+    nowl = now.replace(tzinfo=None)
     ts = [t for t in TodoStore(tools.cfg).for_date(day, None if board in (None, "now") else board)
           if t["status"] in PENDING]
-    ts.sort(key=lambda t: ((t.get("when") or "99:99") < hm, t.get("when") or "99:99"))   # 还没到点的排前面
+    # 还没到点的排前面；00:00–05:59 算当晚（22:00 时 00:30 还没到）
+    ts.sort(key=lambda t: (bool(t.get("when")) and due_at(t["date"], t["when"]) < nowl, _sort_when(t.get("when") or "")))
     return [{"when": t.get("when") or "", "title": t["title"], "note": t.get("note") or ""} for t in ts[:n]]
 
 

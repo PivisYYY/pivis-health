@@ -44,11 +44,49 @@ def test_sync_status_rev_and_updating(tmp_path, monkeypatch):
     (tmp_path / "pages_v3.json").write_text("{}")
     b = v3.sync_status(t)
     assert b["rev"] != a["rev"]
-    (tmp_path / "republish.lock").write_text("1")
+    (tmp_path / "republish.lock").write_text("1")              # 文件在但没人持锁：不算在跑
     (tmp_path / "republish.progress.json").write_text(json.dumps({"current": "sleep", "left": ["sport", "stress"]}))
-    assert v3.sync_status(t)["updating"] == ["sleep", "sport", "stress"]
-    (tmp_path / "republish.again").write_text("1")
-    assert v3.sync_status(t)["updating"] == list(v3.PAGES)
+    assert v3.sync_status(t)["updating"] == []
+    import fcntl
+    with open(tmp_path / "republish.lock", "a") as fh:            # 真有一个进程持着锁
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        assert v3.sync_status(t)["updating"] == ["sleep", "sport", "stress"]
+        (tmp_path / "republish.again").write_text("1")
+        assert v3.sync_status(t)["updating"] == list(v3.PAGES)
+
+
+def test_publish_all_single_runner_and_backoff(tmp_path, monkeypatch):
+    t = _tools(tmp_path)
+    calls = []
+
+    def fake_publish(tools, pg, timeout=420):
+        calls.append(pg)
+        if pg == "sport":
+            raise TimeoutError("DSH 不通")
+        return {"published_at": "x"}
+    monkeypatch.setattr(v3, "publish", fake_publish)
+    out = v3.publish_all(t, ["sleep", "sport"])
+    assert out["sleep"]["ok"] and "error" in out["sport"]
+    st = json.loads((tmp_path / "republish.state.json").read_text())
+    assert st["pages"]["sport"]["fails"] == 1 and st["pages"]["sport"]["next_try"] > 0
+    calls.clear()
+    out = v3.publish_all(t, ["sleep", "sport"])                  # sport 还在退避里，不再重来
+    assert calls == ["sleep"] and out["sport"] == {"skipped": "backoff"}
+    import fcntl
+    with open(tmp_path / "republish.lock", "a") as fh:            # 另一个进程在跑：这次不跑，记「再跑一遍」
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        assert v3.publish_all(t, ["sleep"]) == {"busy": True}
+    assert (tmp_path / "republish.again").exists()
+
+
+def test_republish_async_throttled(tmp_path, monkeypatch):
+    t = _tools(tmp_path)
+    spawned = []
+    import subprocess
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: spawned.append(a))
+    assert v3.republish_async(t.cfg) is True
+    assert v3.republish_async(t.cfg) is False                    # 一分钟内不再拉起
+    assert len(spawned) == 1
 
 
 def test_chat_photo_saved_and_served_by_name_only(tmp_path):

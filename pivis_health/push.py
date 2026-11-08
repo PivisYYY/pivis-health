@@ -1,27 +1,14 @@
 """主动触达（APNs）：统一门控 DND → 日配额 → 当日去重，再逐 token 发送。
 
-两类入口：
-- run_pushd(tools)：定时守护（launchd 每分钟调 --once），午间 12:30 / 今晚 21:30
-  扫各页 needs，把窗口命中的待办推到锁屏。
-- send_push(tools, ...)：bot 立即触达（不确定事项提问等），走同一套门控。
+入口：send_push(tools, ...)：P-Health 立即触达（事件、红旗等），走同一套门控。
+旧的定时守护（按规则引擎 needs 在 12:30 / 21:30 推写死的话）build 44 已退役。
 """
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any
 
 from .apns import APNS
 from .rules import dnd_allows
-
-# 专项 → 客户端页面 key
-SPECIALTY_PAGE = {"睡眠": "sleep", "运动": "sport", "压力": "stress"}
-
-# 固定推送时刻表：window 标签 → (hour, minute)；命中后 10 分钟宽限内都可发（当日去重保证只发一次）
-WINDOW_TIMES = {
-    "午间": (12, 30),
-    "今晚": (21, 30),
-}
-WINDOW_GRACE_MIN = 10
 
 
 def gate_and_send(tools, title: str, body: str, kind: str,
@@ -71,34 +58,7 @@ def send_push(tools, title: str, body: str, page: str | None = None,
 
 
 def run_pushd_once(tools) -> dict[str, Any]:
-    """守护单轮：当前分钟命中时刻表才处理；逐页扫 needs，窗口匹配则推送。"""
-    from .pages import V2Pages
+    """已退役（build 44）：以前按旧规则引擎的 needs 每天 12:30 / 21:30 推写死的话（「今晚提前上床」），
+    绕过 P-Health、占推送额度，还会和计划冲突。锁屏推送只发 P-Health 写的内容（事件推送、红旗）。"""
+    return {"ran": False, "reason": "retired"}
 
-    now = tools._now()
-    window_hit = None
-    for label, (h, m) in WINDOW_TIMES.items():
-        start = now.replace(hour=h, minute=m, second=0, microsecond=0)
-        if start <= now < start + timedelta(minutes=WINDOW_GRACE_MIN):
-            window_hit = label
-            break
-    if window_hit is None:
-        return {"ran": False, "reason": "no_window", "time": now.isoformat(timespec="minutes")}
-
-    pages = V2Pages(tools)
-    results: list[dict] = []
-    for page_name in ("today", "sleep", "sport", "stress"):
-        page = getattr(pages, page_name)()
-        for need in page.get("needs") or []:
-            if need.get("window") != window_hit:
-                continue
-            client_page = SPECIALTY_PAGE.get(need.get("specialty") or "", "today")
-            kind = f"pushd:{page_name}:{need.get('need_type')}"
-            results.append(gate_and_send(
-                tools,
-                title="P-Health",
-                body=f"{need['title']}——{need['action']}",
-                kind=kind,
-                data={"page": client_page, "need": need.get("need_type")},
-            ))
-    return {"ran": True, "window": window_hit, "time": now.isoformat(timespec="seconds"),
-            "results": results}

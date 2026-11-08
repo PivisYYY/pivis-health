@@ -49,7 +49,27 @@ if DSH_PREFIX:
                           "压力": f"{DSH_PREFIX}r3-stress", "组件编排": f"{DSH_PREFIX}composer",
                           "事件处理": f"{DSH_PREFIX}r3-events"}
 SESSIONS_DIR = Path.home() / ".dsh/sessions" / ("-" + DSH_CWD.replace("/", "-") + "--")
-COOKIE_FILE = Path("/tmp/dsh_chat_cookie.txt")
+# 页面编排单独一个工作目录 + 轻量预设：不带聊天人设、P-Health 的规则和工具，只按格式出 JSON。
+# 编排会话也因此不再堆在 P-Health 的会话列表里（DeepSeek Harness 客户端里看得到那个列表）
+COMPOSER_CWD = os.environ.get("PIVIS_DSH_COMPOSER_CWD", DSH_CWD.rstrip("/") + "-composer")
+COMPOSER_PRESET = "phealth-composer"
+COMPOSER_SESSIONS_DIR = Path.home() / ".dsh/sessions" / ("-" + COMPOSER_CWD.replace("/", "-") + "--")
+COMPOSER_AGENTS_MD = """# 页面编排
+
+你是 P-Health 的页面编排器：根据消息里的证据和格式说明，为一页写主卡和结论。
+- 只输出一个 JSON 对象：不聊天、不解释、不加代码块之外的文字，不调用任何工具。
+- 数字只能抄证据里的值；钟点、日期照抄。
+- 校验没通过时会告诉你原因：按原因改，重新输出完整 JSON。
+"""
+
+
+def ensure_composer_cwd() -> str:
+    d = Path(COMPOSER_CWD)
+    d.mkdir(parents=True, exist_ok=True)
+    md = d / "AGENTS.md"
+    if not md.exists() or md.read_text(encoding="utf-8") != COMPOSER_AGENTS_MD:
+        md.write_text(COMPOSER_AGENTS_MD, encoding="utf-8")
+    return str(d)
 LOG_FILE = Path.home() / ".dsh/bot/workspace/pivis-runtime/dshweb.log"
 
 TZ = ZoneInfo("Asia/Shanghai")
@@ -96,11 +116,13 @@ def _session_id(context: str = "") -> str:
 
 
 def _session_dir(context: str = "") -> Path:
+    if context.startswith("组件编排:"):
+        return COMPOSER_SESSIONS_DIR / _session_id(context)
     return SESSIONS_DIR / _session_id(context)
 
 
 def _get_token() -> str | None:
-    """从 dsh web 日志拿最新 token。"""
+    """dsh web 的登录 token：它启动时打印在自己的日志里，取最新一条（全系统只在这里读）。"""
     try:
         text = LOG_FILE.read_text(encoding="utf-8", errors="ignore")
         tokens = re.findall(r"token=([A-Za-z0-9_-]+)", text)
@@ -109,52 +131,34 @@ def _get_token() -> str | None:
         return None
 
 
-def _ensure_auth() -> bool:
-    """确保有有效的 auth cookie（token → cookie 交换）。"""
-    if COOKIE_FILE.exists():
-        # 检查 cookie 是否还有效（简单方式：试调一个 API）
-        import urllib.request
-        try:
-            req = urllib.request.Request(
-                f"{DSH_WEB}/api/session/list",
-                method="POST",
-                headers={"Content-Type": "application/json"},
-                data=json.dumps({
-                    "rpcId": "auth-check",
-                    "type": "client-request",
-                    "method": "session/list",
-                    "payload": {"args": {"_request": {}}}
-                }).encode()
-            )
-            cookies = COOKIE_FILE.read_text().strip()
-            req.add_header("Cookie", cookies)
-            urllib.request.urlopen(req, timeout=5)
-            return True
-        except Exception:
-            pass
-
-    # 重新获取 cookie
+def dsh_api(method: str, request: dict, timeout: int = 30) -> dict:
+    """调 dsh web 的 client-request 接口（token 换 cookie → POST /api/<method>），返回 result.value。
+    出错（拿不到 token、连不上、返回不是 JSON、ok=false）一律抛 DshChatError，不再把 DSH 不通当成「没数据」。"""
     token = _get_token()
     if not token:
-        return False
+        raise DshChatError("无法获取 dsh web token（DSH web 可能没在运行）")
+    ck = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
+    ck.close()
     try:
-        import urllib.request
-        req = urllib.request.Request(f"{DSH_WEB}/?token={token}")
-        resp = urllib.request.urlopen(req, timeout=5)
-        set_cookie = resp.headers.get("Set-Cookie", "")
-        if set_cookie:
-            # 提取 cookie 键值对
-            cookie_parts = []
-            for part in set_cookie.split(";"):
-                part = part.strip()
-                if "=" in part and not part.startswith(("Path", "Expires", "Max-Age", "HttpOnly", "SameSite", "Secure")):
-                    cookie_parts.append(part)
-            cookie_str = "; ".join(cookie_parts)
-            COOKIE_FILE.write_text(cookie_str)
-            return True
-    except Exception:
-        pass
-    return False
+        subprocess.run(["/usr/bin/curl", "-s", "-m", "5", "-c", ck.name, "-o", "/dev/null",
+                        f"{DSH_WEB}/?token={token}"], timeout=8, capture_output=True)
+        body = json.dumps({"rpcId": f"pivis-{method}-{int(time.time() * 1000)}", "type": "client-request",
+                           "method": method, "payload": {"args": {"request": request}}})
+        proc = subprocess.run(["/usr/bin/curl", "-s", "-m", str(timeout), "-b", ck.name, "-X", "POST",
+                               "-H", "Content-Type: application/json", "-d", body, f"{DSH_WEB}/api/{method}"],
+                              timeout=timeout + 5, capture_output=True, text=True)
+        try:
+            result = json.loads(proc.stdout or "").get("result", {})
+        except json.JSONDecodeError as exc:
+            raise DshChatError(f"dsh web 没有正常回应（{method}）：{(proc.stdout or proc.stderr or '')[:120]}") from exc
+        if not result.get("ok"):
+            err = result.get("error") or {}
+            raise DshChatError(f"{method}: {err.get('code', '')} {err.get('message', '')}".strip())
+        return result.get("value") or {}
+    except subprocess.TimeoutExpired as exc:
+        raise DshChatError(f"dsh web 超时（{method}）") from exc
+    finally:
+        os.unlink(ck.name)
 
 
 def ensure_session(context: str, cwd: str = DSH_CWD) -> str:
@@ -162,94 +166,60 @@ def ensure_session(context: str, cwd: str = DSH_CWD) -> str:
     session_id = _session_id(context)
     if _session_dir(context).exists():
         return session_id
-    token = _get_token()
-    if not token:
-        raise DshChatError("无法获取 dsh web token")
-    ck = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
-    ck.close()
-    try:
-        subprocess.run(
-            ["/usr/bin/curl", "-s", "-m", "5", "-c", ck.name, "-o", "/dev/null",
-             f"{DSH_WEB}/?token={token}"], timeout=8, capture_output=True)
-        body = json.dumps({
-            "rpcId": f"ensure-{int(time.time()*1000)}",
-            "type": "client-request",
-            "method": "session/create",
-            "payload": {"args": {"request": {
-                "sessionId": session_id, "cwd": cwd, "agentPreset": AGENT_PRESET}}},
-        })
-        proc = subprocess.run(
-            ["/usr/bin/curl", "-s", "-m", "30", "-b", ck.name,
-             "-X", "POST", "-H", "Content-Type: application/json",
-             "-d", body, f"{DSH_WEB}/api/session/create"],
-            timeout=35, capture_output=True, text=True)
-        result = json.loads(proc.stdout).get("result", {})
-        if not result.get("ok"):
-            err = result.get("error") or {}
-            raise DshChatError(f"session/create: {err.get('code')} {err.get('message')}")
-        return session_id
-    finally:
-        os.unlink(ck.name)
+    dsh_api("session/create", {"sessionId": session_id, "cwd": cwd, "agentPreset": AGENT_PRESET})
+    return session_id
 
 
 def send_message(text: str, context: str = "") -> dict:
-    """通过 dsh web API 发送消息（curl 方式，复用之前验证通过的路径）。
-
-    context = 板块标签（"" 主 / 休息 / 运动 / 压力），决定路由到哪个 session。
-    """
+    """发一条消息到 context 对应的会话（"" 主 / 休息 / 运动 / 压力 / 组件编排:…）。"""
     text = text.strip()
     if not text:
         raise DshChatError("empty message")
-
-    token = _get_token()
-    if not token:
-        raise DshChatError("无法获取 dsh web token")
-
     session_id = ensure_session(context)   # 新会话第一次发消息时先建好
+    request_id = f"pivis-{int(time.time() * 1000)}"
+    dsh_api("session/prompt", {"requestId": request_id, "sessionId": session_id, "mode": "queue",
+                               "content": [{"type": "text", "text": text}], "clientTimeZone": "Asia/Shanghai"})
+    return {"ok": True, "requestId": request_id}
 
-    # 先用 token 获取 auth cookie（写临时文件）
-    ck = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
-    ck.close()
+
+_EVENTS_CACHE: dict[str, tuple[tuple, list[dict]]] = {}
+
+
+def _load_events(context: str = "") -> list[dict]:
+    """一个会话的全部事件（zstd JSONL）。文件大小和修改时间没变就直接用上次解析的结果
+    （以前每次轮询都把整份解压、解析两遍，会话越长越慢）。缺解压库时明确报错，不再当成「没有消息」。"""
+    zst_file = _session_dir(context) / "session.v4.jsonl.zstd"
     try:
-        subprocess.run(
-            ["/usr/bin/curl", "-s", "-m", "5", "-c", ck.name, "-o", "/dev/null",
-             f"{DSH_WEB}/?token={token}"],
-            timeout=8, capture_output=True
-        )
-
-        request_id = f"pivis-{int(time.time()*1000)}"
-        body = json.dumps({
-            "rpcId": f"send-{request_id}",
-            "type": "client-request",
-            "method": "session/prompt",
-            "payload": {
-                "args": {
-                    "request": {
-                        "requestId": request_id,
-                        "sessionId": session_id,
-                        "mode": "queue",
-                        "content": [{"type": "text", "text": text}],
-                        "clientTimeZone": "Asia/Shanghai"
-                    }
-                }
-            }
-        })
-
-        # 用 cookie 发送
-        proc = subprocess.run(
-            ["/usr/bin/curl", "-s", "-m", "30", "-b", ck.name,
-             "-X", "POST", "-H", "Content-Type: application/json",
-             "-d", body, f"{DSH_WEB}/api/session/prompt"],
-            timeout=35, capture_output=True, text=True
-        )
-        result = json.loads(proc.stdout)
-        r = result.get("result", {})
-        if r.get("ok"):
-            return {"ok": True, "requestId": request_id}
-        err = r.get("error", {})
-        raise DshChatError(f"dsh API: {err.get('code','')} {err.get('message','')}")
-    finally:
-        os.unlink(ck.name)
+        st = zst_file.stat()
+    except OSError:
+        return []
+    sig = (st.st_size, st.st_mtime_ns)
+    hit = _EVENTS_CACHE.get(str(zst_file))
+    if hit and hit[0] == sig:
+        return hit[1]
+    try:
+        import zstandard
+    except ImportError as exc:
+        raise DshChatError("缺少 zstandard，读不了对话记录（/usr/bin/python3 -m pip install zstandard）") from exc
+    import io
+    try:
+        text_data = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(zst_file.read_bytes())).read() \
+            .decode("utf-8", errors="replace")
+    except Exception:  # noqa: BLE001  正在写的半截文件：这次先不更新
+        return hit[1] if hit else []
+    out = []
+    for line in text_data.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    if len(_EVENTS_CACHE) > 64:
+        _EVENTS_CACHE.clear()
+    _EVENTS_CACHE[str(zst_file)] = (sig, out)
+    return out
 
 
 def read_messages(limit: int = 20, after_time: str | None = None, context: str = "") -> list[dict]:
@@ -257,24 +227,7 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
 
     返回 [{role: 'me'|'phealth', text, time}]
     """
-    zst_file = _session_dir(context) / "session.v4.jsonl.zstd"
-    if not zst_file.exists():
-        return []
-
-    try:
-        import zstandard
-        import io
-    except ImportError:
-        return []
-
-    try:
-        compressed = zst_file.read_bytes()
-        dctx = zstandard.ZstdDecompressor()
-        reader = dctx.stream_reader(io.BytesIO(compressed))
-        text_data = reader.read().decode("utf-8", errors="replace")
-    except Exception:
-        return []
-
+    events = _load_events(context)
     msgs = []
     after_ts = None
     if after_time:
@@ -285,15 +238,7 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
         except (ValueError, TypeError):
             pass
 
-    for line in text_data.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            d = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
+    for d in events:
         t = d.get("type", "")
         ts_ms = d.get("time")
         ts = None
@@ -360,35 +305,8 @@ def chat_send(text: str, context: str = "") -> dict:
 
 
 def read_session_events(context: str = "") -> list[dict]:
-    """读原始事件流（zstd JSONL），损坏/缺文件返回 []。
-
-    read_messages 只挑用户与助手成品消息；但「阶段性回复」需要完整事件序列：
-    turn/start|end 判断回合是否在进行，tool/call 给出进度提示素材。
-    """
-    zst_file = _session_dir(context) / "session.v4.jsonl.zstd"
-    if not zst_file.exists():
-        return []
-    try:
-        import zstandard
-        import io
-    except ImportError:
-        return []
-    try:
-        compressed = zst_file.read_bytes()
-        dctx = zstandard.ZstdDecompressor()
-        text_data = dctx.stream_reader(io.BytesIO(compressed)).read().decode("utf-8", errors="replace")
-    except Exception:
-        return []
-    out = []
-    for line in text_data.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return out
+    """原始事件流（turn/start|end 判断回合是否在进行，tool/call 给进度提示素材）。"""
+    return _load_events(context)
 
 
 def turn_status(context: str = "") -> dict:

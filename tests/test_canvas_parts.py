@@ -164,7 +164,7 @@ def test_parts_cli_compact_and_full():
     ({"t": "tag", "items": ["CBT-I · 第 1 周", "需要处理"], "strong": 7}, {"strong": None}),
     ({"t": "quote", "text": "固定起床，是整个计划里最不能动的一条。"}, {"source": None}),
     ({"t": "media", "id": "cbti-body-scan"}, {"id": "cbti-body-scan"}),
-    ({"t": "media", "url": "https://www.bilibili.com/video/BV1x", "title": "拉伸", "duration_min": 10},
+    ({"t": "media", "url": "/media/follow/s1/out.mp4", "title": "拉伸", "duration_min": 10},
      {"duration_min": 10.0}),
     ({"t": "photo", "latest": "life", "caption": "晚饭"}, {"latest": "life", "caption": "晚饭"}),
 ])
@@ -222,10 +222,12 @@ def test_accepts_and_normalizes(node, expect):
     ({"t": "tag", "items": ["这是一个特别特别长的标签"]}, "每格最多 10 个字"),
     ({"t": "quote", "text": "x" * 31}, "最多 30 个字"),
     ({"t": "quote"}, "要有 text"),
-    ({"t": "media"}, "media 要写 id"),
+    ({"t": "media"}, "media 要写"),
+    ({"t": "media", "url": "https://www.bilibili.com/video/BV1x", "title": "拉伸"}, "只放 follow 出的片"),
+    ({"t": "media", "url": "/media/sleep-audio/a.m4a", "title": "呼吸"}, "只放 follow 出的片"),
     ({"t": "media", "url": "https://www.youtube.com/watch?v=1", "title": "x"}, "YouTube"),
     ({"t": "media", "url": "http://192.168.1.2/a.mp3", "title": "x"}, "内网"),
-    ({"t": "media", "url": "/media/a.m4a"}, "要有 title"),
+    ({"t": "media", "url": "/media/follow/s1/out.mp4"}, "要有 title"),
     ({"t": "photo"}, "photo 要写 todo"),
     ({"t": "photo", "latest": "work"}, "latest 只能是"),
     ({"t": "photo", "latest": "life", "caption": "x" * 31}, "最多 30 个字"),
@@ -525,8 +527,8 @@ def test_media_and_photo(env):
     assert m["kind"] == "audio" and m["sub"] == "12 分钟 · 素材库" and m["url"].startswith("/media/")
     missing = run(env, {"t": "media", "id": "nope"})
     assert missing["t"] == "text" and "算不出来" in missing["text"]
-    u = run(env, {"t": "media", "url": "https://www.bilibili.com/video/BV1x", "title": "拉伸", "duration_min": 10})
-    assert u == {"t": "media", "title": "拉伸", "sub": "10 分钟", "url": "https://www.bilibili.com/video/BV1x", "kind": "video"}
+    u = run(env, {"t": "media", "url": "/media/follow/s1/out.mp4", "title": "拉伸", "duration_min": 10})
+    assert u == {"t": "media", "title": "拉伸", "sub": "10 分钟", "url": "/media/follow/s1/out.mp4", "kind": "video"}
     ph = run(env, {"t": "photo", "latest": "life"})
     assert ph == {"t": "photo", "url": "/api/v3/photo/lunch-1.jpg", "caption": "主食偏多，蛋白质够"}
     assert run(env, {"t": "photo", "latest": "sleep"})["t"] == "text"

@@ -14,12 +14,14 @@ description: "让 P-Health 越用越懂老大：记什么（偏好 pref.*、档�
 - 你想提议改计划时。
 
 ## 记什么（scope 和格式）
+scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`、`profile.`、`learn.`（这三类同步到所有会话）、板块状态 `sleep.` / `sport.` / `stress.` / `life.`、`request.`（工具改进需求）、`ask.`（今天问过的标记，如 `ask.video`）、`plan.`（短期安排）、`device.`（系统用，你不写）。`habit.*`、`ui.*`、`dialogue.*` 已停用：习惯上的规律记 `learn.habit.<主题>`。
+
 | 类别 | scope | 什么时候写 | payload 必须有 |
 |---|---|---|---|
 | 偏好：老大定的规矩 | `pref.<主题>`（chart、viz.*、baseline、page.*、tone、remind、media、cadence…） | 老大说「以后…」「我喜欢…」「别再…」 | `rule`（一句人话）。会自动同步进 AGENTS.md |
 | 档案：老大是什么情况 | `profile.goals`、`profile.schedule`、`profile.safety`、`profile.doctor`、`sleep.profile`、`sport.preference`、`life.diet`、`stress.profile` | intake，或者老大说出新情况 | `summary` + 原话要点 |
 | 当前处方 | `sleep.cbti`、`sport.loads`、`pref.viz.weight` | 计划定下或者调整时 | 当前值 + `history` |
-| 学到的规律 | `learn.<主题>`（sleep、media、training、nutrition、stress、habit、remind） | 观察到 ≥ 3 次，或者一次实验有了结果 | `rule`、`evidence`、`since`、`status` |
+| 学到的规律 | `learn.<主题>`（sleep、media、training、nutrition、stress、remind），习惯的写细一层：`learn.habit.<主题>`（例 `learn.habit.late_bath_effect`、`learn.habit.anchor`） | 观察到 ≥ 3 次，或者一次实验有了结果 | `rule`、`evidence`、`since`、`status` |
 | 实验 | `learn.exp` | 开始试一个改动时 | `items` 列表（格式见下） |
 | 每周小结 | `learn.weekly` | 每周复盘后 | `week`、`worked`、`didnt`、`next`、`history`（最近 4 周） |
 
@@ -38,8 +40,8 @@ description: "让 P-Health 越用越懂老大：记什么（偏好 pref.*、档�
 - 数字只抄工具输出和记录卡，不自己算。
 
 ## 下次怎么用
-1. 会话里第一次给专业意见前，跑一次 `./pivis-health context-list`（不带 scope），看 `pref.*`、`profile.*`、`learn.*`。`profile.*` 和 `learn.*` 记下后也会同步进 AGENTS.md 末尾「你已经了解到的老大」一段，所有会话都看得到；记之前先看那一段，别重复记。
-2. `pref.*` 是规矩，直接照做，不用再提。
+1. 会话里第一次给专业意见前，跑一次 `./pivis-health context-list`（不带 scope），看 `pref.*`、`profile.*`、`learn.*`。`profile.*` 和 `learn.*` 记下后也会同步进 AGENTS.md 末尾「你已经了解到的老大」一段，所有会话都看得到（地点、住址这类 profile 不同步，要用时 `context-list` 查）；记之前先看那一段，别重复记。
+2. `pref.*` 是规矩，直接照做，不用再提。**红线优先**：同步过来的偏好那一段标着「红线优先」，某条偏好和 AGENTS 第 2 节的红线冲突时按红线做，并用 context-record 把那条偏好改掉（同一个 scope 重记，去掉冲突的部分），回 receipt。
 3. `profile.*` 里已经有的，不再问老大。
 4. 有相关的 `learn.*`（confirmed）：用上，并说一句依据，比如「上周身体扫描你打了 3 次有用，这次还用它」。
 5. 新数据和某条 `learn.*` 对不上：把它改回 `testing`，告诉老大「之前的规律这周不成立，再看一周」。
@@ -79,9 +81,15 @@ description: "让 P-Health 越用越懂老大：记什么（偏好 pref.*、档�
 4. 记忆和医生的意见冲突时，以医生的意见为准（`profile.doctor`）。
 
 ## 模板
+`learn.habit.late_bath_effect`：
+```json
+{"rule":"22:30 后才洗澡的那几天，入睡更慢","evidence":"近 2 周 6 晚里 4 晚入睡 30 分以上（日记）","since":"2026-11-20","status":"testing"}
+```
+`learn.sleep`：
 ```json
 {"rule":"做了床外放松的晚上入睡更快","evidence":"近 2 周做了的 9 晚里 7 晚入睡 15 分内（日记）","since":"2026-11-20","status":"testing"}
 ```
+`learn.weekly`：
 ```json
 {"week":"2026-11-16","worked":["日记 7/7","身体扫描 3 次有用"],"didnt":["咖啡截止 3/7"],"next":"下午换无咖啡因饮品","history":[]}
 ```
