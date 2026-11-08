@@ -65,8 +65,10 @@ keys/
 # OTA build outputs
 *.ipa
 *.xcarchive
-# Stale iOS copy; the iOS client lives in its own repository
-ios/
+# iOS 客户端在 ios/（本地配置和签名不进 git，见 ios/.gitignore）
+ios/build/
+ios/PivisHealth/LocalConfig.swift
+ios/Signing.xcconfig
 # Timestamped manual backups (git history replaces them)
 *.bak-*
 

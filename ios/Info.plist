@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.pivis.health</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>phealth</string>
+			</array>
+		</dict>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>P-Health 用闹钟在午睡结束时叫醒你</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>P-Health 通过蓝牙发现附近的健康设备（如心率带），用于扩展数据来源</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>P-Health 通过蓝牙发现附近的健康设备（如心率带），用于扩展数据来源</string>
+	<key>NSCameraUsageDescription</key>
+	<string>拍下饭和试纸，P-Health 帮你记下来。</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>P-Health 读取你的睡眠、心率、HRV、步数等健康数据，用于生成恢复与压力判断</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>P-Health 只读取健康数据，不会写入；这一项是接入 Apple 健康的必填说明</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>P-Health 在使用期间获取位置，用于记录户外光照与活动上下文，辅助压力与恢复分析</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>P-Health 从相册选照片（饭、体重秤、试纸），发给 P-Health 记录</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBlack</string>
+	</dict>
+</dict>
+</plist>

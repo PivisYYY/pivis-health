@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Xcode build output and per-user state
+build/
+DerivedData/
+xcuserdata/
+*.xcarchive
+*.ipa
+
+# Signing material
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+# Timestamped manual backups (git history replaces them)
+*.bak-*
+
+# Local-only settings (server address, signing team). Copy from the *.example files.
+PivisHealth/LocalConfig.swift
+Signing.xcconfig
+build/export*.plist
