@@ -50,7 +50,30 @@ SENSITIVE_PROFILE = ("profile.home_place", "profile.travel", "profile.location",
 MAX_PREFS = 30
 
 
-def render_block(prefs: list[dict], known: list[dict] | None = None) -> str:
+MAX_CORRECTIONS = 40
+
+
+def corrections(cfg) -> list[dict]:
+    """老大纠正过的专业要点（correction.*），按记录时间排。"""
+    from .agent_context import AgentContextStore
+    return [e for e in AgentContextStore(cfg).snapshot()["entries"]
+            if str(e.get("scope", "")).startswith("correction.")]
+
+
+def check_correction(cfg, scope: str, payload: dict) -> dict:
+    """纠正要写成「正确做法」一句话；同一主题被纠正第二次，标出来要求写进 skill。"""
+    if not str(payload.get("rule") or "").strip():
+        raise ValueError("correction.* 的 payload 要带 rule（正确做法，一句话），可选 wrong（之前错在哪）、why（依据）、"
+                         "skill（应该写进哪个 skill），例如 {\"rule\":\"热水澡在最早上床前 1–2 小时洗完\",\"wrong\":\"说成睡前随便洗\"}")
+    prev = next((e for e in corrections(cfg) if e.get("scope") == scope), None)
+    times = int(((prev or {}).get("payload") or {}).get("times") or (1 if prev else 0)) + 1
+    out = {**payload, "times": times}
+    if times >= 2 and not out.get("folded"):
+        out["needs_skill"] = True     # 同一件事纠正第二次：说明只记记忆不够，要写进 skill（request.tool）
+    return out
+
+
+def render_block(prefs: list[dict], known: list[dict] | None = None, fixes: list[dict] | None = None) -> str:
     lines = [START, "## 老大定下的偏好（要遵守；**红线优先**：和红线冲突时按红线做，并用 context-record 把这条偏好改成不冲突的说法；"
              "老大改口就覆盖同一个 scope）"]
     if not prefs:
@@ -68,6 +91,18 @@ def render_block(prefs: list[dict], known: list[dict] | None = None) -> str:
                 continue
             when = str(e.get("recorded_at") or "")[:10]
             lines.append(f"- {rule[:120]}（{e['scope']}，{when}）")
+    if fixes:
+        lines.append("")
+        lines.append("## 老大纠正过的专业要点（**照这些做，不要再犯**；回答同类问题前先对照。这里没有的，按 skill 的专业资料）")
+        for e in fixes[-MAX_CORRECTIONS:]:
+            p = e.get("payload") or {}
+            rule = str(p.get("rule") or "").strip()
+            if not rule:
+                continue
+            wrong = str(p.get("wrong") or "").strip()
+            when = str(e.get("recorded_at") or "")[:10]
+            tail = f"；之前错在：{wrong[:60]}" if wrong else ""
+            lines.append(f"- {rule[:140]}{tail}（{e['scope']}，{when}）")
     lines.append(END)
     return "\n".join(lines)
 
@@ -116,7 +151,7 @@ def sync_agents_md(cfg, path: Path | None = None) -> dict:
     if not path.is_file() or path.is_symlink():
         return {"ok": False, "reason": f"{path} 不是普通文件"}
     text = path.read_text(encoding="utf-8")
-    block = render_block(active_prefs(cfg), known_facts(cfg))
+    block = render_block(active_prefs(cfg), known_facts(cfg), corrections(cfg))
     if START in text and END in text:
         head, rest = text.split(START, 1)
         tail = rest.split(END, 1)[1]

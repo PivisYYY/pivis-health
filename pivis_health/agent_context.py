@@ -31,7 +31,8 @@ def _empty() -> dict:
 
 # 记忆只收这几类（以前随便起名，三天长出 21 个分类，学到的规律散在 habit.* 里别的会话看不到）
 SCOPE_PREFIXES = ("pref.", "profile.", "learn.", "request.", "ask.", "plan.", "device.",
-                  "sleep.", "sport.", "stress.", "life.")
+                  "sleep.", "sport.", "stress.", "life.",
+                  "correction.")   # 老大纠正过的专业要点：correction.<领域>.<主题>，渲染进 AGENTS.md，不再犯
 
 
 def check_agent_scope(scope: str) -> str:

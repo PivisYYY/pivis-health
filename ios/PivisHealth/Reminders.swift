@@ -47,6 +47,21 @@ final class Reminders {
         Task { await scheduleAlarm(todo: todo, due: Date().addingTimeInterval(minutes * 60)) }
     }
 
+    /// 计时卡点「开始」：卡上写了「几点叫你」（alarm）且还没过，就定在那个时刻；否则开始 + 时长。
+    /// 服务器到同一时刻也会推一条带声音的通知兜底（notify.timer_end 用的是同一条规则）
+    func scheduleTimerAlarm(todo: V3Todo) {
+        Task {
+            var offset: TimeInterval = 0
+            if let sim = await V3API.clock() { offset = Date().timeIntervalSince(sim) }
+            let now = Date()
+            if let a = todo.alarm, let at = Self.date(todo.date, a)?.addingTimeInterval(offset), at > now.addingTimeInterval(30) {
+                await scheduleAlarm(todo: todo, due: at)
+            } else {
+                await scheduleAlarm(todo: todo, due: now.addingTimeInterval((todo.durationMin ?? 20) * 60))
+            }
+        }
+    }
+
     func scheduleAlarm(todo: V3Todo, at hhmm: String) {
         Task {
             var offset: TimeInterval = 0

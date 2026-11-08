@@ -1,7 +1,9 @@
 """通知（APNs）：老大在等的几类事都推到锁屏（2026-11-08 老大要求放宽通知）。
 
 - P-Health 回了新消息：每一轮回复说完（turn/end）推一条，正文是这轮最后一段话（去掉卡片代码块）
-- 待办：到点前 10 分钟、到点各一条；练习 / 打勾类过点 15 分钟还没做再催一次
+- 待办：到点前 N 分钟（老大的 pref.remind.lead_min，默认 10）、到点各一条；练习 / 打勾类过点 15 分钟还没做再催一次。
+  卡片时间写真实时刻，提前量只由这里给（不再把卡片时间往前挪）
+- 计时：开始后到「叫你」的时刻推一条（和手机上的系统闹钟同时到，闹钟没授权或静音时兜底）
 - P-Health 新问了一句：新出现的要选 / 要填的卡（提议、单选），或者给某张卡标了「有话问」
 
 服务进程里一个后台线程每 20 秒巡一次（两个服务进程都起线程，flock 保证同一时间只有一个在巡）；
@@ -21,7 +23,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 TICK_S = 20
-PRE_MIN = 10          # 到点前多久提醒
+PRE_MIN = 10          # 到点前多久提醒（默认；老大可以用 pref.remind 的 lead_min 改）
 NUDGE_MIN = 15        # 练习 / 打勾过点多久还没做再催
 GRACE_MIN = 5         # 到点那条：服务刚重启时，过点 5 分钟内还补发，更久就不补了（别一开机推一串）
 ASK_FRESH_MIN = 30    # 新卡多久之内算「新问的」
@@ -101,8 +103,11 @@ def apns_sender(tools) -> Callable[[str, str, dict], dict]:
             return {"ok": False, "skipped": "no_tokens" if not tokens else "not_configured"}
         results = []
         for t in tokens:
-            r = client.send(t["token"], title, body, data=data, env=t.get("env"),
-                            aps_extra={"thread-id": data.get("thread", "phealth")})
+            extra = {"thread-id": data.get("thread", "phealth")}
+            if data.get("why") in ("timer", "due"):
+                # 计时到了 / 到点：带声音、时效性（专注模式下也能出来），和手机上的闹钟一起响
+                extra.update({"sound": "default", "interruption-level": "time-sensitive"})
+            r = client.send(t["token"], title, body, data=data, env=t.get("env"), aps_extra=extra)
             if r.get("reason") in ("BadDeviceToken", "Unregistered"):
                 tools.subj.apns_token_drop(t["token"])        # 卸载 / 换签名后作废的令牌：清掉，别每次都失败
             results.append(r)
@@ -153,7 +158,40 @@ def replies(state: dict, send, events_of: Callable[[str], list[dict]]) -> list[d
     return out
 
 
-def todos(state: dict, send, store, now: datetime) -> list[dict]:
+def lead_minutes(cfg) -> int:
+    """到点前多久提醒：老大在 pref.remind 里定的 lead_min（0–60），没定就 PRE_MIN。"""
+    try:
+        from .agent_context import AgentContextStore
+        for e in AgentContextStore(cfg).snapshot()["entries"]:
+            if e.get("scope") == "pref.remind":
+                v = (e.get("payload") or {}).get("lead_min")
+                if v is not None and 0 <= int(v) <= 60:
+                    return int(v)
+    except Exception:  # noqa: BLE001
+        pass
+    return PRE_MIN
+
+
+def timer_end(t: dict) -> datetime | None:
+    """计时卡在什么时刻叫老大（不带时区）：卡上写了「几点叫你」（alarm）且还在开始之后，就按它；否则开始 + 时长。
+    App 定系统闹钟用的是同一条规则。"""
+    from .todos import due_at
+    started = str((t.get("record") or {}).get("started_at") or "")
+    if not started:
+        return None
+    try:
+        start = datetime.fromisoformat(started).replace(tzinfo=None)
+    except ValueError:
+        return None
+    if t.get("alarm"):
+        at = due_at(t["date"], t["alarm"])
+        if at and at > start:
+            return at
+    mins = t.get("duration_min")
+    return start + timedelta(minutes=float(mins)) if mins else None
+
+
+def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[dict]:
     from .todos import due_at
     sent = state.setdefault("sent", {})
     nowl = now.replace(tzinfo=None)
@@ -166,6 +204,16 @@ def todos(state: dict, send, store, now: datetime) -> list[dict]:
             pass
     for t in items:
         tid = t.get("id")
+        if tid and t.get("kind") == "timer" and t.get("status") == "in_progress":
+            end = timer_end(t)
+            key = f"timer:{tid}:{(t.get('record') or {}).get('started_at')}"
+            if end and key not in sent and end <= nowl < end + timedelta(minutes=GRACE_MIN):
+                r = send(t.get("title") or "P-Health", "时间到了" + (f" · {t['note'][:40]}" if t.get("note") else ""),
+                         {"todo": tid, "kind": "timer", "page": t.get("board") if t.get("board") in CONTEXT_PAGE.values() else "now",
+                          "thread": f"todo-{tid}", "why": "timer"})
+                sent[key] = now.isoformat()
+                out.append({"why": "timer", "todo": tid, "ok": r.get("ok")})
+            continue
         if not tid or t.get("status") not in ("scheduled", "proposed") or t.get("auto"):
             continue
         page = t.get("board") if t.get("board") in CONTEXT_PAGE.values() else "now"
@@ -188,9 +236,11 @@ def todos(state: dict, send, store, now: datetime) -> list[dict]:
         hhmm = t["when"]
         note = (t.get("note") or "").strip()
         plan = [
-            ("pre", due - timedelta(minutes=PRE_MIN), due, f"{PRE_MIN} 分钟后 · {hhmm}" + (f" · {note[:40]}" if note else "")),
+            ("pre", due - timedelta(minutes=lead), due, f"{lead} 分钟后 · {hhmm}" + (f" · {note[:40]}" if note else "")),
             ("due", due, due + timedelta(minutes=GRACE_MIN), "到时间了" + (f" · {note[:40]}" if note else "")),
         ]
+        if lead <= 0:
+            plan = plan[1:]                                   # 老大说不要提前提醒
         if t.get("kind") in NUDGE_KINDS:
             mins = t.get("duration_min")
             plan.append(("nudge", due + timedelta(minutes=NUDGE_MIN), due + timedelta(minutes=60),
@@ -226,9 +276,9 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
         out = replies(state, send if not first else (lambda *_a: {"ok": False}), events_of or dsh_chat.read_session_events)
         if first:
             # 第一次：待办只记下已经过了的提醒，不补推
-            out += todos(state, lambda *_a: {"ok": False, "skipped": "first_run"}, TodoStore(cfg), now)
+            out += todos(state, lambda *_a: {"ok": False, "skipped": "first_run"}, TodoStore(cfg), now, lead_minutes(cfg))
         else:
-            out += todos(state, send, TodoStore(cfg), now)
+            out += todos(state, send, TodoStore(cfg), now, lead_minutes(cfg))
         state["sent"] = _prune(state.get("sent", {}), now)
         state["at"] = now.isoformat()
         _save(path, state)

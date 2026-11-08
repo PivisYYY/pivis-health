@@ -483,7 +483,7 @@ struct TodoCardView: View {
         if todo.kind == "timer" {
             switch action {
             // 计时开始：闹钟在手机上排好（静音也响），不靠网络
-            case "start": Reminders.shared.scheduleAlarm(todo: todo, afterMinutes: todo.durationMin ?? 20)
+            case "start": Reminders.shared.scheduleTimerAlarm(todo: todo)
             case "done": Reminders.shared.cancelAlarm(todoId: todo.id)
             default: break
             }

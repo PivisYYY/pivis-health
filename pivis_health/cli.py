@@ -301,9 +301,12 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("payload must be a JSON object")
             if args.scope.startswith("pref.") and not str(payload.get("rule") or "").strip():
                 raise ValueError("pref.* 的 payload 要带一句人话 rule，例如 {\"rule\": \"图表一律用折线\"}")
+            if args.scope.startswith("correction."):
+                from . import prefs
+                payload = prefs.check_correction(tools.cfg, args.scope, payload)
             entry = AgentContextStore(tools.cfg).record(
                 args.scope, payload, source_session=args.source_session, reason=args.reason)
-            if args.scope.startswith(("profile.", "learn.")):
+            if args.scope.startswith(("profile.", "learn.", "correction.")):
                 from . import prefs
                 entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}   # 了解到的老大，所有会话都看得到
             if args.scope.startswith("pref."):

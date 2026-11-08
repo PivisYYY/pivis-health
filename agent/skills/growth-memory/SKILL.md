@@ -70,9 +70,19 @@ scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`
 - 不悄悄改计划，也不因为一两天的数据就改。CBT-I 的窗口按 cbti 的周复盘规则改，不按这里的。
 
 ## 老大纠正你时
-1. 当场改正（重做那张卡、改那条记录）。
-2. 记下来：说法或语气的问题记 `pref.tone`；做法的问题记对应的 `learn.<主题>`，rule 写「不要再…」。
-3. 回 receipt，`remembered` 写 true。
+老大纠正一次，就说明你的知识或做法有缺口。目标是**同一件事不让他说第二遍**。
+1. **当场改正**：先认一句（「是我算错了」，不辩解），按对的做法重做那张卡、改那条记录。专业问题先读对应 skill 的专业资料（睡眠 `cbti/references/sleep-science.md`；训练 `training-coach/references/programming.md`、`knee-meniscus.md`），用资料里的依据回答，并说出依据。
+2. **分清是哪类，记到对的地方**：
+   | 纠正的是 | 记成 | 例 |
+   |---|---|---|
+   | 专业知识或专业判断（时间怎么排、动作对不对、该不该补觉、练全身还是分部位） | `correction.<领域>.<主题>`，领域用 sleep / training / knee / nutrition / stress / safety / media | `context-record --scope correction.sleep.bath --payload '{"rule":"热水澡在最早上床前 1–2 小时洗完，按上床时间往回推出具体时刻","wrong":"把洗澡和上床排得太近、说法模糊","why":"洗完体温下降段才助眠（sleep-science 第 2 节）","skill":"cbti"}'` |
+   | 做事方式（先确认再剪、在原项目上改、卡片别堆字） | `pref.<主题>` | `pref.media`、`pref.presentation` |
+   | 说法、语气 | `pref.tone` | |
+   | 关于老大本人的事实（伤病、作息、器械） | `profile.<主题>` | `profile.safety` |
+   rule 写**正确做法**（一句话、可执行，带具体数字或判据），不要写成「不要再错」。同一主题用同一个 scope（会覆盖并累计次数）。
+3. **第二次被纠正同一件事**（context-record 返回里 `needs_skill: true`）：说明只靠记忆不够，再记一条 `request.tool`：`{"rule":"把「<correction 的 rule>」写进 <skill> 的 <哪一节>","source":"correction.<…>"}`，开发会把它写进 skill。
+4. 回 receipt，`remembered` 写 true；change 写正确做法本身，不写「已记住纠正」。
+5. 纠正过的要点会出现在 AGENTS.md 末尾「老大纠正过的专业要点」里，每个会话都看得到。**回答同类问题前先对照那一节**；它和 skill 冲突时以那一节为准（那是老大确认过的），并按第 3 步提出改 skill。
 
 ## 规则与红线
 1. 不记原始健康数据（它们在库里），不记诊断，不记别人的隐私，危机细节只记「某日提到过、已给热线」。

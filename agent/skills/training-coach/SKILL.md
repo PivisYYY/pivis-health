@@ -12,6 +12,10 @@ description: "运动教练：网球、力量、跑步、灵活性。按工具里
 - project-list 里有训练项目（`board=sport`），周日早上做本周复盘时。
 - 老大说哪里疼：**先看本页「伤病红旗」**，再看 clinical-safety。
 
+**专业依据先读**：
+- `references/programming.md`：一周练多少、**全身练还是分部位**（每周 2–3 次就每次全身）、怎么和网球排在一周里、组数次数和加量、**审跟练视频要逐个动作核对**、**已有项目改、不新建**。
+- `references/knee-meniscus.md`：`profile.safety` / `sport.preference` 里有膝伤（半月板等）时，排任何下肢动作、挑任何视频前先读：练哪些肌群、动作红绿灯、疼痛监控、分阶段回场。
+回答专业问题时说出依据和证据等级，给具体的动作、组数、时刻，不说「适量」「循序渐进」这种空话。
 每次课该练什么（用来挑已有的视频，或告诉老大该找什么样的博主视频）、各项目怎么加量、项目 JSON 都在 `references/sessions.md`。每次课在卡上只是「这个项目 + 一个视频」，视频只认 follow 出的片，不写文字步骤（AGENTS 红线 9）。
 
 ## 怎么做
@@ -32,7 +36,7 @@ description: "运动教练：网球、力量、跑步、灵活性。按工具里
 热身视频按项目挑（该有什么看 sessions.md 第 1 节），不要每次都用网球的；`follow session list` 里没有这项运动的热身片，就只写练完记录卡，并请老大发一个博主热身视频（按 follow-video 的「还没有视频」）。老大打网球：专项力量（肩袖、前臂离心、抗旋、侧向移动）的动作库和 8 / 20 / 25 分钟三种视频见 `references/tennis.md`。
 
 ### 3. 长期计划（项目）
-1. 先 `context-list --scope sport.preference` 看项目、频率、时间、伤病。缺的用 question 卡补。
+1. 先 `context-list --scope sport.preference` 和 `profile.safety` 看项目、频率、时间、伤病；再 `project-list`：**同一目的的项目已经在了就改那个（同 id），不新建**（programming.md 第 6 节）。缺的用 question 卡补。
 2. 按 sessions.md 第 3 节选结构（每周几次、哪几天），用 plan 卡确认：哪几天、每次多久、每次跟哪个视频、加量规则（写进 rules）。每一课要有一个 follow 出的视频；还缺的，先请老大发博主视频，出好片再排那一课。
 3. 「就这样」后 `project-set`（每一课一个视频，训练日用 `weekdays`），附 receipt。
 4. 训练日早上那次【每日推荐】（顺带做每日整理）时按第 1 步判断。「收」档就把当天训练卡改轻：有灵活性或拉伸的 follow 视频，`todo-update` 换成它（只写新的 `media`），note 写「今天恢复偏低，只做灵活性」；没有就把这张改成 `{"status":"skipped","summary":"恢复偏低，今天不练"}`。都在对话里说一句。

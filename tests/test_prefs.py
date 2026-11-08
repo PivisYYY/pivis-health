@@ -38,3 +38,23 @@ def test_symlinked_agents_md_is_left_alone(tmp_path):
     link = tmp_path / "AGENTS.md"; link.symlink_to(real)
     assert prefs.sync_agents_md(cfg, link)["ok"] is False
     assert real.read_text(encoding="utf-8") == "x"
+
+
+# ---- 老大纠正过的专业要点：渲染进 AGENTS.md；同一件事第二次纠正要求写进 skill
+def test_corrections_render_and_repeat(tmp_path):
+    from dataclasses import replace as _replace
+    import pytest as _pytest
+    from pivis_health import prefs as _prefs
+    from pivis_health.agent_context import AgentContextStore, check_agent_scope
+    from pivis_health.config import Config
+    cfg = _replace(Config(), data_dir=tmp_path)
+    check_agent_scope("correction.sleep.bath")                     # 新分类被接受
+    with _pytest.raises(ValueError):
+        _prefs.check_correction(cfg, "correction.sleep.bath", {"wrong": "x"})
+    p1 = _prefs.check_correction(cfg, "correction.sleep.bath", {"rule": "热水澡在最早上床前 1–2 小时洗完", "wrong": "说成睡前随便洗"})
+    assert p1["times"] == 1 and "needs_skill" not in p1
+    AgentContextStore(cfg).record("correction.sleep.bath", p1, source_session="休息", reason="test")
+    p2 = _prefs.check_correction(cfg, "correction.sleep.bath", {"rule": "热水澡在最早上床前 1–2 小时洗完"})
+    assert p2["times"] == 2 and p2["needs_skill"] is True
+    block = _prefs.render_block([], [], _prefs.corrections(cfg))
+    assert "老大纠正过的专业要点" in block and "热水澡在最早上床前 1–2 小时洗完；之前错在：说成睡前随便洗" in block

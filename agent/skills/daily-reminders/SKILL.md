@@ -60,6 +60,11 @@ description: "设计每天的待办和提醒：什么卡在什么时间出现、
 - 「算了」：按 AGENTS 红线 5（这张标 skipped，今天同类的去掉 `when`）。要改时间就 `todo-update --id <id> --json '{"when":"21:30"}'`，只改这一张。
 - 「以后都不要」：`context-record --scope pref.remind`，payload 写进 rule，再 project-set 去掉对应模板的 `when` 或整项。附 receipt。
 
+## 提前提醒和闹钟（服务器和手机怎么响）
+- **待办的 `when` 写真正要做的时刻**，标题不写时间，**不要为了提前提醒把时间往前挪**。服务器会在到点前 N 分钟推一条（N = `pref.remind` 的 `lead_min`，默认 10），到点再推一条，练习和打勾卡过点 15 分钟没做再催一次。
+- 老大说「提前 X 分钟提醒我」「不要提前提醒」：`context-record --scope pref.remind`，payload 写 rule 并带 `"lead_min": X`（不要提前就是 0），**不改任何卡的时间**。
+- 计时卡（timer）：老大点「开始」后，手机定一个系统闹钟（静音也响）；卡上写了 `alarm`（几点叫你）就定在那个时刻，没写就按开始 + `duration_min`。服务器在同一时刻再推一条带声音的「时间到了」兜底。所以午睡、泡脚这类要准点叫的，写 `alarm`。
+
 ## 规则与红线
 1. 上限只按「怎么做」第 1 步。
 2. 每张卡最多一次到点提醒 + 一次 App 自动催，不加第三次。

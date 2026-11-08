@@ -147,3 +147,38 @@ def test_last_reply_time_for_unread_dot(tmp_path, monkeypatch):
     monkeypatch.setattr(dsh_chat, "read_session_events", lambda context="": ev)
     v3._REPLY_CACHE.clear()
     assert v3._last_reply("运动") == "2026-11-08T20:10:00+08:00"      # 只有工具调用的那条不算回话
+
+
+def test_lead_minutes_from_pref(tmp_path):
+    from pivis_health.agent_context import AgentContextStore
+    cfg = replace(Config(), data_dir=tmp_path)
+    assert notify.lead_minutes(cfg) == notify.PRE_MIN
+    AgentContextStore(cfg).record("pref.remind", {"rule": "提前 15 分钟提醒", "lead_min": 15}, source_session="主", reason="t")
+    assert notify.lead_minutes(cfg) == 15
+    st = TodoStore(cfg)
+    st.add({"id": "k", "board": "sport", "date": D.isoformat(), "when": "22:00", "title": "练膝盖", "kind": "done"}, D)
+    state, sent = {}, _Sent()
+    notify.todos(state, sent, st, datetime(2026, 11, 8, 21, 45), 15)
+    assert sent and sent[0][1].startswith("15 分钟后 · 22:00")
+    state2, sent2 = {}, _Sent()                                   # lead=0：不要提前那条，只到点
+    notify.todos(state2, sent2, st, datetime(2026, 11, 8, 21, 59), 0)
+    notify.todos(state2, sent2, st, datetime(2026, 11, 8, 22, 0), 0)
+    assert [d["why"] for _, _, d in sent2] == ["due"]
+
+
+def test_timer_end_push_uses_fixed_alarm_or_duration(tmp_path):
+    st = _store(tmp_path)
+    st.add({"id": "nap", "board": "sleep", "date": D.isoformat(), "when": "13:00", "title": "午睡", "kind": "timer",
+            "duration_min": 20, "alarm": "13:24"}, D)
+    st.user_submit("nap", "start", {}, None, None, datetime(2026, 11, 8, 13, 10))
+    t = next(x for x in st.for_date(D) if x["id"] == "nap")
+    assert notify.timer_end(t) == datetime(2026, 11, 8, 13, 24)       # 卡上写了 13:24 叫你：按它，不按开始+20
+    state, sent = {}, _Sent()
+    for hm, want in (("13:23", 0), ("13:24", 1), ("13:26", 1)):
+        h, m = map(int, hm.split(":"))
+        notify.todos(state, sent, st, datetime(2026, 11, 8, h, m))
+        assert len(sent) == want, hm
+    assert sent[0][2]["why"] == "timer" and sent[0][1].startswith("时间到了")
+    # 过了 alarm 才开始：按开始 + 时长
+    late = dict(t, record={"started_at": "2026-11-08T13:30:00"})
+    assert notify.timer_end(late) == datetime(2026, 11, 8, 13, 50)
