@@ -164,6 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--timeout", type=int, default=300)
     sp = sub.add_parser("whoop-sync", help="拉 WHOOP 官方 API 刷新 14 天快照（launchd 每 15 分钟一次；有新的恢复 / 睡眠 / 训练就重排页面）；失败 exit≠0")
     sp.add_argument("--days", type=int, default=14); sp.add_argument("--force", action="store_true", help="静默时段也跑")
+    sub.add_parser("notify-tick", help="推送巡一次（P-Health 新回复、待办到点前 10 分钟 / 到点 / 过点没做、新问的卡）；服务进程里每 20 秒自动跑")
     sub.add_parser("whoop-status", help="WHOOP 快照新鲜度（不联网）；超过 1 小时没成功同步 exit 2")
     return p
 
@@ -212,6 +213,13 @@ def main(argv: list[str] | None = None) -> int:
             _json(out)
             return code
         tools = HealthTools(cfg)
+        if args.cmd == "notify-tick":
+            from . import notify
+            if not notify.enabled(tools.cfg):
+                _json({"ran": False, "reason": "disabled (sim / demo / no APNs)"})
+                return 0
+            _json(notify.tick(tools))
+            return 0
         if args.cmd == "doctor":
             _json(tools.doctor())
         elif args.cmd == "today":

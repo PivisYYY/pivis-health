@@ -15,7 +15,7 @@ description: "跟练视频：老大分享小红书 / B 站的动作示范视频�
 3. **验收不过不交付**：`verify_ok=false` 就按 `failed` 修，修不好就如实说哪里不行，不发半成品。
 4. **不改画面速度**：一组的「秒数」是这个动作持续多久，不是一秒做一次；画面永远博主原速（命令已经锁死）。
 5. **只用 `./pivis-health follow …` 命令**，不要去读、改、跑 `~/Tools/pivis-follow` 里的代码、配音库或模型，也不要自己拼 ffmpeg / Python 脚本改成片。验收过不了、或者觉得是工具的 bug：按下面「验收」那几条处理，处理不了就照实告诉老大「哪一项没过、原因是什么」，不要去改工具。**老大明说「你直接改工具」也不行**：按 AGENTS 红线 6 记成改进需求（`context-record --scope request.tool`），告诉他由开发来改。
-6. 老大发来链接就是同意下载，不用再问；下载失败时告诉他「在 App 里点分享 → 复制链接」再发一次（小红书要带 xsec_token 的完整链接或 xhslink 短链）。
+6. **老大发来视频链接，先问要不要剪成跟练片，他说剪才剪**（老大 11-08：不是每个视频都要剪）。哪怕是回「发我个跟练视频」那张卡发来的，也先问：发一张 question 卡「这个要剪成跟练片吗？」，选项「剪成跟练片」「不剪，留着看原片」「先不用」。选「剪」才 fetch / analyze / make；选「不剪」就把链接原样发成 media 卡留在对话里（不出片，也不能当练习视频排进计划），选「先不用」就不动。选了「剪」以后下载失败，告诉他「在 App 里点分享 → 复制链接」再发一次（小红书要带 xsec_token 的完整链接或 xhslink 短链）。
 7. **你自己在网上找到的视频，先给老大看**（标题、博主、时长），他说要了才 fetch / make；没点头不出片、不排进计划。
 
 ## 做一套跟练（一般 5–12 分钟）
@@ -34,7 +34,7 @@ description: "跟练视频：老大分享小红书 / B 站的动作示范视频�
    ```
    - `--kind`：力量 / 康复 = strength（教练语气），拉伸放松 = stretch（温和语气）。
    - `--secs`：每侧秒数。默认力量 12、拉伸 20–30；老大说了就听他的。单个动作要不同秒数，在 moves 里写 `"secs": 30`。
-   - 返回 `job`。然后反复 `./pivis-health follow job <job> --wait 90`（每次最多等 90 秒）直到 `state=done` 或 `failed`。中途可以把 `step` 告诉老大。
+   - 返回 `job`。然后等它：`./pivis-health follow job <job> --wait 90`，没好就再等，**每次把 `--wait` 换一个数（90 → 120 → 150 → 180…）**，不要连着发一模一样的命令（一模一样的连发三次会被系统当成卡住打断，老大那边也会看到一段莫名其妙的英文）。中途可以把 `step` 告诉老大。等到 `state=done` 或 `failed`。
 5. **验收**：`result.verify_ok=true` 才交付（9 项：每组时长、原速、每秒报数、配音没破音、响度、画面无残留字幕、全身入镜、循环无接缝、署名结构）。
    - `full_body` 不过：先看原片——那个动作本来就只拍了半身（上肢 / 颈肩）或者脚被身体挡住（坐姿 / 跪姿拉伸），可以接受，交付时说明；不是这样就换一段 `t0/t1` 重切。
    - `seamless_loop` / `no_text_residue` 不过：换一段 `t0/t1` 重切那个动作（`follow cut <sid> --moves '[…]'` → 用新的 mid `follow session set <ssid> --json '{"exercises":[{"n":序号,"move":"<新mid>"}]}'` → `follow build`）。**同一个动作最多重切 2 次**，还不行就换别的动作或删掉它，并告诉老大原因。
@@ -47,7 +47,7 @@ description: "跟练视频：老大分享小红书 / B 站的动作示范视频�
 - 看清单：`./pivis-health follow session show <ssid>`（`exercises` 带序号）。
 - 删：`./pivis-health follow session rm-move <ssid> <序号或名字>`；改：`./pivis-health follow session set <ssid> --json '{"exercises":[{"n":2,"secs":20}]}'`（`"secs"` 放外层 = 全部改）。
 - 删掉的动作要用到的器材（如瑜伽球），同时把开场的器材也改掉：`follow session set <ssid> --json '{"gear":"一根弹力圈 · 一条毛巾卷"}'`。
-- 然后 `./pivis-health follow build <ssid>` → `follow job <job> --wait 90` 到 done → 新地址（`?v=` 版本号会变）。
+- 然后 `./pivis-health follow build <ssid>` → `follow job <job> --wait 90` 到 done（同上，每次换一个等待秒数）→ 新地址（`?v=` 版本号会变）。
 - **已经放进计划的**：用同一个项目 id 再 `project-set`，只把那一项视频的 url / duration_min 换成新的（今天还没开始的待办会自动换成新版）。交付时说清删了什么、剩哪些。
 
 ## 放进计划：这个项目 + 一个视频（每天练 → 记录 → 复盘）
@@ -71,7 +71,7 @@ description: "跟练视频：老大分享小红书 / B 站的动作示范视频�
 3. 没问过：在对话里（【每日推荐】时就在回的那一句话里顺带）请老大发一个他喜欢的博主视频（小红书或 B 站分享链接），一句话说清要什么（「睡前在床外做的温和拉伸，10 分钟左右，一个人出镜」）。问完记下：
    `./pivis-health context-record --scope ask.video --payload '{"date":"YYYY-MM-DD","what":"睡前拉伸"}' --source-session <当前板块> --reason '请老大发视频'`
 4. 老大没回就不追，第二天也不追问上次那条；需要时再按第 2 步看能不能问。
-5. 老大发来链接 → 按上面「做一套跟练」出片 → 发视频卡 + plan 卡 → 老大点「就这样」→ project-set / todo-add，只放这一个视频。
+5. 老大发来链接 → 先按红线 6 问要不要剪；他选「剪」才按上面「做一套跟练」出片 → 发视频卡 + plan 卡 → 老大点「就这样」→ project-set / todo-add，只放这一个视频。
 6. 你在网上找到合适的（relaxation-media 的搜法），也一样：先给老大看，他同意了再出片，出好了再排。
 
 ## 用动作库编新的一套

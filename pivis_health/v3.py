@@ -10,6 +10,7 @@ import re
 import threading
 import time
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
@@ -1111,8 +1112,41 @@ def sync_status(tools) -> dict:
             agent = {"busy": True, "context": ctx, "tool": st.get("last_tool"),
                      "args": (st.get("last_args") or "")[:600]}
             break
+    # 每个对话 P-Health 最后一次回话的时刻：App 拿它和「上次看到哪」比，有新回复就在入口亮个点
+    replies = {(ctx or "main"): t for ctx in REPLY_CONTEXTS if (t := _last_reply(ctx))}
     return {"rev": hashlib.sha1(sig.encode()).hexdigest()[:12], "agent": agent, "updating": updating,
-            "now": tools._now().isoformat(timespec="seconds")}
+            "replies": replies, "now": tools._now().isoformat(timespec="seconds")}
+
+
+REPLY_CONTEXTS = ("", "休息", "运动", "压力")
+_REPLY_CACHE: dict[str, tuple[int, str | None]] = {}
+
+
+def _last_reply(context: str) -> str | None:
+    """这个对话里 P-Health 最后一段话的时刻（ISO，北京时间）。按会话文件 mtime 缓存，轮询不费事。"""
+    from . import dsh_chat
+    f = dsh_chat._session_dir(context) / "session.v4.jsonl.zstd"
+    try:
+        m = f.stat().st_mtime_ns
+    except OSError:
+        return None
+    hit = _REPLY_CACHE.get(context)
+    if hit and hit[0] == m:
+        return hit[1]
+    out = None
+    try:
+        for d in reversed(dsh_chat.read_session_events(context)):
+            if d.get("type") != "assistant/message" or not d.get("time"):
+                continue
+            msg = (d.get("data") or {}).get("message", d.get("data") or {})
+            if any(isinstance(c, dict) and c.get("type") == "text" and str(c.get("text", "")).strip()
+                   for c in msg.get("content", [])):
+                out = datetime.fromtimestamp(int(d["time"]) / 1000, tz=ZoneInfo("Asia/Shanghai")).isoformat(timespec="seconds")
+                break
+    except Exception:  # noqa: BLE001
+        out = None
+    _REPLY_CACHE[context] = (m, out)
+    return out
 
 
 BOARD_LABELS = {"sleep": "休息", "sport": "运动", "stress": "压力", "life": "日常"}

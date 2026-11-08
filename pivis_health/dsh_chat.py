@@ -253,6 +253,9 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
 
         if t == "user/message":
             data = d.get("data", d)
+            src = data.get("source")
+            if isinstance(src, dict) and src.get("kind") not in (None, "user"):
+                continue    # DSH 自己插的（重复调用提醒「You are repeating…」、时间快照、规则注入）：不是老大说的话
             content = data.get("content", [])
             for c in content:
                 if isinstance(c, dict) and c.get("type") == "text" and c.get("text", "").strip():
@@ -293,6 +296,9 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
                         "type": "assistant"
                     })
 
+    if limit and after_ts:
+        # 增量拉取：从最早的新消息开始给，客户端下次从这页最后一条接着拉。以前给最后 N 条，两次拉取之间多于 N 条时，前面的永远拿不到
+        return msgs[:limit]
     return msgs[-limit:] if limit else msgs
 
 

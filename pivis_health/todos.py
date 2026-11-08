@@ -216,6 +216,9 @@ def check_practice(t: dict, cfg: Config | None = None) -> None:
             raise TodoError(f"这个视频还不在素材库里：{url}。先用 follow 出片，用它给的地址（follow session list 能查已出的片）")
 
 
+_TITLE_TIME = re.compile(r"(?<![\d:])([01]?\d|2[0-3])[:：]([0-5]\d)(?![\d])")
+
+
 def normalize(t: dict, existing: dict | None = None) -> dict:
     base = dict(existing or {})
     base.update({k: v for k, v in t.items() if v is not None})
@@ -230,6 +233,11 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
     when = str(base.get("when") or "")
     if when and not _HHMM.match(when):
         raise TodoError("when 必须是 HH:MM")
+    if not when:
+        # 每条待办都该有时间（老大 11-08：不统一很乱）：标题里写了钟点（「23:15 前洗完澡」）就拿它当时间
+        m = _TITLE_TIME.search(str(base.get("title") or ""))
+        if m:
+            when = f"{int(m.group(1)):02d}:{m.group(2)}"
     status = base.get("status") or ("proposed" if kind == "proposal" else "scheduled")
     if status not in STATUSES:
         raise TodoError(f"status 只能是 {STATUSES}")

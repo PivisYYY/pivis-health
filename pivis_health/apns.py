@@ -66,13 +66,15 @@ class APNS:
 
     def send(self, device_token: str, title: str, body: str,
              data: dict[str, Any] | None = None, badge: int | None = None,
-             env: str | None = None) -> dict[str, Any]:
+             env: str | None = None, aps_extra: dict[str, Any] | None = None) -> dict[str, Any]:
         """发一条 alert 推送。返回 {ok, status, reason}。未配置密钥时 ok=False reason=not_configured。"""
         if not self.configured:
             return {"ok": False, "status": 0, "reason": "not_configured"}
         payload: dict[str, Any] = {"aps": {"alert": {"title": title, "body": body}, "sound": "default"}}
         if badge is not None:
             payload["aps"]["badge"] = badge
+        if aps_extra:                      # thread-id：同一个对话 / 同一张卡的通知在锁屏上叠成一组
+            payload["aps"].update(aps_extra)
         if data:
             for k, v in data.items():
                 payload.setdefault(k, v)

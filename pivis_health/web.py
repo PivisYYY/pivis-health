@@ -429,6 +429,8 @@ def serve(cfg: Config, host: str = "127.0.0.1", port: int = 8943,
         ctx.load_cert_chain(tls_cert, tls_key)
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
     print(json.dumps({"serving": f"http://{host}:{port}", "app": f"http://{host}:{port}/v2"}, ensure_ascii=False))
+    from . import notify
+    notify.start_background(tools)     # 回复 / 待办到点 / 新问的推送（两个服务进程都起，flock 保证只一个在巡）
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
