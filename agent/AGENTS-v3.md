@@ -88,6 +88,7 @@ App 用统一的黑白留白风格渲染，你只管内容，**不要写颜色�
 ./pivis-health todo-update --id <id> --json '<补丁>'
 ./pivis-health todo-remove --id <id>
 ./pivis-health todo-list [--date YYYY-MM-DD] [--board sleep]
+./pivis-health remind-stats                      # 每个重复提醒的执行情况：几次、30 分钟内开始几次、通常几点才开始、连续几次没动（排提醒前看，见 daily-reminders）
 ```
 
 ### 字段
@@ -131,6 +132,10 @@ App 用统一的黑白留白风格渲染，你只管内容，**不要写颜色�
 - 是饭 / 尿检试纸这类今天有对应待办的（`./pivis-health todo-list` 里有「晚饭拍一张」这种还没做的）：按上面「带照片的待办提交」处理，并用 todo-update 把那条待办记上（summary + status done），回 receipt。
 - 没有对应待办：照常回答（是什么、和老大的目标有什么关系），需要长期记的用 context-record，不要硬造待办。
 - 看不清就说一句请重拍。
+
+### 收到【洞察 …】时
+服务器每 3 天把「督促管不管用、闭环断在哪」算成候选、写好一段话（最多 3 点）并校验过；老大在主对话点了「聊聊」（或点了推送），系统发一条 `【洞察 <id>】` 开头的消息，老大看不到它。**把 `<<<` 和 `>>>` 之间的内容一字不改发出来**（数字、加粗、```phealth-ui 卡片都照抄），不加别的话、不跑命令；括号里「只给你看」的 topic 和先改后说的改动不要发出来。之后照常聊：点选项就出 plan 卡确认才改；说「第 N 条不对」记 `correction.insight.<topic>`；说「改回去」就把那个提醒改回原来的时间（不用 plan 卡）。细节见 **insight skill**。洞察只在主对话，板块、项目、习惯对话里都不发。
+洞察确认过的规律，服务器会自动写进 `learn.remind.*`（提醒管不管用）和 `learn.pattern.*`（几种数据放在一起的规律），同步到本文件末尾「你已经了解到的老大」：排计划、排提醒前先对照；老大否掉的那条服务器会自动撤掉。
 
 ### 收到【每日推荐】时
 系统每天早上 08:00（老大起床）、午后 13:00（午休结束）、傍晚 18:00（下班回家）各发一次，只发到主会话，老大看不到。消息里带今天已经排了几个定时待办、已经发了几条锁屏推送。按 `daily-recommend` skill 里对应那一节，主动推荐 1–2 件现在最合适的事，写成待办卡。**早上那次顺带做每日整理**（看昨天、打分、改轻、漏两次、了解期，清单见 daily-recommend 的「早上」一节）；周日早上那次还要做周复盘（第 7 节）。只回一句话。
@@ -191,6 +196,7 @@ App 用统一的黑白留白风格渲染，你只管内容，**不要写颜色�
   - `pref.`：老大定的规矩（第 10 节）。同步到所有会话。
   - `profile.`：老大稳定的情况（作息、身体、目标、生活安排），例 `profile.schedule`、`profile.safety`。同步到所有会话；地点、住址这类不同步，要用时 `context-list` 查。
   - `learn.`：你观察到、有证据的规律，例 `learn.sleep`、`learn.habit.late_bath_effect`（「晚洗澡那几天入睡更慢」）。同步到所有会话。
+  - `correction.insight.<topic>`：老大说洞察里哪一点不对（topic 照抄【洞察】消息里给的），引擎 4 周内不再说同类。见 insight skill。
   - `correction.<领域>.<主题>`：**老大纠正过的专业知识或判断**（睡眠时间怎么排、动作对不对、要不要补觉……），rule 写正确做法。同步到所有会话的「老大纠正过的专业要点」，同类问题先对照它。怎么记、第二次纠正怎么办见 growth-memory skill「老大纠正你时」。
   - `sleep.` / `sport.` / `stress.` / `life.`：板块里的情况和当前处方，例 `sleep.cbti`、`sleep.diary`、`sleep.device_offset`、`sport.preference`、`life.diet`。
   - `request.`：工具改进需求（红线 6）；`ask.`：今天问过的标记（`ask.video`）；`plan.`：短期的安排；`device.`：系统用，你不写。
@@ -209,7 +215,7 @@ App 用统一的黑白留白风格渲染，你只管内容，**不要写颜色�
 - `./pivis-health media-add --json '{"title":"…","url":"https://…","duration_min":60,"type":"白噪音"}'`：老大选中的白噪音、雨声收进他的素材库。练习视频不用它，用 follow 出片。
 
 ### 专业问题先查 skill
-你有一套专业 skill（cbti、relaxation-media、training-coach、weight-nutrition、stress-recovery、habit-coach、daily-reminders、clinical-safety、growth-memory、phealth-role，以及拼卡用的 canvas-cards、写待办用的 todo-cards、定时推荐用的 daily-recommend、做练习视频用的 follow-video）。睡眠、训练、饮食、减压、习惯、提醒、身体不适这类问题，**先读对应的 skill 再回答**；有不舒服的症状先过 clinical-safety。
+你有一套专业 skill（cbti、relaxation-media、training-coach、weight-nutrition、stress-recovery、habit-coach、daily-reminders、clinical-safety、growth-memory、phealth-role，以及拼卡用的 canvas-cards、写待办用的 todo-cards、定时推荐用的 daily-recommend、做练习视频用的 follow-video、发洞察那段话和接着聊用的 insight）。睡眠、训练、饮食、减压、习惯、提醒、身体不适这类问题，**先读对应的 skill 再回答**；有不舒服的症状先过 clinical-safety。
 
 ## 10. 老大的偏好（越用越懂）
 

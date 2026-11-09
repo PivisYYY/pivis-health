@@ -15,17 +15,26 @@ final class PageSync: ObservableObject {
     /// 有没看过的 P-Health 回复的对话（"" 主对话 / 休息 / 运动 / 压力）：入口上亮个点
     @Published private(set) var unread: Set<String> = []
     private var lastReply: [String: Date] = [:]
+    /// P-Health 看出几件事、等老大点开聊（status.insight）：主对话浮条 + 中间圆钮的点。
+    /// 本地点过「聊聊」/ 划掉的那条不再显示，哪怕服务器的状态还没跟上
+    @Published private(set) var insight: PendingInsight?
+    private var serverInsight: PendingInsight?
+    private lazy var handledInsights: [String] = UserDefaults.standard.stringArray(forKey: insightKey) ?? []
+    private var insightKey: String { "insight_handled_\(Profile.isSim ? "sim" : "real")" }
 
     private var rev: String?
     private var loop: Task<Void, Never>?
     private var active = true
     private var wake: CheckedContinuation<Void, Never>?
+    /// 正在同步时又来了 poke：这一轮完了不睡，马上再同步一次（以前直接丢掉，推送刚到时可能还是旧状态）
+    private var pokeAgain = false
 
     private struct Status: Decodable {
         let rev: String
         let agent: Agent
         let updating: [String]
         let replies: [String: String]?
+        let insight: PendingInsight?
         struct Agent: Decodable { let busy: Bool; let tool: String?; let args: String? }
     }
 
@@ -49,7 +58,7 @@ final class PageSync: ObservableObject {
 
     /// 马上同步一次（关掉对话、下拉刷新、提交待办之后）
     func poke() {
-        guard let w = wake else { return }
+        guard let w = wake else { pokeAgain = true; return }
         wake = nil
         w.resume()
     }
@@ -74,7 +83,43 @@ final class PageSync: ObservableObject {
             PTime.parse(v).map { (k == "main" ? "" : k, $0) }
         })
         if let open = ChatPresence.openContext { markSeen(open) } else { refreshUnread() }
+        serverInsight = s.insight
+        refreshInsight()
+        PostOutbox.shared.networkBack()  // 连得上服务器了：断网时没发出去的推送回报 / 划掉洞察马上补发
         return changed
+    }
+
+    // MARK: 洞察
+    /// 点了「聊聊」或划掉（或从推送直接点开）：马上收起浮条、灭掉圆钮的点，同一条以后不再出现
+    func insightHandled(_ id: String) {
+        guard !id.isEmpty else { return }
+        if !handledInsights.contains(id) {
+            handledInsights = Array((handledInsights + [id]).suffix(30))
+            UserDefaults.standard.set(handledInsights, forKey: insightKey)
+        }
+        refreshInsight()
+    }
+
+    /// 点「聊聊」没连上服务器：放回去，等会儿再点
+    func insightUnhandled(_ id: String) {
+        guard handledInsights.contains(id) else { return }
+        handledInsights.removeAll { $0 == id }
+        UserDefaults.standard.set(handledInsights, forKey: insightKey)
+        refreshInsight()
+    }
+
+    /// 洞察的推送在前台到了：不等下一轮状态，先按推送显示出来，再马上同步一次（以服务器为准）
+    func noteInsightPush(id: String, text: String) {
+        if !id.isEmpty, !handledInsights.contains(id), serverInsight?.id != id {
+            serverInsight = PendingInsight(id: id, text: text)
+            refreshInsight()
+        }
+        poke()
+    }
+
+    private func refreshInsight() {
+        let v = serverInsight.flatMap { $0.id.isEmpty || handledInsights.contains($0.id) ? nil : $0 }
+        if insight != v { withAnimation(.easeOut(duration: 0.25)) { insight = v } }
     }
 
     // MARK: 没看过的回复
@@ -104,6 +149,7 @@ final class PageSync: ObservableObject {
     private var generation = 0
 
     private func sleep(seconds: Double) async {
+        if pokeAgain { pokeAgain = false; return }
         generation += 1
         let mine = generation
         await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in

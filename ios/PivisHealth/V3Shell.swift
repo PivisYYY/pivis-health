@@ -132,7 +132,7 @@ struct V3Root: View {
             PageSync.shared.poke()
         }) { target in
             NativeChatView(context: target.context, pendingText: target.pendingText, draft: target.draft,
-                           pendingPhoto: target.photo, about: target.about)
+                           pendingPhoto: target.photo, about: target.about, openInsight: target.insight)
                 .presentationDetents([.fraction(0.9), .large])
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Color.black)
@@ -160,7 +160,13 @@ struct V3Root: View {
             if let page = info["page"] as? String {
                 selected = ["today": "now", "now": "now", "sleep": "sleep", "sport": "sport", "stress": "stress"][page] ?? "now"
             }
-            if let ctx = info["context"] as? String {
+            if info["why"] as? String == "insight" {
+                // 洞察：进主对话直接点开（不再出浮条），P-Health 的那段话接着流进来
+                splash = nil
+                let id = (info["insight"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                if let id { PageSync.shared.insightHandled(id) }
+                chatTarget = ChatTarget(context: "", pendingText: nil, insight: id)
+            } else if let ctx = info["context"] as? String {
                 // P-Health 回了新消息：点开直接进那个对话
                 splash = nil
                 chatTarget = ChatTarget(context: ctx, pendingText: nil)
@@ -242,6 +248,9 @@ struct V3Root: View {
         }
     }
 
+    /// 中间圆钮的点：主对话有没看过的回复，或者有一条洞察等着点开（点开 / 划掉后服务器状态里就没了）
+    private var mainChatDot: Bool { sync.unread.contains("") || sync.insight != nil }
+
     private var tabBar: some View {
         // 方案 3：底部一条细线贯穿；此刻、休息在左，运动、压力在右；当前页文字变白、下面一个小点（滑过去）；
         // 正中间浮起一个细线圆圈里的莫比乌斯，点它进主对话；P-Health 在处理时环上有白点在走
@@ -265,8 +274,8 @@ struct V3Root: View {
                     .background(Circle().fill(Color.black))
                     .overlay(Circle().strokeBorder(E.text, lineWidth: 1))
                     .overlay(alignment: .topTrailing) {
-                        // P-Health 在主对话回了你还没看：右上角一个实心小白点（外面一圈黑，和描边分开）
-                        if sync.unread.contains("") {
+                        // P-Health 在主对话回了你还没看 / 有洞察等你点开：右上角一个实心小白点（外面一圈黑，和描边分开）
+                        if mainChatDot {
                             Circle().fill(E.text).frame(width: 9, height: 9)
                                 .background(Circle().fill(Color.black).frame(width: 14, height: 14))
                                 .offset(x: -4, y: 4)
@@ -278,7 +287,8 @@ struct V3Root: View {
             }
             .buttonStyle(EPress())
             .offset(y: -23)
-            .accessibilityLabel(sync.unread.contains("") ? "打开 P-Health 主对话，有新回复" : "打开 P-Health 主对话")
+            .accessibilityLabel(sync.unread.contains("") ? "打开 P-Health 主对话，有新回复"
+                                : (sync.insight != nil ? "打开 P-Health 主对话，P-Health 有事想聊" : "打开 P-Health 主对话"))
             .accessibilityIdentifier("open-main-chat")
         }
         .frame(height: 64, alignment: .top)

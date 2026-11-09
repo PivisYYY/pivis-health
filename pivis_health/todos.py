@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from . import journal
 from .config import Config
 from .media import MediaError
 from .media import check_url as _media_check_url
@@ -314,9 +315,9 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
     return out
 
 
-def _same_template(a: dict, b: dict) -> bool:
-    """同一个模板没改过（忽略系统补上的 board / date / 时长）。"""
-    skip = {"board", "date", "duration_min"}
+def _same_content(a: dict, b: dict) -> bool:
+    """练习内容没变（只挪了时间、改了哪几天）：不用重新校验视频（洞察先改后说只改时间）。"""
+    skip = {"board", "date", "duration_min", "when", "weekdays", "alarm"}
     return {k: v for k, v in a.items() if k not in skip} == {k: v for k, v in b.items() if k not in skip}
 
 
@@ -376,6 +377,7 @@ class TodoStore:
                 raise TodoError(f"id 已存在: {t['id']}")
             data["todos"][t["id"]] = t
             data["log"].append({"at": _now_iso(), "op": "add", "id": t["id"]})
+            journal.todo(self.cfg, "add", t, t["id"], by=t.get("source") or "agent")
             return t
 
     def update(self, todo_id: str, patch: dict, by: str = "agent") -> dict:
@@ -404,6 +406,9 @@ class TodoStore:
                 t["record"] = {**(t.get("record") or {}), "submitted": (t.get("record") or {}).get("submitted") or kept}
             data["todos"][todo_id] = t
             data["log"].append({"at": _now_iso(), "op": "update", "id": todo_id, "by": by})
+            journal.todo(self.cfg, "update", t, todo_id, by=by,
+                         changed=sorted(k for k in patch if k not in ("record",)),
+                         prev_when=cur.get("when") if cur.get("when") != t.get("when") else None)
             return t
 
     def remove(self, todo_id: str) -> dict:
@@ -412,6 +417,7 @@ class TodoStore:
             if not t:
                 raise TodoError(f"没有这条待办: {todo_id}")
             data["log"].append({"at": _now_iso(), "op": "remove", "id": todo_id})
+            journal.todo(self.cfg, "remove", t, todo_id)
             return {"removed": todo_id}
 
     def last_record(self, t: dict, back_days: int = 14) -> dict | None:
@@ -471,7 +477,7 @@ class TodoStore:
                 if wd is not None and (not isinstance(wd, list) or not wd or any(d not in range(1, 8) for d in wd)):
                     raise TodoError("weekdays 是 1–7 的列表（1=周一，7=周日）")
                 norm = normalize(tpl)
-                if changed and not any(_same_template(tpl, old) for old in cur.get("daily") or []):
+                if changed and not any(_same_content(tpl, old) for old in cur.get("daily") or []):
                     check_practice(norm, self.cfg)  # 新加 / 改过的模板才校验（练习只用视频），老模板照常能读
                 if tpl.get("duration_min") in (None, "") and norm["duration_min"]:
                     tpl = {**tpl, "duration_min": norm["duration_min"]}   # 时长写在视频里的，模板上也带一份（复盘、习惯卡要用）
@@ -488,6 +494,11 @@ class TodoStore:
             data["projects"][merged["id"]] = merged
             data["log"].append({"at": _now_iso(), "op": "project_set", "id": merged["id"],
                                 "revision": merged["revision"]})
+            journal.append(self.cfg, journal.TODOS, {
+                "at": journal.now_iso(self.cfg), "op": "project_set", "id": merged["id"], "revision": merged["revision"],
+                "board": merged.get("board"), "status": merged.get("status"),
+                "daily": [{"key": d.get("key"), "when": d.get("when"), "kind": d.get("kind"), "title": d.get("title")}
+                          for d in merged.get("daily") or []]})
             # 已经展开到今天及以后的实例：项目暂停或结束就撤掉还没开始的；模板改了就在那几天重新展开
             later = sorted({t["date"] for t in data["todos"].values()
                             if t.get("project") == merged["id"] and t.get("source") == "project"
@@ -563,6 +574,8 @@ class TodoStore:
                         body["created_at"] = cur["created_at"]
                     data["todos"][tid] = normalize(body)
                     created.append(tid)
+                    journal.todo(self.cfg, "materialize" if not cur else "rematerialize", data["todos"][tid], tid,
+                                 by="project")
                 # 模板里删掉的项：当天还没开始的实例一并移除
                 for tid, t in list(data["todos"].items()):
                     if (t.get("project") == p["id"] and t["date"] == day.isoformat()
@@ -643,6 +656,7 @@ class TodoStore:
                 t["ops"] = (list(t.get("ops") or []) + [op_id])[-30:]
             t["updated_at"] = _now_iso()
             data["log"].append({"at": _now_iso(), "op": f"user_{action}", "id": todo_id})
+            journal.todo(self.cfg, f"user_{action}", t, todo_id, by="user", at=now.isoformat(timespec="seconds")[:19])
             return t
 
     def auto_complete(self, todo_id: str, summary: str, record: dict) -> None:
@@ -653,6 +667,7 @@ class TodoStore:
                 t["summary"] = summary
                 t["record"] = {**record, "auto": True}
                 t["updated_at"] = _now_iso()
+                journal.todo(self.cfg, "auto_done", t, todo_id, by="system")
 
 
 def board_of_context(context: str) -> str | None:

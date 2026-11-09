@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - 开放画布的新零件（36 个）：服务器 resolve 之后的 JSON 按这里画（规格见 parts-spec.md）
+// MARK: - 开放画布的新零件（39 个）：服务器 resolve 之后的 JSON 按这里画（规格见 parts-spec.md）
 // 只用灰阶：白 #FFF / 灰 #9A9A9A / 浅灰 #7A7A7A / 深灰 #4A4A4A / 线 #262626；细线、细体数字。
 // 所有数都是服务器算好的，App 只决定颜色和位置。这些零件都不循环动（不用管 motionPaused）。
 
@@ -89,6 +89,18 @@ struct CLine: Decodable {
     }
 }
 
+/// dotstrip 的图例：{"on": "做了拉伸", "hi": "睡够 7 小时"}，哪个没给就不画哪个
+struct CLegendPair: Decodable {
+    var on: String?
+    var hi: String?
+    private enum K: String, CodingKey { case on, hi }
+    init(from decoder: Decoder) {
+        guard let c = try? decoder.container(keyedBy: K.self) else { return }
+        on = c.string(.on)
+        hi = c.string(.hi)
+    }
+}
+
 /// 新零件的字段（和 CNode 读同一个 JSON 对象）。同名不同型的键分两个字段放：
 /// rows（table 是二维字符串，其余是对象）、columns（table 是表头，stack_columns 是对象）、
 /// points（sparkline 是数列，scatter 是点对）、from/to（time_range 是小时数，delta 是字符串）、
@@ -100,6 +112,7 @@ struct CPart {
     var keys: [String]?
     var axes: [String]?
     var legend: [String]?
+    var legendPair: CLegendPair?   // dotstrip：legend 是对象（stack_columns 的是字符串数组）
     var subs: [String]?
     var columnNames: [String]?
     var columns: [CItem]?
@@ -163,13 +176,16 @@ struct CPart {
     var prevSeries: [Double?]?
     var r: Double?           // scatter 的相关系数（只读给 VoiceOver）
     var asof: String?        // sparkline / stat_spark 最后一个点的日期
+    var startMin: Double?    // response：轴从第几分钟开始（start 是数）
+    var span: Double?        // response：轴有多少分钟
+    var remind: Double?      // response：提醒在第几分钟
 
     private enum K: String, CodingKey {
         case title, centerText, centerSub, keys, axes, legend, subs, columns, rows, pairs, segments, arcs, dots, ticks
         case days, bins, band, bands, marks, points, fit, last, xRange, yRange, xLabel, yLabel, a, b, start, end
         case totalMin, axisStart, axisHours, firstWeekday, count, best, direction, moved, good, from, to
         case maxAbs, target, targetLabel, min, q1, median, q3, today, todayText, value, total, done, current
-        case strong, source, url, poster, kind, now, prev, r, asof
+        case strong, source, url, poster, kind, now, prev, r, asof, span, remind
     }
 
     init() {}
@@ -182,6 +198,7 @@ struct CPart {
         keys = c.lenientStrings(.keys)
         axes = c.lenientStrings(.axes)
         legend = c.lenientStrings(.legend)
+        if legend == nil { legendPair = c.lenient(CLegendPair.self, .legend) }
         subs = c.lenientStrings(.subs)
         columnNames = c.lenientStrings(.columns)
         if columnNames == nil { columns = c.lenientList(CItem.self, .columns) }
@@ -242,6 +259,9 @@ struct CPart {
         prevSeries = c.lenientNumbers(.prev)
         r = c.lenient(Double.self, .r)
         asof = c.string(.asof)
+        startMin = c.lenient(Double.self, .start)
+        span = c.lenient(Double.self, .span)
+        remind = c.lenient(Double.self, .remind)
     }
 }
 
@@ -299,6 +319,16 @@ private struct PCaption: View {
     var body: some View {
         if let t = text, !t.isEmpty {
             Text(t).font(E.body(12)).foregroundStyle(E.text2).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// 小一号的说明字（11pt #7A7A7A，和 dots / columns 的说明同一个样子）：split、dotstrip 用
+private struct PNote: View {
+    let text: String?
+    var body: some View {
+        if let t = text, !t.isEmpty {
+            Text(t).font(E.body(11)).foregroundStyle(E.text3).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -685,6 +715,42 @@ struct ZonesPart: View {
     private static func shade(_ i: Int) -> Color { i == 0 ? E.grey4A : (i == 1 ? E.text2 : E.text) }
 }
 
+/// split：两组（最多三组）比一比，比如平常的恢复 vs 外宿后的恢复。
+/// 每行：名字（52）| 条（剩下的宽度）| 数（44，右对齐）；hi 那组条和字是白的，其余条 #555、字灰
+struct SplitPart: View {
+    let n: CNode
+
+    var body: some View {
+        let rows = Array((n.x.rows ?? []).prefix(3))
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(rows) { r in
+                let hi = r.hi == true
+                HStack(spacing: 10) {
+                    Text(r.label ?? "").font(E.body(12)).foregroundStyle(hi ? E.text : E.text2)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .frame(width: 52, alignment: .leading)
+                    Canvas { ctx, size in
+                        let track = CGRect(x: 0, y: 0, width: size.width, height: 6)
+                        ctx.fill(Path(roundedRect: track, cornerRadius: 3), with: .color(E.line2))
+                        if let f = r.frac ?? r.fraction, f > 0 {
+                            let w = size.width * CGFloat(clamp(f, 0, 1))
+                            ctx.fill(Path(roundedRect: CGRect(x: 0, y: 0, width: w, height: 6), cornerRadius: Swift.min(3, w / 2)),
+                                     with: .color(hi ? E.text : E.grey55))
+                        }
+                    }
+                    .frame(height: 6)
+                    Text((r.text ?? "") + (r.text == nil ? "" : (r.unit ?? "")))
+                        .font(E.body(12)).foregroundStyle(hi ? E.text : E.text2).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .frame(width: 44, alignment: .trailing)
+                }
+            }
+            PNote(text: n.caption)
+        }
+        .partLabel([], rows.map { "\($0.label ?? "") \($0.text ?? "")\($0.text == nil ? "" : ($0.unit ?? ""))" }, [n.caption])
+    }
+}
+
 /// radar：五维这周（实线）vs 上周（虚线）；缺的那维画虚点
 struct RadarPart: View {
     let n: CNode
@@ -836,6 +902,168 @@ struct SleepWindowPart: View {
             PCaption(text: n.caption)
         }
         .partLabel([n.x.band?.label], rows.map { "\($0.label ?? "") \($0.start ?? "") 到 \($0.end ?? "")" }, [n.caption])
+    }
+}
+
+/// response：提醒发出后几点真去做了。虚线 = 提醒的时刻，每个白点 = 一次真去做的时刻。
+/// 所有值都是同一条轴上的分钟（过了午夜接着往上数，可以超过 1440）；轴 = start 起 span 分钟
+struct ResponsePart: View {
+    let n: CNode
+
+    var body: some View {
+        let start = n.x.startMin ?? 0
+        let span = Swift.max(n.x.span ?? 0, 1)
+        let points = (n.x.points ?? []).compactMap { $0 }
+        let ticks: [CItem] = n.x.ticks ?? []
+        VStack(alignment: .leading, spacing: 6) {
+            Canvas { ctx, size in
+                let W = size.width
+                func x(_ m: Double) -> CGFloat { 6 + CGFloat(clamp((m - start) / span, 0, 1)) * (W - 12) }
+                // 底线
+                ctx.line(CGPoint(x: 0, y: 54.5), CGPoint(x: W, y: 54.5), E.stroke)
+                // 提醒：一条竖虚线，上面写 label（靠边时往里挪，不出界）
+                if let r = n.x.remind {
+                    let rx = x(r)
+                    ctx.line(CGPoint(x: rx, y: 14), CGPoint(x: rx, y: 50), E.text2, dash: [3, 3])
+                    if let l = n.label, !l.isEmpty {
+                        let rt = ctx.resolve(Text(l).font(E.body(10.5)).foregroundStyle(E.text2))
+                        let w = rt.measure(in: size).width
+                        ctx.draw(rt, at: CGPoint(x: Swift.min(Swift.max(rx, w / 2), W - w / 2), y: 7.5), anchor: .center)
+                    }
+                }
+                // 每次真去做的时刻
+                for p in points { ctx.dot(CGPoint(x: x(p), y: 32), 3.5, fill: E.text) }
+                // 刻度：第一个左对齐，其余居中（最后一个出界就贴右）
+                for (i, t) in ticks.enumerated() {
+                    guard let at = t.at, let l = t.label, !l.isEmpty else { continue }
+                    let rt = ctx.resolve(Text(l).font(E.body(10.5)).monospacedDigit().foregroundStyle(E.text3))
+                    let tx = x(at)
+                    if i == 0 {
+                        ctx.draw(rt, at: CGPoint(x: tx, y: 65), anchor: .leading)
+                    } else {
+                        let w = rt.measure(in: size).width
+                        if tx + w / 2 > W { ctx.draw(rt, at: CGPoint(x: W, y: 65), anchor: .trailing) }
+                        else { ctx.draw(rt, at: CGPoint(x: tx, y: 65), anchor: .center) }
+                    }
+                }
+            }
+            .frame(height: 74)
+            PCaption(text: n.caption)
+        }
+        .partLabel([n.x.remind.map { "\(n.label ?? "提醒") \(Self.hhmm($0))" }],
+                   points.isEmpty ? [] : ["\(points.count) 次：" + points.map(Self.hhmm).joined(separator: "、")],
+                   [n.caption])
+    }
+
+    /// 轴上的分钟 → HH:MM（1445 → 00:05）
+    private static func hhmm(_ m: Double) -> String { phhmm(m / 60) }
+}
+
+/// dots 超过 14 个（15–30 天）：点变小、间距收窄，一排铺得下。实心 = 做到了；空心 = 没做到；今天 = 白圈 + 中间一点
+struct DenseDots: View {
+    let items: [CItem]
+
+    var body: some View {
+        let n = items.count
+        let base: CGFloat = n <= 21 ? 8 : 6
+        Canvas { ctx, size in
+            // 先按原来的比例排（间距 = 点的 0.7）；放不下就收间距，还放不下再缩点
+            var d = base
+            var gap = n > 1 ? Swift.min(d * 0.7, (size.width - CGFloat(n) * d) / CGFloat(n - 1)) : 0
+            if gap < 1.5 {
+                gap = 1.5
+                d = Swift.max(3, (size.width - gap * CGFloat(n - 1)) / CGFloat(n))
+            }
+            let r = d / 2
+            for (i, it) in items.enumerated() {
+                let c = CGPoint(x: r + CGFloat(i) * (d + gap), y: size.height / 2)
+                if it.on == true {
+                    ctx.dot(c, r, fill: E.text)
+                } else {
+                    ctx.dot(c, r - 0.5, stroke: it.now == true ? E.text : E.text3)     // 描边画在圈里面
+                    if it.now == true { ctx.dot(c, Swift.max(1, d * 0.15), fill: E.text) }
+                }
+            }
+        }
+        .frame(height: base)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// dotstrip：每天一个点（最多 90 天），一行最多 14 个、满了换行。
+/// 实心白点 = 那天做了（on）；空心 #555 圈 = 没做；点下面一道白短线 = 那天结果好（hi）。每行下面写这一行的第一天和最后一天
+struct DotStripPart: View {
+    let n: CNode
+    private static let perRow = 14
+    private static let d: CGFloat = 8
+
+    var body: some View {
+        let items = Array((n.items ?? []).prefix(90))
+        let rows = stride(from: 0, to: items.count, by: Self.perRow).map { Array(items[$0..<Swift.min($0 + Self.perRow, items.count)]) }
+        let legOn = n.x.legendPair?.on.flatMap { $0.isEmpty ? nil : $0 }
+        let legHi = n.x.legendPair?.hi.flatMap { $0.isEmpty ? nil : $0 }
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    stripRow(row)
+                }
+            }
+            if legOn != nil || legHi != nil {
+                HStack(spacing: 14) {
+                    if let legOn {
+                        HStack(spacing: 6) {
+                            Circle().fill(E.text).frame(width: Self.d, height: Self.d)
+                            PNote(text: legOn)
+                        }
+                    }
+                    if let legHi {
+                        HStack(spacing: 6) {
+                            Rectangle().fill(E.text).frame(width: Self.d, height: 2)
+                            PNote(text: legHi)
+                        }
+                    }
+                }
+            }
+            PNote(text: n.caption)
+        }
+        .partLabel([n.caption],
+                   [legOn.map { "\($0) \(items.filter { $0.on == true }.count) 天" } ?? "做了 \(items.filter { $0.on == true }.count) 天",
+                    legHi.map { "\($0) \(items.filter { $0.hi == true }.count) 天" } ?? ""],
+                   ["共 \(items.count) 天"])
+    }
+
+    /// 一行：点 + 短线 + 这一行的头尾日期。点的位置按一行 14 个排（不满 14 个的行也对齐上一行的列）
+    private func stripRow(_ row: [CItem]) -> some View {
+        let first = row.first?.label.flatMap { $0.isEmpty ? nil : $0 }
+        let last = row.count > 1 ? row.last?.label.flatMap { $0.isEmpty ? nil : $0 } : nil
+        let labeled = first != nil || last != nil
+        let d = Self.d
+        return Canvas { ctx, size in
+            let step = (size.width - d) / CGFloat(Self.perRow - 1)
+            func cx(_ i: Int) -> CGFloat { d / 2 + CGFloat(i) * step }
+            for (i, it) in row.enumerated() {
+                let c = CGPoint(x: cx(i), y: d / 2)
+                if it.on == true { ctx.dot(c, d / 2, fill: E.text) }
+                else { ctx.dot(c, d / 2 - 0.5, stroke: E.grey55) }        // 1pt 的圈画在点的范围里面
+                if it.hi == true { ctx.fillRect(CGRect(x: c.x - d / 2, y: d + 3, width: d, height: 2), E.text) }
+            }
+            guard labeled else { return }
+            let y: CGFloat = d + 3 + 2 + 10
+            var firstEnd: CGFloat = -1
+            if let first {
+                let rt = ctx.resolve(Text(first).font(E.body(11)).monospacedDigit().foregroundStyle(E.text3))
+                firstEnd = rt.measure(in: size).width
+                ctx.draw(rt, at: CGPoint(x: 0, y: y), anchor: .leading)
+            }
+            if let last {
+                // 最后一天写在最后一个点下面（贴右边不出界）；和第一天挤到一起就不写
+                let rt = ctx.resolve(Text(last).font(E.body(11)).monospacedDigit().foregroundStyle(E.text3))
+                let w = rt.measure(in: size).width
+                let x = Swift.min(cx(row.count - 1), size.width - w / 2)
+                if x - w / 2 >= firstEnd + 6 { ctx.draw(rt, at: CGPoint(x: x, y: y), anchor: .center) }
+            }
+        }
+        .frame(height: labeled ? d + 3 + 2 + 18 : d + 3 + 2)
     }
 }
 

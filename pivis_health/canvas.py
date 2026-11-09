@@ -151,7 +151,7 @@ def validate(layout: Any, slot: str = "hero", pool: list[float] | None = None, h
         if t == "dots":
             b = _check_bind(str(node.get("bind") or ""), ("dots",))
             days = int(node.get("days") or 7)
-            return {"t": "dots", "bind": b, "days": max(3, min(14, days))}
+            return {"t": "dots", "bind": b, "days": max(3, min(MAX_DAYS, days))}
         if t == "bar":
             return {"t": "bar", "bind": _check_bind(str(node.get("bind") or ""), ("bar",))}
         if t == "columns":
@@ -159,7 +159,7 @@ def validate(layout: Any, slot: str = "hero", pool: list[float] | None = None, h
             if m not in COLUMN_METRICS:
                 raise CanvasError(f"columns 的 metric 只能是 {' / '.join(COLUMN_METRICS)}")
             days = int(node.get("days") or 7)
-            return {"t": "columns", "metric": m, "days": max(3, min(14, days)),
+            return {"t": "columns", "metric": m, "days": max(3, min(MAX_DAYS, days)),
                     "height": node.get("height") if node.get("height") in ("s", "m") else "s"}
         if t == "ring":
             return {"t": "ring", "bind": _check_bind(str(node.get("bind") or ""), ("ring",))}
@@ -225,6 +225,8 @@ def _check_bind(b: str, kinds: tuple[str, ...]) -> str:
     b = b.strip()
     kind = kinds[0]
     if kind == "scalar":
+        if re.match(r"^insight:[A-Za-z0-9]+\.[A-Za-z_]+$", b):      # 洞察那段话里的小卡：数取自候选
+            return b
         base, _, field = b.partition(".")
         if base in SCALAR_METRICS and (not field or field in EXTRA_FIELDS):
             return b
@@ -354,6 +356,14 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
                     kids.append(k)
                 return {**n, "children": kids}
             if t in ("value", "stat"):
+                if str(n.get("bind") or "").startswith("insight:"):
+                    from . import insight
+                    v = insight.bind_value(tools.cfg, n["bind"])
+                    out = {k: x for k, x in n.items() if k != "bind"}
+                    out.update({"text": str(v), "unit": out.get("unit") or "", "zone": None})
+                    if t == "stat" and not out.get("label"):
+                        out["label"] = ""
+                    return out
                 if "bind" in n:
                     s = scalar(n["bind"])
                     out = {**n, "text": s["text"], "unit": s["unit"], "zone": s["zone"]}
@@ -367,11 +377,11 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
                 spec = {k: n[k] for k in ("metric", "kind", "days", "show") if k in n}
                 return {"t": "chart", "height": n["height"], "viz": vizmod.build(tools, spec, day, now)}
             if t == "dots":
-                return {"t": "dots", **_dots(tools, n["bind"], n["days"], day, now, vz)}
+                return {"t": "dots", **_weekly(_dots(tools, n["bind"], n["days"], day, now, vz), "dots")}
             if t == "bar":
                 return {"t": "bar", **_bar(n["bind"], vz)}
             if t == "columns":
-                return {"t": "columns", "height": n["height"], **_columns(n["metric"], n["days"], day, vz)}
+                return {"t": "columns", "height": n["height"], **_weekly(_columns(n["metric"], n["days"], day, vz), "columns")}
             if t == "ring":
                 return {"t": "ring", **_ring(tools, n["bind"], day, vz)}
             if t == "level":
@@ -405,6 +415,35 @@ def live_gaps(source: Any, resolved: Any) -> tuple[int, list[str]]:
         own = [n["text"]] if n.get("fallback") else []
         return own + [g for k in n.get("children") or [] for g in gaps(k)]
     return count(source), gaps(resolved)
+
+
+MAX_DAYS = 90            # 一排点、竖柱图最多看 90 天；超过 30 天按周汇总（App 一行放不下 30 个以上）
+WEEKLY_AFTER = 30
+
+
+def _weekly(doc: dict, kind: str) -> dict:
+    """超过 30 天：每 7 天并成一格（从最早那天起），点 = 那周一半以上的天做到；柱 = 那周的平均。"""
+    items = doc.get("items") or []
+    if len(items) <= WEEKLY_AFTER:
+        return doc
+    out = []
+    for i in range(0, len(items), 7):
+        chunk = items[i:i + 7]
+        on = sum(1 for x in chunk if x.get("on")) * 2 >= len(chunk)
+        row = {"label": chunk[0].get("label"), "on": on, "week": True}
+        if kind == "columns":
+            vals = [x["value"] for x in chunk if isinstance(x.get("value"), (int, float))]
+            if not vals:
+                continue
+            avg = sum(vals) / len(vals)
+            row.update({"value": round(avg, 2), "text": f"{int(avg):,}" if avg >= 1000 else f"{avg:.1f}".rstrip("0").rstrip(".")})
+            if any(x.get("ref") is not None for x in chunk):
+                refs = [x["ref"] for x in chunk if isinstance(x.get("ref"), (int, float))]
+                row["ref"] = round(sum(refs) / len(refs), 2) if refs else None
+        if any(x.get("now") for x in chunk):
+            row["now"] = True
+        out.append(row)
+    return {**doc, "items": out, "weekly": True}
 
 
 def _dots(tools, b: str, days: int, day: date, now: datetime, vz) -> dict:
@@ -477,7 +516,7 @@ def _columns(metric: str, days: int, day: date, vz) -> dict:
     nd = m["nd"]
     items: list[dict] = []
     ref = ref_label = None
-    if metric == "sleep":
+    if metric == "sleep" and days <= 14:
         v = vz("sleep", "need", 14 if days > 7 else 7)
         nights = (v.get("nights") or [])[-days:]
         if not nights:
@@ -491,7 +530,8 @@ def _columns(metric: str, days: int, day: date, vz) -> dict:
         ref_label = f"需要 {vizmod._text(need, 1)}" if need else None
         caption = f"近 {len(items)} 晚 · {short} 晚没睡够" if short else f"近 {len(items)} 晚都睡够了"
     else:
-        v = vz(metric, "trend", days)
+        # 超过 14 晚的睡眠也走走势这条路（「需要多少」只有近 14 晚）；viz 的天数只有 7 / 14 / 30 / 90 几档，取够用的那档再截
+        v = vz(metric, "trend", next(x for x in vizmod.DAYS["trend"] if x >= days))
         series = (v.get("series") or [])[-days:]
         if not series:
             raise vizmod.VizUnavailable(f"没有{m['label']}数据")
@@ -581,12 +621,22 @@ PARTS: list[dict] = [
      "when": "小幅波动 + 常态带 + 警戒线（HRV、静息心率、呼吸）", "data": "./pivis-health viz 同一份数",
      "height": "s 84 / m 124 / l 164（gauge +60）"},
     {"name": "dots", "cn": "一排点", "group": "基础", "example": {"t": "dots", "bind": "sleep.nights", "days": 7},
-     "when": "只关心每天达没达标（3–14 天）", "data": "睡眠 / 步数 / 项目打卡", "binds": ["dots"], "height": "30"},
+     "when": "只关心每天达没达标（3–90 天；超过 30 天每 7 天并成一格）", "data": "睡眠（最多近 14 晚）/ 步数 / 项目打卡",
+     "binds": ["dots"], "height": "30"},
     {"name": "bar", "cn": "进度条", "group": "基础", "example": {"t": "bar", "bind": "sleep"},
      "when": "一个数离目标多远", "data": "睡了 vs 需要 / 走了 vs 目标 / 已减 vs 计划", "binds": ["bar"], "height": "34"},
     {"name": "columns", "cn": "竖柱图", "group": "基础", "example": {"t": "columns", "metric": "sleep", "days": 7, "height": "s"},
-     "when": "每天各多少（每晚睡了多久、每天步数），从 0 起画", "data": "metric：sleep / steps / hrv / resting_hr / resp_rate / recovery / weight",
-     "height": "s 120 / m 160"},
+     "when": "每天各多少（每晚睡了多久、每天步数），从 0 起画（3–90 天；超过 30 天每根是一周的平均）",
+     "data": "metric：sleep / steps / hrv / resting_hr / resp_rate / recovery / weight", "height": "s 120 / m 160"},
+    {"name": "response", "cn": "提醒到动手", "group": "时间", "example": {"t": "response", "bind": "insight:c11101.response"},
+     "when": "只在洞察那段话里用：某个提醒每次几点开始做，横轴时间、一条提醒线、每次开始一个点",
+     "data": "洞察候选（has_response_card=true 的候选；c11101 换成候选 id）", "height": "96"},
+    {"name": "split", "cn": "两组对比", "group": "占比", "example": {"t": "split", "bind": "insight:c11101.split"},
+     "when": "只在洞察那段话里用：两组日子（做了 / 没做、外宿后 / 其他）的平均值对比，两根横条",
+     "data": "洞察候选（has_split_card=true 的候选）", "height": "80"},
+    {"name": "dotstrip", "cn": "每天一点", "group": "时间", "example": {"t": "dotstrip", "bind": "insight:c11101.dotstrip"},
+     "when": "只在洞察那段话里用：每天一个点，实心 = 那天做了，下面一道 = 结果好的日子",
+     "data": "洞察候选（has_dotstrip_card=true 的候选）", "height": "110"},
     {"name": "ring", "cn": "圆环", "group": "基础", "example": {"t": "ring", "bind": "recovery"},
      "when": "0–100 的分数，或项目第几天 / 共几天", "data": "恢复 / 步数 / 项目", "binds": ["ring"], "height": "96"},
     {"name": "level", "cn": "档位点", "group": "基础", "example": {"t": "level", "level": "watch"},

@@ -34,6 +34,8 @@ def gate_and_send(tools, title: str, body: str, kind: str,
         elif not client.configured:
             result["skipped"] = "not_configured"
         else:
+            from . import journal
+            data = {**(data or {}), "push_id": journal.new_push_id()}
             for t in tokens:
                 r = client.send(t["token"], title, body, data=data, env=t.get("env"))
                 item = {"token": t["token"][:16] + "…", "env": t["env"], **r}
@@ -41,6 +43,9 @@ def gate_and_send(tools, title: str, body: str, kind: str,
             result.update({"ok": bool(sent), "sent": sent, "errors": errors,
                            "tokens": len(tokens)})
     tools.subj.record(local_date, "push_result", {"title": title, "body": body, **result})
+    from . import journal
+    journal.push_sent(tools.cfg, (data or {}).get("push_id") or journal.new_push_id(), title, body,
+                      {**(data or {}), "why": kind}, result, at=now.isoformat(timespec="seconds"))
     return result
 
 

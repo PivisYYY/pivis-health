@@ -105,7 +105,7 @@ def _session_id(context: str = "") -> str:
         parts = context.split(":", 2)[1:]
         page = parts[0]
         suffix = re.sub(r"[^A-Za-z0-9_-]+", "-", parts[1]).strip("-") if len(parts) > 1 else ""
-        if page in ("now", "sleep", "sport", "stress", "relax"):
+        if page in ("now", "sleep", "sport", "stress", "relax", "insight"):
             base = f"{DSH_PREFIX or 'phealth-'}component-composer-v3-{page}"
             return f"{base}-{suffix}" if suffix else base
     if context.startswith("验收:"):
@@ -268,7 +268,8 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
                                              "[model changed:",
                                              "The approval policy changed",
                                              "The sandbox mode changed",
-                                             "Sandbox mode changed")):
+                                             "Sandbox mode changed",
+                                             "【洞察")):     # 洞察：服务器替老大点「聊聊」发的系统消息，老大只看到 P-Health 那段话
                         continue
                     body, ctx = split_context(c["text"])
                     msg = {

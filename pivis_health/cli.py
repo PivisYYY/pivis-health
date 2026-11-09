@@ -166,6 +166,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--days", type=int, default=14); sp.add_argument("--force", action="store_true", help="静默时段也跑")
     sub.add_parser("notify-tick", help="推送巡一次（P-Health 新回复、待办到点前 10 分钟 / 到点 / 过点没做、新问的卡）；服务进程里每 20 秒自动跑")
     sub.add_parser("whoop-status", help="WHOOP 快照新鲜度（不联网）；超过 1 小时没成功同步 exit 2")
+    sp = sub.add_parser("insight-cycle", help="洞察：每 3 天扫一次（launchd 每天 08:30 调，不满 3 天自己跳过）；--dry-run 只打印候选和那段话，不存不推")
+    sp.add_argument("--dry-run", action="store_true")
+    sp.add_argument("--force", action="store_true", help="不管离上次满没满 3 天都扫")
+    sub.add_parser("insight-mine", help="洞察：只算候选（不写稿、不存），看引擎找到了什么、哪些被规则挡掉")
+    sub.add_parser("remind-stats", help="每个重复提醒的执行情况：几点提醒、几次、多少次 30 分钟内开始、通常几点才开始、最近连续几次没动。排提醒前看")
+    sub.add_parser("scene", help="重算每天的场景标签（在家 / 外出 / 外宿 / 开车 / 摘手环），只输出标签的统计")
+    sp = sub.add_parser("whoop-backfill", help="一次性把以前的 WHOOP 记录补进按天存档（不动快照）")
+    sp.add_argument("--since", required=True, help="从哪天起，YYYY-MM-DD")
     return p
 
 
@@ -207,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             out, code = follow_cli(cfg, args.follow_args)
             _json(out)
             return code
-        if args.cmd in ("whoop-auth", "whoop-sync", "whoop-status"):
+        if args.cmd in ("whoop-auth", "whoop-sync", "whoop-status", "whoop-backfill"):
             from .whoop_sync import run_cli
             out, code = run_cli(cfg, args)
             _json(out)
@@ -329,6 +337,21 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "media-add":
             from .coach import media_add
             _json(media_add(tools, json.loads(args.json)))
+        elif args.cmd == "insight-cycle":
+            from . import insight
+            _json(insight.cycle(tools, dry_run=args.dry_run, force=args.force))
+        elif args.cmd == "insight-mine":
+            from . import insight
+            m = insight.mine(tools)
+            brief = lambda c: {k: c.get(k) for k in ("key", "type", "label", "facts", "confirmed", "sample", "action", "dropped")}  # noqa: E731
+            _json({"at": m["at"], "picked": [brief(c) for c in m["picked"]], "others": [brief(c) for c in m["others"]],
+                   "dropped": [brief(c) for c in m["dropped"]]})
+        elif args.cmd == "remind-stats":
+            from . import insight
+            _json({"reminders": [{k: v for k, v in x.items() if k != "rows"} for x in insight.reminder_stats(insight.Data(tools))]})
+        elif args.cmd == "scene":
+            from . import scene
+            _json(scene.update(tools.cfg))
         elif args.cmd == "card-check":
             from . import cards
             import sys as _sys
@@ -394,12 +417,26 @@ def main(argv: list[str] | None = None) -> int:
             from .todos import TodoStore
             store = TodoStore(tools.cfg)
             today = tools._now().date()
+            from . import journal
             if args.cmd == "todo-add":
-                _json(store.add(json.loads(args.json), today))
+                t = store.add(json.loads(args.json), today)
+                journal.action(tools.cfg, "suggest" if t.get("kind") in journal.SUGGEST_KINDS else "plan",
+                               board=t.get("board"), project=t.get("project"), ref=t["id"], detail=t.get("title"),
+                               day=t.get("date"))
+                _json(t)
             elif args.cmd == "todo-update":
-                _json(store.update(args.id, json.loads(args.json)))
+                patch = json.loads(args.json)
+                t = store.update(args.id, patch)
+                if set(patch) - {"status", "summary", "escalate", "record"}:     # 只是标完成 / 写结果，不算改计划
+                    journal.action(tools.cfg, "plan", board=t.get("board"), project=t.get("project"), ref=args.id,
+                                   detail="改 " + "、".join(sorted(patch))[:40], day=t.get("date"))
+                _json(t)
             elif args.cmd == "todo-remove":
-                _json(store.remove(args.id))
+                cur = store.get(args.id) or {}
+                out = store.remove(args.id)
+                journal.action(tools.cfg, "plan", board=cur.get("board"), project=cur.get("project"), ref=args.id,
+                               detail="删掉 " + str(cur.get("title") or ""), day=cur.get("date"))
+                _json(out)
             elif args.cmd == "todo-list":
                 day = _day(args.date) or today
                 if day == today:
@@ -407,6 +444,8 @@ def main(argv: list[str] | None = None) -> int:
                 _json({"date": day.isoformat(), "todos": store.for_date(day, args.board)})
             elif args.cmd == "project-set":
                 proj = store.project_set(json.loads(args.json), today, tools._now())
+                journal.action(tools.cfg, "plan", board=proj.get("board"), project=proj["id"], ref=proj["id"],
+                               detail=f"项目 {proj.get('name') or proj['id']} 第 {proj.get('revision')} 版")
                 _json(proj)
                 _republish_async(tools, [proj["board"], "now"])
             else:

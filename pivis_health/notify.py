@@ -98,6 +98,18 @@ def apns_sender(tools) -> Callable[[str, str, dict], dict]:
     client = APNS(tools.cfg.apns)
 
     def send(title: str, body: str, data: dict) -> dict:
+        from . import journal
+        data = {**data, "push_id": data.get("push_id") or journal.new_push_id()}
+        out = _send(title, body, data)
+        journal.push_sent(tools.cfg, data["push_id"], title, body, data, out, at=tools._now().isoformat(timespec="seconds"))
+        if out.get("ok") and data.get("why") in ("pre", "due", "nudge", "timer", "insight"):
+            todo = data.get("todo")
+            journal.action(tools.cfg, "remind", board=data.get("page") if data.get("page") in BOARD_CONTEXT else None,
+                           ref=todo or data.get("insight"), detail=f"{data.get('why')} · {title}"[:60],
+                           at=tools._now().isoformat(timespec="seconds"))
+        return out
+
+    def _send(title: str, body: str, data: dict) -> dict:
         tokens = tools.subj.apns_tokens_list()
         if not tokens or not client.configured:
             return {"ok": False, "skipped": "no_tokens" if not tokens else "not_configured"}
@@ -123,7 +135,7 @@ def apns_sender(tools) -> Callable[[str, str, dict], dict]:
 
 
 # ---------------------------------------------------------------- 三类事
-def replies(state: dict, send, events_of: Callable[[str], list[dict]]) -> list[dict]:
+def replies(state: dict, send, events_of: Callable[[str], list[dict]], on_cards=None) -> list[dict]:
     """每个对话：上次看到哪儿（事件条数）→ 之后每个说完的回合推一条。第一次看到的会话只记位置，不补推历史。"""
     seen = state.setdefault("replies", {})
     out = []
@@ -146,6 +158,11 @@ def replies(state: dict, send, events_of: Callable[[str], list[dict]]) -> list[d
             elif t == "assistant/message":
                 texts += _assistant_texts(ev[i])
             elif t == "turn/end":
+                if on_cards is not None:
+                    try:
+                        on_cards(ctx, texts)
+                    except Exception:  # noqa: BLE001
+                        pass
                 body = summarize(texts[-1]) if texts else ""
                 if body:
                     label = CONTEXT_LABEL[ctx]
@@ -271,9 +288,11 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
         path = Path(cfg.data_dir) / STATE_FILE
         state = _load(path)
         now = now or tools._now()
-        send = apns_sender(tools) if send is None else send
+        if send is None:                           # 模拟 / 测试环境：照样巡（记 P-Health 发的建议卡），但不推送
+            send = apns_sender(tools) if enabled(cfg) else (lambda *_a: {"ok": False, "skipped": "disabled"})
         first = not state
-        out = replies(state, send if not first else (lambda *_a: {"ok": False}), events_of or dsh_chat.read_session_events)
+        out = replies(state, send if not first else (lambda *_a: {"ok": False}), events_of or dsh_chat.read_session_events,
+                      on_cards=None if first else (lambda ctx, texts: note_cards(cfg, ctx, texts, now)))
         if first:
             # 第一次：待办只记下已经过了的提醒，不补推
             out += todos(state, lambda *_a: {"ok": False, "skipped": "first_run"}, TodoStore(cfg), now, lead_minutes(cfg))
@@ -288,10 +307,26 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
         lockf.close()
 
 
+def note_cards(cfg, ctx: str, texts: list[str], now: datetime) -> None:
+    """这一轮 P-Health 在对话里发的建议类卡片（plan、问卡、选项卡）记进行动日志：洞察引擎看「发现了之后有没有建议」。"""
+    from . import cards, journal
+    board = BOARD_OF_CONTEXT.get(ctx)
+    for text in texts:
+        for m in cards._BLOCK.finditer(text or ""):
+            obj, _err, _fixed = cards.parse(m.group(1).strip())
+            if not isinstance(obj, dict) or str(obj.get("type") or "").lower() not in journal.SUGGEST_KINDS:
+                continue
+            journal.action(cfg, "suggest", board=board, ref=f"chat:{ctx or 'main'}",
+                           detail=f"{obj.get('type')} · {obj.get('title') or ''}"[:60],
+                           at=now.isoformat(timespec="seconds"))
+
+
+BOARD_OF_CONTEXT = {"休息": "sleep", "运动": "sport", "压力": "stress", "": None}
+
+
 def start_background(tools) -> bool:
-    """服务进程启动时调用：起一个守护线程，每 TICK_S 秒巡一次；出错记到 agent_runs.jsonl，不让线程死掉。"""
-    if not enabled(tools.cfg):
-        return False
+    """服务进程启动时调用：起一个守护线程，每 TICK_S 秒巡一次；出错记到 agent_runs.jsonl，不让线程死掉。
+    没配推送（模拟 / 测试环境）也巡，只是不推：建议卡照样记进行动日志。"""
 
     def loop() -> None:
         while True:

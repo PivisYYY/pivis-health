@@ -153,6 +153,7 @@ def media_library(tools=None) -> list[dict]:
 # ---------------------------------------------------------------- 发布存储
 class V3PageStore:
     def __init__(self, cfg) -> None:
+        self.cfg = cfg
         self.path = cfg.data_dir / "pages_v3.json"
 
     def all(self) -> dict:
@@ -170,11 +171,27 @@ class V3PageStore:
         with open(self.path.with_suffix(".lock"), "w") as fh:
             fcntl.flock(fh, fcntl.LOCK_EX)
             data = self.all()
+            _note_discovery(self.cfg, page, (data.get(page) or {}).get("hero"), doc.get("hero"))
             data[page] = doc
             tmp = self.path.with_suffix(f".{os.getpid()}.tmp")
             tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
             tmp.replace(self.path)
         return doc
+
+
+def _note_discovery(cfg, page: str, old: dict | None, new: dict | None) -> None:
+    """主卡档位变成「需要处理 / 留意」（或换了一个需要处理的指标）= P-Health 发现了一个问题：记进行动日志，
+    洞察引擎拿它看「发现了之后有没有给建议」。"""
+    new = new or {}
+    if new.get("level") not in ("act", "watch"):
+        return
+    old = old or {}
+    topic = str(new.get("metric") or new.get("label") or "")
+    if old.get("level") == new.get("level") and str(old.get("metric") or old.get("label") or "") == topic:
+        return
+    from . import journal
+    journal.action(cfg, "discover", board=new.get("board") or page, topic=topic,
+                   detail=f"{new.get('level')} · {new.get('label') or ''}", ref=page)
 
 
 # ---------------------------------------------------------------- 校验
@@ -1114,8 +1131,14 @@ def sync_status(tools) -> dict:
             break
     # 每个对话 P-Health 最后一次回话的时刻：App 拿它和「上次看到哪」比，有新回复就在入口亮个点
     replies = {(ctx or "main"): t for ctx in REPLY_CONTEXTS if (t := _last_reply(ctx))}
-    return {"rev": hashlib.sha1(sig.encode()).hexdigest()[:12], "agent": agent, "updating": updating,
-            "replies": replies, "now": tools._now().isoformat(timespec="seconds")}
+    out = {"rev": hashlib.sha1(sig.encode()).hexdigest()[:12], "agent": agent, "updating": updating,
+           "replies": replies, "now": tools._now().isoformat(timespec="seconds")}
+    # 洞察：有待发的一期时带上（App 在主对话输入框上方浮一条、中间圆钮亮点）
+    from . import insight
+    pending = insight.pending_status(cfg)
+    if pending:
+        out["insight"] = pending
+    return out
 
 
 REPLY_CONTEXTS = ("", "休息", "运动", "压力")

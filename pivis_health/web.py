@@ -224,6 +224,21 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 except canvas.CanvasError as exc:
                     self._json({"error": "invalid", "message": str(exc)}, 422)
                 return
+            if u.path == "/api/v3/push-tap":
+                # 点了哪条推送（App 离线时排队补发）：洞察引擎用它算提醒后多久动手
+                from . import journal
+                self._json(journal.push_tap(cfg, body.get("push_id"), body.get("action"), body.get("at")))
+                return
+            if u.path.startswith("/api/v3/insight/"):
+                # 洞察：点「聊聊」/ 点推送 → open（那段话发进主对话）；侧滑收起 → dismiss
+                from . import insight
+                parts = u.path.strip("/").split("/")
+                if len(parts) != 5 or parts[4] not in ("open", "dismiss"):
+                    self._json({"error": "not_found"}, 404)
+                    return
+                fn = insight.open_pending if parts[4] == "open" else insight.dismiss_pending
+                self._json(fn(tools, parts[3]))
+                return
             if u.path == "/api/v3/sync-health":
                 # 下拉刷新：拉一次 WHOOP（Apple 健康由 App 自己同时上传）
                 self._json(v3mod.sync_health(tools))

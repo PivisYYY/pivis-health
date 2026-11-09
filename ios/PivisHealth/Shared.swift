@@ -11,4 +11,6 @@ extension Notification.Name {
 /// 现在开着哪个对话（"" 主对话 / 休息 / 运动 / 压力）：正看着这个对话时，P-Health 的回复通知不再弹横幅
 @MainActor enum ChatPresence {
     static var openContext: String?
+    /// 正在眼前的那个主对话（context ""、没带习惯 / 待办）的标记：它的输入框上方有洞察浮条，洞察推送就不再弹横幅
+    static var insightHost: UUID?
 }

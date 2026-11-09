@@ -50,6 +50,7 @@ scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`
 1. 开始前写清四件事：改什么、试几天（≥ 7 天）、看哪个数（工具指标或 todo-list 次数）、怎样算有效（事先定好）。
 2. 记进 `learn.exp`：
    `{"items":[{"id":"winddown-2330","change":"睡前流程从 23:00 挪到 23:30","start":"2026-11-10","days":7,"measure":"日记里入睡 15 分内的晚数","success":"≥ 4/7","result":null}]}`
+   能用工具指标衡量的，再写一个 `metric`（`project:<项目 id>` 看完成率，或 `sleep` / `hrv` / `recovery` / `resting_hr`）：到期后洞察引擎会自动算前后对比，放进下一期洞察（见 insight skill）。
 3. 到期那天（周复盘时）：按 measure 取数，写 `result`，再更新对应的 `learn.<主题>`（confirmed 或 dropped）。用一句话告诉老大结果。
 4. 同一个板块同时只跑一个实验，不然分不清是哪个改动起的作用。
 
@@ -75,6 +76,7 @@ scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`
 2. **分清是哪类，记到对的地方**：
    | 纠正的是 | 记成 | 例 |
    |---|---|---|
+   | 洞察那段话里某一点不对（「第 2 条不对」） | `correction.insight.<topic>`，topic 照抄【洞察】消息给的 | 见 insight skill 第 4 节 |
    | 专业知识或专业判断（时间怎么排、动作对不对、该不该补觉、练全身还是分部位） | `correction.<领域>.<主题>`，领域用 sleep / training / knee / nutrition / stress / safety / media | `context-record --scope correction.sleep.bath --payload '{"rule":"热水澡在最早上床前 1–2 小时洗完，按上床时间往回推出具体时刻","wrong":"把洗澡和上床排得太近、说法模糊","why":"洗完体温下降段才助眠（sleep-science 第 2 节）","skill":"cbti"}'` |
    | 做事方式（先确认再剪、在原项目上改、卡片别堆字） | `pref.<主题>` | `pref.media`、`pref.presentation` |
    | 说法、语气 | `pref.tone` | |

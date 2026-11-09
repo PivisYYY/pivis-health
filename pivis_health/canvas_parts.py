@@ -1779,6 +1779,43 @@ def n_plain(node, ck, t):
     return {"t": t}
 
 
+def n_response(node, ck, t):
+    """提醒到动手（洞察那段话里的小卡）：横轴时间、一条提醒线、每次开始一个点。数只能绑 insight:<候选 id>.response。"""
+    import re as _re
+    b = str(node.get("bind") or "")
+    if not _re.match(r"^insight:[A-Za-z0-9]+\.response$", b):
+        raise CanvasError("response 只能绑 insight:<候选 id>.response（洞察的候选里才有提醒和开始时间）")
+    return {"t": t, "bind": b}
+
+
+def r_response(ctx, n):
+    from . import insight
+    d = insight.bind_value(ctx.tools.cfg, n["bind"])
+    return {k: d[k] for k in ("start", "span", "remind", "points", "ticks", "label", "caption") if k in d}
+
+
+def _n_insight(field: str, what: str):
+    def norm(node, ck, t):
+        import re as _re
+        b = str(node.get("bind") or "")
+        if not _re.match(rf"^insight:[A-Za-z0-9]+\.{field}$", b):
+            raise CanvasError(f"{t} 只能绑 insight:<候选 id>.{field}（{what}只在洞察的候选里有）")
+        return {"t": t, "bind": b}
+    return norm
+
+
+def r_split(ctx, n):
+    from . import insight
+    d = insight.bind_value(ctx.tools.cfg, n["bind"])
+    return {"rows": d.get("rows") or [], **({"caption": d["caption"]} if d.get("caption") else {})}
+
+
+def r_dotstrip(ctx, n):
+    from . import insight
+    d = insight.bind_value(ctx.tools.cfg, n["bind"])
+    return {k: d[k] for k in ("items", "legend", "caption") if k in d}
+
+
 def r_same(ctx, n):
     return {k: v for k, v in n.items() if k != "t"}
 
@@ -1789,6 +1826,7 @@ def _fixed(h: int) -> Callable[[dict], int]:
 
 
 NORMALIZERS: dict[str, Callable] = {
+    "response": n_response, "split": _n_insight("split", "两组对比"), "dotstrip": _n_insight("dotstrip", "每天一点"),
     "pie": n_pie, "donut": n_pie, "stack": n_stack, "stack_columns": n_stack_columns, "waffle": n_waffle,
     "zones": n_zones, "radar": n_radar,
     "hypnogram": n_plain, "sleep_window": n_sleep_window, "clock24": n_plain, "calendar": n_calendar,
@@ -1802,6 +1840,7 @@ NORMALIZERS: dict[str, Callable] = {
 }
 
 ESTIMATES: dict[str, Callable[[dict], int]] = {
+    "response": _fixed(96), "split": _fixed(80), "dotstrip": _fixed(110),
     "pie": _fixed(140), "donut": _fixed(140), "stack": _fixed(72),
     "stack_columns": lambda n: 190 if n.get("height") == "m" else 150,
     "waffle": lambda n: math.ceil(n["days"] / 10) * 24 + 24, "zones": _fixed(130), "radar": _fixed(200),
@@ -1818,6 +1857,7 @@ ESTIMATES: dict[str, Callable[[dict], int]] = {
 }
 
 RESOLVERS: dict[str, Callable] = {
+    "response": r_response, "split": r_split, "dotstrip": r_dotstrip,
     "pie": r_pie, "donut": r_pie, "stack": r_stack, "stack_columns": r_stack_columns, "waffle": r_waffle,
     "zones": r_zones, "radar": r_radar,
     "hypnogram": r_hypnogram, "sleep_window": r_sleep_window, "clock24": r_clock24, "calendar": r_calendar,

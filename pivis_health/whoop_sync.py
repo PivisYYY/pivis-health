@@ -480,6 +480,8 @@ def sync(cfg, *, endpoints: Endpoints = Endpoints(), now: datetime | None = None
                                 "cycle": cols["cycle"], "workout": cols["workout"]},
             }
             write_private_json(Path(cfg.whoop_snapshot), snap)
+            with contextlib.suppress(Exception):
+                archive(cfg, cols)          # 快照只留 14 天：每天的记录另外存档，洞察引擎看 4 周以上
     except WhoopError as exc:
         _write_status(cfg, at_utc=at, ok=False, error=str(exc), error_code=exc.code)
         raise
@@ -645,6 +647,100 @@ def authorise(cfg, *, client_id: str | None = None, client_secret: str | None = 
 # CLI 入口
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 按天存档（build 49）：快照每次整份覆盖、只留 14 天；存档按记录 id 合并，只增不删
+# ---------------------------------------------------------------------------
+
+def archive_dir(cfg) -> Path:
+    return Path(cfg.data_dir) / "whoop" / "archive"
+
+
+def _archive_day(rec: dict, name: str, tz_name: str) -> str | None:
+    """记录归到哪天（本地日期）：睡眠按醒来那天（end），恢复按评分时刻（created_at，醒来后），周期和训练按开始。"""
+    key = {"sleep": "end", "recovery": "created_at"}.get(name, "start")
+    dt = _parse_utc(rec.get(key) or rec.get("start") or rec.get("created_at"))
+    if dt is None:
+        return None
+    from zoneinfo import ZoneInfo
+    return dt.astimezone(ZoneInfo(tz_name)).date().isoformat()
+
+
+def _rec_key(rec: dict) -> str:
+    return str(rec.get("id") if rec.get("id") is not None else rec.get("cycle_id"))
+
+
+def archive(cfg, cols: dict[str, list]) -> dict:
+    """把这次拉到的记录并进 archive/<日期>.json。同一条记录（id）有更新的版本（updated_at 更晚）才替换，旧的不删。"""
+    d = archive_dir(cfg)
+    _private_dir(d)
+    by_day: dict[str, dict[str, list]] = {}
+    for name, recs in cols.items():
+        for rec in recs or []:
+            day = _archive_day(rec, name, cfg.timezone)
+            if day:
+                by_day.setdefault(day, {}).setdefault(name, []).append(rec)
+    written = 0
+    for day, fresh in by_day.items():
+        path = d / f"{day}.json"
+        cur = _read_json(path) or {"date": day}
+        changed = False
+        for name, recs in fresh.items():
+            have = {_rec_key(r): r for r in cur.get(name) or []}
+            for rec in recs:
+                k = _rec_key(rec)
+                old = have.get(k)
+                if old is None or str(rec.get("updated_at") or "") > str(old.get("updated_at") or ""):
+                    have[k] = rec
+                    changed = True
+            cur[name] = sorted(have.values(), key=lambda r: str(r.get("start") or r.get("created_at") or ""))
+        if changed:
+            write_private_json(path, cur)
+            written += 1
+    return {"days": len(by_day), "written": written}
+
+
+def load_archive(cfg, since: str | None = None) -> dict[str, list]:
+    """存档读回成快照的样子（{"recovery": [...], "sleep": [...], ...}），whoop.py 里按天 / 按夜的函数直接能用。"""
+    out: dict[str, dict[str, dict]] = {n: {} for n in COLLECTIONS}
+    d = archive_dir(cfg)
+    if d.exists():
+        for f in sorted(d.glob("*.json")):
+            if since and f.stem < since:
+                continue
+            day = _read_json(f) or {}
+            for n in COLLECTIONS:
+                for rec in day.get(n) or []:
+                    out[n][_rec_key(rec)] = rec
+    return {n: list(v.values()) for n, v in out.items()}
+
+
+def backfill(cfg, since: str, *, endpoints: Endpoints = Endpoints(), now: datetime | None = None,
+             chunk_days: int = 14, sleep: Callable[[float], None] = _time.sleep) -> dict:
+    """一次性把以前的记录补进存档（不动快照）：从 since 起每 14 天一段拉一次。"""
+    now = now or datetime.now(timezone.utc)
+    start = datetime.fromisoformat(since).replace(tzinfo=timezone.utc)
+    total = {n: 0 for n in COLLECTIONS}
+    days = written = 0
+    complete = True
+    with _locked(cfg.whoop_auth_dir):
+        client = WhoopClient(cfg.whoop_auth_dir, endpoints, sleep=sleep)
+        a = start
+        while a < now:
+            b = min(now, a + timedelta(days=chunk_days))
+            cols: dict[str, list] = {}
+            for name in COLLECTIONS:
+                recs, ok = client.fetch_collection(name, a, b)
+                cols[name] = recs
+                total[name] += len(recs)
+                complete = complete and ok
+            r = archive(cfg, cols)
+            days += r["days"]
+            written += r["written"]
+            a = b
+    return {"ok": True, "since": since, "counts": total, "days_touched": days, "files_written": written,
+            "pagination_complete": complete, "archive": str(archive_dir(cfg))}
+
+
 def run_cli(cfg, args) -> tuple[dict, int]:
     """返回（JSON 结果，退出码）。0=正常；1=失败；2=快照过期；3=需要老大重新授权。"""
     try:
@@ -657,6 +753,8 @@ def run_cli(cfg, args) -> tuple[dict, int]:
         if args.cmd == "whoop-sync":
             out = sync(cfg, days=args.days, force=args.force, republish=True)   # 只有真同步（CLI / launchd）才触发重排
             return out, 0
+        if args.cmd == "whoop-backfill":
+            return backfill(cfg, args.since), 0
         if args.cmd == "whoop-status":
             out = freshness(cfg)
             return out, 2 if out["stale"] else 0

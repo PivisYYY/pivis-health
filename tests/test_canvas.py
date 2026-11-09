@@ -85,8 +85,8 @@ def test_resolve_falls_back_per_part(monkeypatch):
 
 
 def test_columns_validates_metric_days_and_height():
-    n = canvas.validate({"t": "columns", "metric": "steps", "days": 30, "height": "xl"}, "chat")
-    assert n == {"t": "columns", "metric": "steps", "days": 14, "height": "s"}
+    n = canvas.validate({"t": "columns", "metric": "steps", "days": 120, "height": "xl"}, "chat")
+    assert n == {"t": "columns", "metric": "steps", "days": 90, "height": "s"}      # build 49：最多 90 天（超过 30 天按周）
     assert canvas.estimate(n) == canvas.CHART_H["s"] + 36
     with pytest.raises(CanvasError, match="columns 的 metric"):
         canvas.validate({"t": "columns", "metric": "sleep_debt"}, "chat")

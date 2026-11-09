@@ -56,6 +56,17 @@ struct NativeChatView: View {
     /// 顶部习惯卡 / 待办卡里的视频：播放器由对话页拿着，卡收成一行时正在放的不断。
     /// 用 @State 只是拿着、不观察：播放进度每半秒一变，不能让整个对话页跟着重算
     @State private var aboutPlayer = PracticePlayer()
+    /// 点洞察推送进来：打开后直接点开这条（不经过浮条）
+    let openInsight: String?
+    /// 洞察 open 请求还在路上：轮询别把「正在思考」清掉
+    @State private var insightOpening = false
+    /// 这个对话页的标记（ChatPresence.insightHost 记的是它：新开的对话页先出现、旧的后消失也不会互相清掉）
+    @State private var presenceToken = UUID()
+    /// 洞察点开时最后一条消息：等回复时它的头像不跟着动（那是上一轮的话，新回复还没来）
+    @State private var turnFloorKey: String?
+
+    /// 洞察浮条只在主对话里出现：板块对话、带着习惯 / 待办进来的对话都没有
+    private var hostsInsight: Bool { context.isEmpty && about == nil }
 
     // MARK: - 消息本地缓存（退出抽屉再进，消息不消失：先上屏缓存，再与服务器合并去重）
     private struct CachedMsg: Codable { let role: String; let text: String; let time: String; let stableId: String?; var about: String? = nil }
@@ -92,12 +103,13 @@ struct NativeChatView: View {
     let pendingPhoto: PendingPhoto?
 
     init(context: String = "", pendingText: String? = nil, draft: String? = nil, pendingPhoto: PendingPhoto? = nil,
-         about: ChatAbout? = nil) {
+         about: ChatAbout? = nil, openInsight: String? = nil) {
         self.context = context
         self.pendingText = pendingText
         self.draft = draft
         self.pendingPhoto = pendingPhoto
         self.about = about
+        self.openInsight = openInsight
         _aboutActive = State(initialValue: about)
     }
 
@@ -114,7 +126,8 @@ struct NativeChatView: View {
                             ForEach(rows) { row in
                                 let msg = row.msg
                                 ChatRow(msg: msg, maxWidth: bubbleMax,
-                                        avatarActive: awaitingReply && msg.key == messages.last?.key && !msg.isMe,
+                                        avatarActive: awaitingReply && msg.key == messages.last?.key && !msg.isMe
+                                            && msg.key != turnFloorKey,
                                         answers: msg.isMe ? nil : answers[msg.key],
                                         streaming: msg.key == liveKey,
                                         quiet: row.quiet,
@@ -213,14 +226,23 @@ struct NativeChatView: View {
                     }
                 }
                 .safeAreaInset(edge: .bottom) {
-                    inputBar
+                    VStack(spacing: 0) {
+                        // 洞察浮条：输入框正上方，左右各留 12、离输入框 12
+                        if hostsInsight { InsightBar(onOpen: startInsight) }
+                        inputBar
+                    }
                 }
             }
         }
         .task { await bootstrap() }
-        .onAppear { ChatPresence.openContext = context; PageSync.shared.markSeen(context) }
+        .onAppear {
+            ChatPresence.openContext = context
+            if hostsInsight { ChatPresence.insightHost = presenceToken }
+            PageSync.shared.markSeen(context)
+        }
         .onDisappear {
             if ChatPresence.openContext == context { ChatPresence.openContext = nil }
+            if ChatPresence.insightHost == presenceToken { ChatPresence.insightHost = nil }
             PageSync.shared.markSeen(context)
             stopAll(); saveCache(); aboutPlayer.stop()
         }
@@ -386,7 +408,9 @@ struct NativeChatView: View {
             return true
         }
         guard firstRun else { return }
-        if let p = pendingPhoto {
+        if let id = openInsight {
+            await MainActor.run { startInsight(id) }
+        } else if let p = pendingPhoto {
             await MainActor.run { sendPhoto(p) }
         } else if let t = pendingText, !t.isEmpty {
             await MainActor.run { sendText(t) }
@@ -412,7 +436,8 @@ struct NativeChatView: View {
                         self.awaitingReply = true
                         self.toolHint = result.lastTool
                         self.startReplyMonitor(showPendingHint: false)
-                    } else if self.fastPoll == nil, self.streamAttempt == nil, !self.sending, self.interactions.isEmpty {
+                    } else if self.fastPoll == nil, self.streamAttempt == nil, !self.sending, !self.insightOpening,
+                              self.interactions.isEmpty {
                         // 服务器说这一轮已经结束：清掉还挂着的「正在…」（以前只会打开、不会关，退到后台再回来会一直挂着）
                         self.awaitingReply = false
                         self.toolHint = nil
@@ -554,6 +579,8 @@ struct NativeChatView: View {
         var out: [ChatRowItem] = []
         var afterDigest = false
         for m in messages {
+            // 洞察：服务器塞给 P-Health 的那段（【洞察…】）不显示、也不画分隔线，P-Health 的回复照常显示
+            if m.isMe && isInsightPrompt(m.text) { afterDigest = false; continue }
             let quiet = afterDigest && m.role == "phealth" && !m.text.contains("```phealth-ui")
             out.append(ChatRowItem(id: rowAlias[m.key] ?? m.key, msg: m, quiet: quiet))
             if m.isMe && isHarnessNoise(m.text) { continue }    // 后台通知不打断
@@ -821,6 +848,7 @@ struct NativeChatView: View {
 
     private func sendText(_ text: String) {
         sending = true
+        turnFloorKey = nil
         input = ""
         inputClearSignal += 1
         activities = []   // 新的用户回合开始，清空上一轮工具行
@@ -904,6 +932,40 @@ struct NativeChatView: View {
                     // 没发出去：照片气泡撤掉，只留一句失败提示，免得看着像发了
                     messages.removeAll { $0.stableId == placeholderId || ($0.time.isEmpty && ft != nil && $0.text == ft) }
                     appendMessage(ChatMsg(role: "error", text: "照片没发出去，再拍一次试试（\(error.localizedDescription)）", time: ""))
+                }
+            }
+        }
+    }
+
+    /// 点开洞察（浮条上的「聊聊」，或者点洞察推送进来）：浮条马上收起，叫服务器把那段话塞进主对话，
+    /// 对话进入和发完消息一样的「等 P-Health 回复」状态，回复照常流进来
+    private func startInsight(_ id: String) {
+        PageSync.shared.insightHandled(id)
+        activities = []
+        pinnedKey = nil                 // 上一轮钉住的那条不再钉着：回复直接接在最底下，屏幕跟着走
+        scrollReset += 1
+        turnFloorKey = messages.last?.key
+        awaitingReply = true
+        toolHint = nil
+        insightOpening = true
+        Task {
+            let result = await InsightAPI.open(id)
+            await MainActor.run {
+                insightOpening = false
+                switch result {
+                case .opened:
+                    awaitingReply = true
+                    startReplyMonitor(showPendingHint: true)
+                case .notPending:
+                    // 已经点开过 / 划掉了：没有新的一轮，不等了
+                    if fastPoll == nil, streamAttempt == nil { awaitingReply = false }
+                case .notDelivered:
+                    if fastPoll == nil, streamAttempt == nil { awaitingReply = false }
+                    appendMessage(ChatMsg(role: "error", text: "P-Health 这次没接上，过会儿直接问它就行", time: ""))
+                case .failed:
+                    if fastPoll == nil, streamAttempt == nil { awaitingReply = false }
+                    PageSync.shared.insightUnhandled(id)     // 浮条放回去，等会儿再点
+                    appendMessage(ChatMsg(role: "error", text: "没打开：连不上服务器，等会儿再点「聊聊」", time: ""))
                 }
             }
         }
@@ -1039,8 +1101,8 @@ struct ChatRow: View, Equatable {
     let onAction: (String) -> Void
 
     var body: some View {
-        if msg.isMe, isHarnessNoise(msg.text) {
-            // DSH 的后台任务通知等，不是老大说的话
+        if msg.isMe, isHarnessNoise(msg.text) || isInsightPrompt(msg.text) {
+            // DSH 的后台任务通知、服务器塞的洞察提示等，不是老大说的话
             EmptyView()
         } else if msg.isMe, msg.text.hasPrefix("【每日推荐】") {
             // 系统的定时推荐（早上 / 午后 / 傍晚）：不展示指令，只留一条分隔线
@@ -1159,6 +1221,11 @@ struct ChatRowItem: Identifiable {
 func isHarnessNoise(_ text: String) -> Bool {
     (text.hasPrefix("background job ") && text.contains("finished [status:"))
         || text.hasPrefix("<system-reminder>")
+}
+
+/// 洞察点开时服务器塞进主对话的那段（以【洞察 开头）：服务器的历史会滤掉，这里再兜一次底
+func isInsightPrompt(_ text: String) -> Bool {
+    text.drop(while: { $0.isWhitespace }).hasPrefix("【洞察")
 }
 
 /// 解析服务器发给 P-Health 的「【待办提交】」消息

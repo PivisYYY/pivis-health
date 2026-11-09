@@ -42,7 +42,7 @@ METRICS: dict[str, dict[str, Any]] = {
                "board": "sport", "kinds": ("route", "trend")},
 }
 KINDS = ("trend", "gauge", "need", "stack", "range", "progress", "route")
-DAYS = {"trend": (7, 14, 30), "range": (7, 14), "need": (7, 14), "stack": (5, 7)}
+DAYS = {"trend": (7, 14, 30, 90), "range": (7, 14), "need": (7, 14), "stack": (5, 7)}
 DEFAULT_DAYS = {"trend": 14, "range": 7, "need": 7, "stack": 5}
 MARKS = ("band", "warn", "need", "pace", "goal", "target", "plan")
 GAUGE_WARN, GAUGE_MID = 33, 66          # 恢复：WHOOP 红 / 黄 / 绿分界

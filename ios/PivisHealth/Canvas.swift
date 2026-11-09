@@ -136,11 +136,16 @@ struct CItem: Decodable, Identifiable {
     var at: Double?
     var kind: String?
     var stage: String?
+    /// dots / columns 超过 30 天时按周给：这一条是一周（label 是那周第一天，如 11/3）
+    var week: Bool?
+    /// split 一行的单位；split / dotstrip 里「这一条是好的那一组 / 那天结果好」
+    var unit: String?
+    var hi: Bool?
 
     private enum CodingKeys: String, CodingKey {
         case on, now, label, text, when, title, note, value, ref
         case prev, pct, frac, fraction, done, state, sub, minutes, today, level, d, count, peak, parts
-        case start, end, from, to, at, kind, stage
+        case start, end, from, to, at, kind, stage, week, unit, hi
     }
 
     /// App 自己拼的条目
@@ -191,7 +196,13 @@ struct CItem: Decodable, Identifiable {
         at = c.lenient(Double.self, .at)
         kind = c.lenient(String.self, .kind)
         stage = c.lenient(String.self, .stage)
+        week = c.lenient(Bool.self, .week)
+        unit = c.string(.unit)
+        hi = c.lenient(Bool.self, .hi)
     }
+
+    /// 读屏用的日期：按周给的读成「11/3 那周」
+    var spokenLabel: String { week == true ? "\(label ?? "") 那周" : (label ?? "") }
 }
 
 struct CanvasView: View {
@@ -287,6 +298,7 @@ struct CanvasView: View {
         case "waffle": return AnyView(WafflePart(n: n))
         case "zones": return AnyView(ZonesPart(n: n))
         case "radar": return AnyView(RadarPart(n: n))
+        case "split": return AnyView(SplitPart(n: n))
         // 时间与作息
         case "hypnogram": return AnyView(HypnogramPart(n: n))
         case "sleep_window": return AnyView(SleepWindowPart(n: n))
@@ -297,6 +309,8 @@ struct CanvasView: View {
         case "countdown": return AnyView(CountdownPart(n: n))
         case "time_range": return AnyView(TimeRangePart(n: n))
         case "milestones": return AnyView(MilestonesPart(n: n))
+        case "response": return AnyView(ResponsePart(n: n))
+        case "dotstrip": return AnyView(DotStripPart(n: n))
         // 趋势与对比
         case "sparkline": return AnyView(SparklinePart(n: n))
         case "stat_spark": return AnyView(StatSparkPart(n: n))
@@ -355,18 +369,24 @@ struct CanvasView: View {
     }
 
     private func dotsView(_ n: CNode) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 7) {
-                ForEach(n.items ?? []) { it in
-                    ZStack {
-                        if it.on == true {
-                            Circle().fill(E.text)
-                        } else {
-                            Circle().strokeBorder(it.now == true ? E.text : E.text3, lineWidth: 1)
+        let items = n.items ?? []
+        return VStack(alignment: .leading, spacing: 6) {
+            if items.count > 14 {
+                // 15–30 天：点变小、间距收窄，一排放得下（≤ 14 天和按周给的 ≤ 13 条还是原来的样子）
+                DenseDots(items: items)
+            } else {
+                HStack(spacing: 7) {
+                    ForEach(items) { it in
+                        ZStack {
+                            if it.on == true {
+                                Circle().fill(E.text)
+                            } else {
+                                Circle().strokeBorder(it.now == true ? E.text : E.text3, lineWidth: 1)
+                            }
+                            if it.now == true && it.on != true { Circle().fill(E.text).frame(width: 3, height: 3) }
                         }
-                        if it.now == true && it.on != true { Circle().fill(E.text).frame(width: 3, height: 3) }
+                        .frame(width: 10, height: 10)
                     }
-                    .frame(width: 10, height: 10)
                 }
             }
             if let c = n.caption { Text(c).font(E.body(11)).foregroundStyle(E.text3) }
@@ -403,11 +423,13 @@ struct CanvasView: View {
         let h: CGFloat = n.height == "m" ? 124 : 84
         let top = Swift.max(n.max ?? 0, items.compactMap(\.value).max() ?? 0, 0.0001) * 1.12
         let every = items.count > 8 ? 2 : 1
+        // 15–30 天：柱子细一点，日期只写第一天 / 中间 / 最后一天（每隔一个写也挤不下）
+        let dense = items.count > 14
         return VStack(alignment: .leading, spacing: 6) {
             GeometryReader { g in
                 let W = g.size.width
                 let slot = W / CGFloat(Swift.max(items.count, 1))
-                let bw = Swift.min(14, slot * 0.42)
+                let bw = Swift.min(14, slot * (dense ? 0.5 : 0.42))
                 let y: (Double) -> CGFloat = { v in h - CGFloat(v / top) * h }
                 ZStack(alignment: .topLeading) {
                     Rectangle().fill(E.line).frame(width: W, height: 1).offset(y: h - 1)
@@ -429,25 +451,33 @@ struct CanvasView: View {
                         .frame(width: bw, height: bh)
                         .position(x: cx, y: h - bh / 2)
                         if let r = it.ref {
-                            Rectangle().fill(E.text2).frame(width: bw + 6, height: 1).position(x: cx, y: y(r))
+                            Rectangle().fill(E.text2).frame(width: Swift.min(bw + 6, slot - 2), height: 1).position(x: cx, y: y(r))
                         }
                         if i == items.count - 1, let t = it.text {
+                            // 柱子密的时候数字比一根柱宽，会盖到旁边几根：放到最后三根里最高的那根上面
+                            let under = dense ? items.suffix(3).map { $0.value ?? 0 }.max() ?? v : v
                             Text(t).font(E.body(10)).foregroundStyle(E.text2).monospacedDigit()
                                 .fixedSize()
                                 .padding(.horizontal, 3)
                                 .background(E.bg)          // 盖住穿过去的目标虚线，数字不和线叠在一起
-                                .position(x: Swift.min(cx, W - 14), y: Swift.max(6, h - bh - 9))
+                                .position(x: Swift.min(cx, W - 14), y: Swift.max(6, y(Swift.max(under, v)) - 9))
                         }
                     }
                 }
             }
             .frame(height: h)
-            HStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { i, it in
-                    Text((items.count - 1 - i) % every == 0 ? (it.label ?? "") : "")
-                        .font(E.body(9)).foregroundStyle(it.now == true ? E.text2 : E.text3)
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
+            if dense {
+                sparseColumnLabels(items)
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { i, it in
+                        // 隔一个写一个时（9–14 条，含按周给的）字伸进旁边的空位，不再缩小
+                        Text((items.count - 1 - i) % every == 0 ? (it.label ?? "") : "")
+                            .font(E.body(9)).foregroundStyle(it.now == true ? E.text2 : E.text3)
+                            .lineLimit(1).minimumScaleFactor(every > 1 ? 1 : 0.7)
+                            .fixedSize(horizontal: every > 1, vertical: false)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
             }
             HStack {
@@ -457,8 +487,30 @@ struct CanvasView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(([n.caption, n.refLabel] + items.map { "\($0.label ?? "") \($0.text ?? "")" })
+        .accessibilityLabel(([n.caption, n.refLabel] + items.map { "\($0.spokenLabel) \($0.text ?? "")" })
             .compactMap { $0 }.joined(separator: "，"))
+    }
+
+    /// 柱子多（> 14）时的日期：只写第一根（左对齐）、中间一根（居中）、最后一根（右对齐），字不缩小、不出界
+    private func sparseColumnLabels(_ items: [CItem]) -> some View {
+        let n = items.count
+        let picks = Array(Set([0, (n - 1) / 2, n - 1])).sorted()
+        return GeometryReader { g in
+            let slot = g.size.width / CGFloat(Swift.max(n, 1))
+            ZStack(alignment: .topLeading) {
+                ForEach(picks, id: \.self) { i in
+                    let it = items[i]
+                    let anchor: Alignment = i == 0 ? .leading : (i == n - 1 ? .trailing : .center)
+                    // 每个字放在一个和整行一样宽的框里，按对齐方式贴左 / 居中到那根柱 / 贴右
+                    Text(it.label ?? "")
+                        .font(E.body(9)).foregroundStyle(it.now == true ? E.text2 : E.text3)
+                        .lineLimit(1).fixedSize()
+                        .frame(width: anchor == .center ? nil : g.size.width, alignment: anchor)
+                        .position(x: anchor == .center ? slot * (CGFloat(i) + 0.5) : g.size.width / 2, y: 6)
+                }
+            }
+        }
+        .frame(height: 12)
     }
 
     private func ringView(_ n: CNode) -> some View {

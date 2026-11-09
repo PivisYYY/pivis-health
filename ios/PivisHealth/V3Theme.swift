@@ -8,6 +8,7 @@ enum E {
     static let text2 = Color(white: 0.604)   // #9A9A9A
     static let text3 = Color(white: 0.478)   // #7A7A7A
     static let hint = Color(white: 0.43)     // #6E6E6E 输入框里的提示字
+    static let grey55 = Color(white: 0.333)  // #555555 split 的普通条、dotstrip 的空心圈
     static let grey4A = Color(white: 0.290)  // #4A4A4A 图里的深灰档
     static let grey3A = Color(white: 0.227)  // #3A3A3A 图里的虚框
     static let stroke = Color(white: 0.2)    // #333333 控件描边

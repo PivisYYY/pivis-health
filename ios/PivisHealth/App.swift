@@ -84,6 +84,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse) async {
         var info = response.notification.request.content.userInfo
+        // 点了哪条推送都告诉服务器（每条推送都带 push_id）：点开 = open，点通知上的按钮 = 按钮的标识；断网先排队
+        if let pushId = info["push_id"] as? String, !pushId.isEmpty {
+            let action = response.actionIdentifier == UNNotificationDefaultActionIdentifier ? "open" : response.actionIdentifier
+            let at = Date()
+            await MainActor.run { PushTaps.report(pushId: pushId, action: action, at: at) }
+        }
         if let todoId = info["todo"] as? String {
             switch response.actionIdentifier {
             case "TODO_LATER":
@@ -103,8 +109,19 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        // P-Health 的回复：正开着那个对话就不弹了（消息已经在眼前）
         let info = notification.request.content.userInfo
+        if info["why"] as? String == "insight" {
+            // 洞察：主对话正开着 → 不弹横幅，输入框上方的浮条马上出来；不在主对话 → 照常弹（点开直接聊）。
+            // 两种情况都先按推送把圆钮的点亮上，再马上同步一次状态
+            let id = info["insight"] as? String ?? ""
+            let body = notification.request.content.body
+            let hosted = await MainActor.run { () -> Bool in
+                PageSync.shared.noteInsightPush(id: id, text: body)
+                return ChatPresence.insightHost != nil
+            }
+            return hosted ? [] : [.banner, .sound, .list]
+        }
+        // P-Health 的回复：正开着那个对话就不弹了（消息已经在眼前）
         if info["why"] as? String == "reply", let ctx = info["context"] as? String {
             let open = await MainActor.run { ChatPresence.openContext }
             if open == ctx { return [] }
@@ -121,6 +138,7 @@ struct ChatTarget: Identifiable {
     var draft: String? = nil   // 打开抽屉后放进输入框、等老大补完再发（推送里的 pending、「记录不对：…实际是」）
     var photo: PendingPhoto? = nil   // 打开抽屉后直接发这张照片（待办卡上拍的）
     var about: ChatAbout? = nil      // 带着一个习惯 / 一张待办进来：顶部是那张卡，输入框上方「关于：X」
+    var insight: String? = nil       // 点洞察推送进来：打开主对话后直接点开这条洞察（不经过浮条）
 }
 
 // MARK: - 设备数据授权与上报（健康 / 位置 / 蓝牙 → 后端 /api/v2/device-data）

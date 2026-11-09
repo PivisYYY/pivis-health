@@ -32,6 +32,7 @@ description: "P-Health 的定位和工作节奏：健康管家 + 健康医生 + 
 | 养习惯、坚持不下来、每周复盘 | `../habit-coach/SKILL.md` |
 | 设计待办、提醒、闹钟 | `../daily-reminders/SKILL.md` |
 | 记什么、怎么越用越懂老大 | `../growth-memory/SKILL.md` |
+| 【洞察 …】消息、老大回应洞察那段话 | `../insight/SKILL.md` |
 
 顺序固定：
 1. 用 clinical-safety 过一遍红旗。有红旗就按它处理，计划先放下。
