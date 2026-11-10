@@ -15,7 +15,7 @@ P-Health Agent 跑在本机的 DSH（DeepSeek Harness）上。本文说明 App�
 
 ## Agent 的规则和技能
 
-- 规则：[`agent/AGENTS-v3.md`](../agent/AGENTS-v3.md)。装到工作区时，在后面接上本机的个人附录（不进仓库），再由 `prefs-sync` 把生效的偏好、纠正过的要点、了解到的你渲染进末尾的标记段。
+- 规则：[`agent/AGENTS-v3.md`](../agent/AGENTS-v3.md)。装到工作区时，在后面接上本机的个人附录（不进仓库），生效的偏好、纠正过的要点、了解到的你由 `prefs-sync` 单独写进同目录的 `AGENTS.local.md`：DSH 按文件刷新指令，记一条偏好只补这一小份，不用把整份规则再发给每个对话。
 - 技能：[`agent/skills/`](../agent/skills)，DSH 直接从仓库读。专业资料在各技能的 `references/` 里。
 - Agent 的工具：命令行（只用来跑 `./pivis-health`）、读写自己的工作目录、技能。它不能改 `~/Tools` 下的程序和工具，不读数据库和源码，不建定时任务，不用飞书。
 

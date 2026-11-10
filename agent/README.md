@@ -1,6 +1,6 @@
 # P-Health Agent 的规则和技能
 
-- [`AGENTS-v3.md`](AGENTS-v3.md)：P-Health 的规则（产品结构、红线、生成式 UI、待办、记忆、主动节奏）。装到 DSH 工作区时在后面接上本机的个人附录（不进仓库），偏好和纠正由 `prefs-sync` 渲染进末尾。
+- [`AGENTS-v3.md`](AGENTS-v3.md)：P-Health 的规则（产品结构、红线、生成式 UI、待办、记忆、主动节奏）。装到 DSH 工作区时在后面接上本机的个人附录（不进仓库），偏好和纠正由 `prefs-sync` 单独写进同目录的 `AGENTS.local.md`。
 - [`persona-prefix.md`](persona-prefix.md)：人设开头。
 - [`skills/`](skills)：技能，DSH 直接从这里读。
 

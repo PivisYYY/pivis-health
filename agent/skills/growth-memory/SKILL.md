@@ -18,7 +18,7 @@ scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`
 
 | 类别 | scope | 什么时候写 | payload 必须有 |
 |---|---|---|---|
-| 偏好：老大定的规矩 | `pref.<主题>`（chart、viz.*、baseline、page.*、tone、remind、media、cadence…） | 老大说「以后…」「我喜欢…」「别再…」 | `rule`（一句人话）。会自动同步进 AGENTS.md |
+| 偏好：老大定的规矩 | `pref.<主题>`（chart、viz.*、baseline、page.*、tone、remind、media、cadence…） | 老大说「以后…」「我喜欢…」「别再…」 | `rule`（一句人话）。会自动同步进 AGENTS.local.md |
 | 档案：老大是什么情况 | `profile.goals`、`profile.schedule`、`profile.safety`、`profile.doctor`、`sleep.profile`、`sport.preference`、`life.diet`、`stress.profile` | intake，或者老大说出新情况 | `summary` + 原话要点 |
 | 当前处方 | `sleep.cbti`、`sport.loads`、`pref.viz.weight` | 计划定下或者调整时 | 当前值 + `history` |
 | 学到的规律 | `learn.<主题>`（sleep、media、training、nutrition、stress、remind），习惯的写细一层：`learn.habit.<主题>`（例 `learn.habit.late_bath_effect`、`learn.habit.anchor`） | 观察到 ≥ 3 次，或者一次实验有了结果 | `rule`、`evidence`、`since`、`status` |
@@ -40,7 +40,7 @@ scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`
 - 数字只抄工具输出和记录卡，不自己算。
 
 ## 下次怎么用
-1. 会话里第一次给专业意见前，跑一次 `./pivis-health context-list`（不带 scope），看 `pref.*`、`profile.*`、`learn.*`。`profile.*` 和 `learn.*` 记下后也会同步进 AGENTS.md 末尾「你已经了解到的老大」一段，所有会话都看得到（地点、住址这类 profile 不同步，要用时 `context-list` 查）；记之前先看那一段，别重复记。
+1. 会话里第一次给专业意见前，跑一次 `./pivis-health context-list`（不带 scope），看 `pref.*`、`profile.*`、`learn.*`。`profile.*` 和 `learn.*` 记下后也会同步进工作区的 AGENTS.local.md「你已经了解到的老大」一段，所有会话都看得到（地点、住址这类 profile 不同步，要用时 `context-list` 查）；记之前先看那一段，别重复记。
 2. `pref.*` 是规矩，直接照做，不用再提。**红线优先**：同步过来的偏好那一段标着「红线优先」，某条偏好和 AGENTS 第 2 节的红线冲突时按红线做，并用 context-record 把那条偏好改掉（同一个 scope 重记，去掉冲突的部分），回 receipt。
 3. `profile.*` 里已经有的，不再问老大。
 4. 有相关的 `learn.*`（confirmed）：用上，并说一句依据，比如「上周身体扫描你打了 3 次有用，这次还用它」。
@@ -84,7 +84,7 @@ scope 只能用这几种开头，别的会被拒（AGENTS 第 9 节）：`pref.`
    rule 写**正确做法**（一句话、可执行，带具体数字或判据），不要写成「不要再错」。同一主题用同一个 scope（会覆盖并累计次数）。
 3. **第二次被纠正同一件事**（context-record 返回里 `needs_skill: true`）：说明只靠记忆不够，再记一条 `request.tool`：`{"rule":"把「<correction 的 rule>」写进 <skill> 的 <哪一节>","source":"correction.<…>"}`，开发会把它写进 skill。
 4. 回 receipt，`remembered` 写 true；change 写正确做法本身，不写「已记住纠正」。
-5. 纠正过的要点会出现在 AGENTS.md 末尾「老大纠正过的专业要点」里，每个会话都看得到。**回答同类问题前先对照那一节**；它和 skill 冲突时以那一节为准（那是老大确认过的），并按第 3 步提出改 skill。
+5. 纠正过的要点会出现在 AGENTS.local.md 的「老大纠正过的专业要点」里，每个会话都看得到。**回答同类问题前先对照那一节**；它和 skill 冲突时以那一节为准（那是老大确认过的），并按第 3 步提出改 skill。
 
 ## 规则与红线
 1. 不记原始健康数据（它们在库里），不记诊断，不记别人的隐私，危机细节只记「某日提到过、已给热线」。

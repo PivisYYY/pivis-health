@@ -1,4 +1,4 @@
-"""老大定下的偏好：记下后写进 AGENTS.md 的固定一段，改口替换，不碰其他内容。"""
+"""老大定下的偏好：记下后写进 AGENTS.local.md（build 51 起不再写进 AGENTS.md），改口替换。"""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -16,13 +16,27 @@ def test_sync_writes_block_and_replaces_on_change(tmp_path):
     store.record("pref.chart", {"rule": "图表一律用折线，不用柱状图"}, "休息", "我喜欢折线")
     store.record("habit.bath", {"meaning": "洗澡"}, "休息", "不是偏好，不进这一段")
     assert prefs.sync_agents_md(cfg, md)["ok"]
-    text = md.read_text(encoding="utf-8")
-    assert "正文不动" in text and "图表一律用折线" in text and "洗澡" not in text
+    local = tmp_path / "AGENTS.local.md"
+    text = local.read_text(encoding="utf-8")
+    assert "图表一律用折线" in text and "洗澡" not in text
+    assert md.read_text(encoding="utf-8") == "# 规则\n\n正文不动\n"        # AGENTS.md 不动（DSH 不会因为记偏好再补一份全文）
     store.record("pref.chart", {"rule": "图表用柱状图"}, "休息", "还是柱状图吧")
     prefs.sync_agents_md(cfg, md)
-    text = md.read_text(encoding="utf-8")
+    text = local.read_text(encoding="utf-8")
     assert "图表用柱状图" in text and "一律用折线" not in text
     assert text.count(prefs.START) == 1 and text.count(prefs.END) == 1
+    assert prefs.sync_agents_md(cfg, md)["changed"] is False
+
+
+def test_old_block_moves_out_of_agents_md(tmp_path):
+    cfg = replace(Config(), data_dir=tmp_path)
+    md = tmp_path / "AGENTS.md"
+    md.write_text(f"# 规则\n\n正文\n\n{prefs.START}\n- 旧偏好\n{prefs.END}\n", encoding="utf-8")
+    AgentContextStore(cfg).record("pref.chart", {"rule": "图表用折线"}, "休息", "x")
+    out = prefs.sync_agents_md(cfg, md)
+    assert out["ok"] and out.get("moved_from_agents_md")
+    assert md.read_text(encoding="utf-8") == "# 规则\n\n正文\n"
+    assert "图表用折线" in (tmp_path / "AGENTS.local.md").read_text(encoding="utf-8")
 
 
 def test_baseline_pref_reads_window(tmp_path):

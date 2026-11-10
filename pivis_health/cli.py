@@ -117,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("viz", help="主卡图表的数字（P-Health 定画什么，内核填数）；不带 --metric 列出每项能不能画")
     sp.add_argument("--metric"); sp.add_argument("--kind"); sp.add_argument("--days", type=int)
     sp.add_argument("--show", help="逗号分隔：band,warn,need,pace,goal,target,plan")
-    sp = sub.add_parser("prefs-sync", help="把老大定下的偏好写进工作区 AGENTS.md")
+    sp = sub.add_parser("prefs-sync", help="把老大定下的偏好写进工作区 AGENTS.local.md")
     sp = sub.add_parser("context-list", help="读取当前共享记忆或 append-only 历史")
     sp.add_argument("--scope"); sp.add_argument("--history", action="store_true")
     sp = sub.add_parser("need-feedback"); sp.add_argument("--type", required=True); sp.add_argument("--action", choices=["做了", "不做", "换一个", "今天算了"], required=True)

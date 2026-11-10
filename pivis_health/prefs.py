@@ -145,25 +145,41 @@ def agents_md_path() -> Path:
     return Path(dsh_chat.DSH_CWD) / "AGENTS.md"
 
 
+LOCAL_NAME = "AGENTS.local.md"   # 和 AGENTS.md 同目录；DSH 默认会读，而且按文件单独刷新
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    fd, tmp = tempfile.mkstemp(prefix=".agents-", suffix=".md", dir=path.parent)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
 def sync_agents_md(cfg, path: Path | None = None) -> dict:
-    """把生效的偏好写进工作区 AGENTS.md 末尾（只动标记之间的那一段）。"""
+    """把生效的偏好 / 了解到的老大 / 纠正过的要点写进工作区的 AGENTS.local.md（整份由这里生成）。
+
+    build 51 起不再写进 AGENTS.md：DSH 每轮会检查指令文件，哪个文件变了就把它整份补进每个对话。
+    偏好段写在 45 KB 的 AGENTS.md 里时，记一条偏好所有对话都要再收一份全文（主对话堆了 34 份）；
+    拆出来以后，记偏好只补这几 KB，AGENTS.md 只在发版时变。AGENTS.md 里旧的偏好段顺手删掉。"""
     path = path or agents_md_path()
     if not path.is_file() or path.is_symlink():
         return {"ok": False, "reason": f"{path} 不是普通文件"}
+    local = path.with_name(LOCAL_NAME)
+    if local.is_symlink() or (local.exists() and not local.is_file()):
+        return {"ok": False, "reason": f"{local} 不是普通文件"}
     text = path.read_text(encoding="utf-8")
-    block = render_block(active_prefs(cfg), known_facts(cfg), corrections(cfg))
+    migrated = False
     if START in text and END in text:
         head, rest = text.split(START, 1)
         tail = rest.split(END, 1)[1]
-        new = head.rstrip("\n") + "\n\n" + block + tail
-    else:
-        new = text.rstrip("\n") + "\n\n" + block + "\n"
-    if new != text:
-        fd, tmp = tempfile.mkstemp(prefix=".agents-", suffix=".md", dir=path.parent)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(new)
-        os.replace(tmp, path)
-    return {"ok": True, "path": str(path), "prefs": len(active_prefs(cfg)), "changed": new != text}
+        _atomic_write(path, head.rstrip("\n") + ("\n" + tail.lstrip("\n") if tail.strip() else "\n"))
+        migrated = True
+    block = render_block(active_prefs(cfg), known_facts(cfg), corrections(cfg)) + "\n"
+    old = local.read_text(encoding="utf-8") if local.exists() else None
+    if block != old:
+        _atomic_write(local, block)
+    return {"ok": True, "path": str(local), "prefs": len(active_prefs(cfg)), "changed": block != old,
+            **({"moved_from_agents_md": True} if migrated else {})}
 
 
 # ---------------------------------------------------------------- 对比（数字都由这里算，P-Health 只抄）
