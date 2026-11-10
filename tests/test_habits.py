@@ -40,7 +40,7 @@ def test_page_rows(env):
     now = v3.page_doc(env, "now")
     assert "handling" not in now["hero"]
     rows = {r["id"]: r for r in now["habits"]}
-    assert rows["strength"]["label"] == "力量训练 · 第 11 天 / 56" and rows["strength"]["today"] == "今天 20:00"
+    assert rows["strength"]["label"] == "力量训练 · 11/56" and rows["strength"]["today"] == "20:00"
     assert rows["neck"]["label"] == "肩颈放松" and rows["neck"]["today"] == "11-23 开始" and rows["neck"]["state"] == "not_started"
     assert rows["food"]["board_label"] == "日常"
     sport = v3.page_doc(env, "sport")
@@ -69,7 +69,7 @@ def test_today_done_moves_next(env):
     h = v3.habit_doc(env, "strength")
     assert h["week"][3]["state"] == "done"
     assert h["summary"] == "第 11 天 · 下次 周六 20:00 全身力量 C"
-    assert {r["id"]: r for r in v3.page_doc(env, "now")["habits"]}["strength"]["today"] == "今天做完了"
+    assert {r["id"]: r for r in v3.page_doc(env, "now")["habits"]}["strength"]["today"] == "做完了"
 
 
 def test_record_project_has_no_video(env):

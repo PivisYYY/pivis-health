@@ -9,6 +9,7 @@ from datetime import date, datetime
 
 from .config import Config, load_config
 from .tools import HealthTools
+from .clock import day_of as _day_of
 
 
 # 命令帮助：P-Health 不读源码，字段怎么写都要能在 --help 里查到
@@ -326,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
             _json(entry)
         elif args.cmd == "compare":
             from . import prefs
-            day = date.fromisoformat(args.date) if args.date else tools._now().date()
+            day = date.fromisoformat(args.date) if args.date else _day_of(tools._now())
             _json(prefs.compare(tools, args.metric, day, args.recent, args.baseline))
         elif args.cmd == "project-stats":
             from .coach import project_stats
@@ -416,10 +417,15 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd in ("todo-add", "todo-update", "todo-remove", "todo-list", "project-set", "project-list"):
             from .todos import TodoStore
             store = TodoStore(tools.cfg)
-            today = tools._now().date()
+            today = _day_of(tools._now())
             from . import journal
             if args.cmd == "todo-add":
-                t = store.add(json.loads(args.json), today)
+                body = json.loads(args.json)
+                n = tools._now()
+                # 凌晨 0–6 点还算前一天；这时加的「08:00 吃药」指的是今早（日历上的今天），不是已经过去的昨早
+                if "date" not in body and n.hour < 6 and str(body.get("when") or "") >= "06:00":
+                    body["date"] = n.date().isoformat()
+                t = store.add(body, today)
                 journal.action(tools.cfg, "suggest" if t.get("kind") in journal.SUGGEST_KINDS else "plan",
                                board=t.get("board"), project=t.get("project"), ref=t["id"], detail=t.get("title"),
                                day=t.get("date"))
@@ -455,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             _json({"items": media_library(tools)})
         elif args.cmd == "facts":
             from .v3 import facts
-            _json(facts(tools, _day(args.date) or tools._now().date()))
+            _json(facts(tools, _day(args.date) or _day_of(tools._now())))
         elif args.cmd == "page-v3":
             from .v3 import page_doc
             _json(page_doc(tools, args.page))
@@ -470,6 +476,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "now":
             n = tools._now()
             _json({"now": n.isoformat(timespec="minutes"), "date": n.date().isoformat(),
+                   "day": _day_of(n).isoformat(),   # 老大的「今天」：凌晨 0–6 点还算前一天（待办、页面都按它）
                    "weekday": "一二三四五六日"[n.weekday()], "sim": tools.cfg.sim_mode})
         elif args.cmd == "pushd":
             from .push import run_pushd_once

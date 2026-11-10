@@ -71,14 +71,14 @@ struct TodoCardView: View {
                         .foregroundStyle(settled || todo.when.isEmpty ? E.text3 : E.text)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(todo.title).font(E.body(15)).foregroundStyle(settled ? E.text2 : E.text)
-                            .lineLimit(expanded ? 3 : 2)
+                            .lineLimit(expanded ? 3 : 1)
                             .fixedSize(horizontal: false, vertical: true)
                             .multilineTextAlignment(.leading)
                         subLine
                     }
                     Spacer(minLength: 4)
                 }
-                .frame(minHeight: 64)
+                .frame(minHeight: 56)
                 .contentShape(Rectangle())
             }
             .buttonStyle(RowPress())
@@ -95,16 +95,26 @@ struct TodoCardView: View {
         if !todo.when.isEmpty { parts.append(todo.when) }
         if todo.kind == "timer", todo.status == "in_progress" {
             parts.append("还剩 " + TimerText.remaining(startedAt: todo.record?.startedAt, minutes: todo.durationMin ?? 0, at: Date()))
-        } else if !subText.isEmpty {
-            parts.append(subText)
+        } else if !fullSubText.isEmpty {
+            parts.append(fullSubText)
         }
         if asks { parts.append("P-Health 有话问你") }
         parts.append(expanded ? "已展开" : "已收起")
         return parts.joined(separator: "，")
     }
 
-    private var subText: String {
+    /// 收起时只留时间 + 标题（老大 11-10：字太多显得臃肿）；只有「等网络」「计数进度」这种正在变的状态还写一行。
+    /// 板块名、备注、时长这些点开才显示
+    private var subText: String { expanded ? fullSubText : liveHint }
+
+    private var fullSubText: String {
         [showBoard ? todo.boardLabel : nil, hint.isEmpty ? nil : hint].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private var liveHint: String {
+        if TodoOutbox.shared.waiting(todo.id) { return "等网络 · 连上自动发" }
+        if todo.kind == "counter" { return "\(count) / \(todo.target ?? 1) \(todo.unit ?? "")" }
+        return ""
     }
 
     @ViewBuilder

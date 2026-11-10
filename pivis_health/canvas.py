@@ -32,6 +32,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from . import viz as vizmod
+from .clock import day_of
 
 SLOTS = {"hero": {"w": 354, "h": 400}, "chat": {"w": 312, "h": 520}}
 GAPS = (0, 4, 8, 12, 16, 24)
@@ -312,7 +313,7 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
             board: str | None = None) -> dict:
     """把绑定数据的零件换成显示值。某个零件算不出来（数据断了）就换成一行说明，整张卡不挂。"""
     now = now or tools._now()
-    day = day or now.date()
+    day = day or day_of(now)
     cache: dict[str, Any] = {}
 
     def vz(metric: str, kind: str | None = None, days: int | None = None) -> dict:

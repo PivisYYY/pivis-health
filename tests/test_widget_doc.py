@@ -8,7 +8,7 @@ from pivis_health.todos import TodoStore
 
 def test_widget_doc_shape_and_todos(tools_env):
     tools = tools_env
-    day = tools._now().date()
+    day = tools._today()
     st = TodoStore(tools.cfg)
     st.add({"id": "w1", "board": "stress", "when": "21:45", "title": "慢呼吸 5 分钟", "kind": "follow",
             "media": make_clip(tools.cfg.data_dir, "breath", 5, "慢呼吸")}, day)

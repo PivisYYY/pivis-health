@@ -22,6 +22,7 @@ from .agent_context import AgentContextStore
 from .config import Config
 from .experience import Experience
 from .tools import HealthTools
+from .clock import day_of as _day_of
 
 COMPOSER_CONTEXT = "组件编排"
 PAGE_TYPES = {
@@ -43,8 +44,8 @@ _BLOCKED_MEDIA_HOSTS = ("youtube.com", "youtu.be")
 def relax_document(tools: HealthTools) -> dict:
     lib = tools.relax_library()
     lib["suggested"] = tools.relax_suggest()["suggested"]
-    entries = tools.subj.entries(kinds=["relax_plan"], since=tools._now().date(),
-                                 until=tools._now().date())
+    entries = tools.subj.entries(kinds=["relax_plan"], since=_day_of(tools._now()),
+                                 until=_day_of(tools._now()))
     plan = entries[-1].get("payload") if entries else None
     if plan:
         lib["plan_today"] = {
@@ -64,9 +65,9 @@ def raw_document(tools: HealthTools, page: str) -> dict:
         fn = {"now": v2.today, "sleep": v2.sleep, "sport": v2.sport, "stress": v2.stress}.get(page)
         if not fn:
             raise ValueError(f"unknown publication page: {page}")
-        doc = fn(tools._now().date())
+        doc = fn(_day_of(tools._now()))
         doc.pop("components", None)
-    today = tools._now().date()
+    today = _day_of(tools._now())
     doc["interaction_history"] = tools.subj.entries(
         kinds=["need_feedback", "relax_plan", "content_rating"], since=today - timedelta(days=14), until=today)
     # 媒体槽位的真实链接池（固定槽位、自由表现：素材只找不改，Agent 只能从这里选）

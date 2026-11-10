@@ -7,7 +7,7 @@ from pivis_health.todos import TodoStore
 
 def test_now_page_sorts_before_capping(tools_env):
     tools = tools_env
-    day = tools._now().date()
+    day = tools._today()
     st = TodoStore(tools.cfg)
     # 存储顺序故意和时间顺序反着：最早到点的喝水卡（日常）最后建
     for i, (when, board, title) in enumerate([("22:30", "sleep", "关灯"), ("21:00", "stress", "慢呼吸"),
@@ -24,7 +24,7 @@ def test_now_page_sorts_before_capping(tools_env):
 
 def test_board_pages_and_short_lists_have_no_more(tools_env):
     tools = tools_env
-    day = tools._now().date()
+    day = tools._today()
     st = TodoStore(tools.cfg)
     st.add({"id": "s1", "board": "sleep", "when": "22:00", "title": "关灯", "kind": "done"}, day)
     st.add({"id": "s2", "board": "life", "when": "14:45", "title": "喝水", "kind": "done"}, day)

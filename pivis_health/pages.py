@@ -32,7 +32,7 @@ class V2Pages:
         out = sleep_by_night(snap, self.t.cfg.timezone) if snap else {}
         for i in range(days):
             nd = end - timedelta(days=i)
-            if nd in out or nd >= self.t._now().date():
+            if nd in out or nd >= self.t._today():
                 continue
             try:
                 r = self.t._sleep_results(nd, 1)[nd]
@@ -220,7 +220,7 @@ class V2Pages:
 
     # ---------- D1 今日 ----------
     def today(self, day: date | None = None) -> dict:
-        d = day or self.t._now().date()
+        d = day or self.t._today()
         p = self.params.all()
         rec_series = self._recovery_daily(d)
         rng = personal_range(rec_series, d)
@@ -302,7 +302,7 @@ class V2Pages:
 
     # ---------- D2 睡眠 ----------
     def sleep(self, day: date | None = None) -> dict:
-        d = day or self.t._now().date()
+        d = day or self.t._today()
         p = self.params.all()
         rec = self._recovery_daily(d).get(d)
         nights = self._nights(d)
@@ -385,7 +385,7 @@ class V2Pages:
 
     # ---------- E3 运动 ----------
     def sport(self, day: date | None = None) -> dict:
-        d = day or self.t._now().date()
+        d = day or self.t._today()
         p = self.params.all()
         rec = self._recovery_daily(d, 28)
         rng = personal_range(rec, d)
@@ -435,7 +435,7 @@ class V2Pages:
 
     # ---------- E4 压力与恢复 ----------
     def stress(self, day: date | None = None) -> dict:
-        d = day or self.t._now().date()
+        d = day or self.t._today()
         rec = self._recovery_daily(d).get(d)
         hrv = self._hrv_daily(d, 14)
         rng = personal_range(self._hrv_daily(d, 30), d)

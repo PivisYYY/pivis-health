@@ -193,7 +193,8 @@ def _mean(xs: list[float]) -> float | None:
 
 
 def _clean_name(name: str) -> str:
-    return re.sub(r"\s*[·・]\s*\d+\s*[天周]$", "", str(name or "")).strip()
+    from .todos import clean_project_name
+    return clean_project_name(name)
 
 
 def _pid(b: str) -> str:

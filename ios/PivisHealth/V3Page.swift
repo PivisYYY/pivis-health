@@ -408,7 +408,7 @@ extension HeroView {
     }
 }
 
-/// 主卡下面的「坚持习惯」：一个习惯一行（图标、「坚持习惯」、名字 · 第 N 天 / 共 M 天、右边今天要做的）
+/// 主卡下面的「坚持习惯」：一个习惯一行（图标、名字 · N/M、右边今天要做的）
 struct HabitRows: View {
     let habits: [V3Page.Habit]
     @ObservedObject private var sync = PageSync.shared
@@ -418,12 +418,10 @@ struct HabitRows: View {
                 Button {
                     openChat(context: contextFor(h.board), about: ChatAbout(kind: .habit, id: h.id, name: h.name))
                 } label: {
+                    // 一行：图标、名字 · 第几天/共几天、右边今天要做的（老大 11-10：字要少，不再每行写「坚持习惯」）
                     HStack(spacing: 12) {
                         BoardGlyph(board: h.board)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("坚持习惯").font(E.body(12)).foregroundStyle(E.text3)
-                            Text(h.label).font(E.body(15)).foregroundStyle(E.text).lineLimit(1)
-                        }
+                        Text(h.label).font(E.body(15)).foregroundStyle(E.text).lineLimit(1)
                         Spacer(minLength: 8)
                         Text(h.today).font(E.body(12)).foregroundStyle(E.text2).lineLimit(1)
                         // 点进去的那个对话里 P-Health 回了你还没看：箭头前一个小白点
@@ -434,12 +432,13 @@ struct HabitRows: View {
                         }
                         Image(systemName: "chevron.right").font(.system(size: 12, weight: .light)).foregroundStyle(E.text3)
                     }
-                    .frame(minHeight: 58)
+                    .frame(minHeight: 52)
                     .overlay(alignment: .top) { Hairline(color: E.line2).allowsHitTesting(false) }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(EPress())
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel("坚持习惯，\(h.label)，\(h.today)")
                 .accessibilityIdentifier("habit-\(h.id)")
             }
         }

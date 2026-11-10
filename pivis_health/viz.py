@@ -23,6 +23,8 @@ import math
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from .clock import day_of
+
 METRICS: dict[str, dict[str, Any]] = {
     "hrv": {"label": "HRV", "unit": "ms", "series": "whoop_hrv_rmssd", "dir": "low_bad", "nd": 1,
             "board": "stress", "kinds": ("trend", "range")},
@@ -200,7 +202,7 @@ def build(tools, spec: Any, day: date | None = None, now: datetime | None = None
     """按描述算出图表要的全部数字。没有数据时抛 VizUnavailable。"""
     s = normalize(spec)
     now = now or tools._now()
-    day = day or now.date()
+    day = day or day_of(now)
     metric, kind = s["metric"], s["kind"]
     m = METRICS[metric]
     pref = prefs_for(tools.cfg).get(metric, {})

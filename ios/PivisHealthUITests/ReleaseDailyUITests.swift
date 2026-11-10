@@ -184,7 +184,7 @@ final class ReleaseDailyUITests: XCTestCase {
         tab("tab-sport", "运动")
         let row = any("habit-qa-habit")
         XCTAssertTrue(row.waitForExistence(timeout: 10), "运动页没有「坚持习惯 · QA 习惯」行")
-        XCTAssertTrue(row.label.contains("QA 习惯") && row.label.contains("第 1 天"), "习惯行内容不对：\(row.label)")
+        XCTAssertTrue(row.label.contains("QA 习惯") && row.label.contains("1/28"), "习惯行内容不对：\(row.label)")
         row.tap()
         XCTAssertTrue(waitUntil(8) { text(containing: "P-Health · 运动").exists }, "习惯行没打开运动对话")
         XCTAssertTrue(any("habit-card").waitForExistence(timeout: 8), "对话顶部没有习惯卡")
@@ -439,14 +439,14 @@ final class ReleaseDailyUITests: XCTestCase {
     func test18_TodoChatButtonDrafts() {
         launch()
         tab("tab-sport", "运动")
-        reveal("QA 带话给 P-Health").tap()
+        reveal("QA 带话").tap()
         let talk = card("qa-draft").buttons["todo-chat"].firstMatch
         XCTAssertTrue(talk.waitForExistence(timeout: 3), "卡片上没有 P-Health 图标")
         talk.tap()
         let input = app.textViews["chat-input"].firstMatch
         XCTAssertTrue(input.waitForExistence(timeout: 8), "图标没打开对话")
         XCTAssertTrue(any("todo-about-card").waitForExistence(timeout: 5), "对话顶部没有这张待办")
-        XCTAssertTrue(text(containing: "关于：QA 带话给 P-Health").exists, "输入框上方没有「关于：QA 带话给 P-Health」")
+        XCTAssertTrue(text(containing: "关于：QA 带话").exists, "输入框上方没有「关于：QA 带话给 P-Health」")
         XCTAssertTrue((input.value as? String ?? "").isEmpty, "输入框不该有草稿（\(input.value ?? "")）")
         XCTAssertFalse(any("chat-activity").waitForExistence(timeout: 3), "打开对话后 P-Health 自己说话了")
         shot("18-todo-chat")
@@ -636,7 +636,7 @@ final class ReleaseDailyUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(row.frame.minY, hero.frame.maxY - 1, "习惯行应在主卡下面")
         XCTAssertEqual(hero.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "habit-")).count, 0,
                        "主卡里不该再有习惯行")
-        XCTAssertTrue(row.label.contains("今天"), "习惯行右边没写今天要做的：\(row.label)")
+        XCTAssertTrue(row.label.contains("20:00"), "习惯行右边没写今天要做的：\(row.label)")
     }
 
 

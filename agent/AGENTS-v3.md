@@ -92,7 +92,9 @@ App 用统一的黑白留白风格渲染，你只管内容，**不要写颜色�
 ```
 
 ### 字段
-`board`（sleep/sport/stress/life，必填；life＝日常，只出现在「此刻」页）· `title`（必填，≤14 字）· `when`（HH:MM）· `kind` 和其余字段按 `todo-cards` skill 写（references/fields.md 有全部字段）。**提议卡一定要写 `until`。**
+`board`（sleep/sport/stress/life，必填；life＝日常，只出现在「此刻」页）· `title`（必填，≤ 8 字最好，最多 12 字，超了服务器退回）· `when`（HH:MM）· `kind` 和其余字段按 `todo-cards` skill 写（references/fields.md 有全部字段）。**提议卡一定要写 `until`。**
+
+**凌晨 0–6 点还算前一天**：这时的「今天」（待办、页面、`./pivis-health now` 里的 `day`）是昨天的日期，今晚的上床、拉伸还在。凌晨加早上的事（「08:00 吃药」）不写 date，服务器会放到今早。
 
 ### 卡片形式
 待办有 13 种形式，以 `./pivis-health todo-forms` 为准。**写待办前先看 `todo-cards` skill**，用 `./pivis-health todo-forms` 列出全部、`--form <名字>` 拿模板。每张卡只有一个主动作，没有回复框、「晚点」「算了」：老大要改时间、今天不做、多说一句，会点卡上的 P-Health 图标，带着这张卡进对话说（见下面「消息开头有【待办 …】或【习惯 …】」）。不要写 `verbs`，待办卡的输入也不要写 `allow_text`。

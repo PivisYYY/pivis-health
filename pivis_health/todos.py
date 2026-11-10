@@ -86,7 +86,7 @@ TODO_FORMS: list[dict] = [
 ]
 
 
-NIGHT_END_HOUR = 6   # 00:00–05:59 的事属于前一天的「当晚」（全系统只在这里定义）
+from .clock import NIGHT_END_HOUR  # noqa: E402  00:00–05:59 的事属于前一天的「当晚」
 
 
 def due_at(day: date | str, hhmm: str) -> datetime | None:
@@ -321,6 +321,37 @@ def _same_content(a: dict, b: dict) -> bool:
     return {k: v for k, v in a.items() if k not in skip} == {k: v for k, v in b.items() if k not in skip}
 
 
+TITLE_MAX = 12        # 待办标题（老大 11-10：卡上字太多）。写的时候 ≤ 8 字最好
+NOTE_MAX = 20         # note 只在卡展开后显示
+PROJECT_NAME_MAX = 10 # 项目名（去掉「· 56 天」后）不带括号、频率（第几天 App 自己显示）
+
+
+def check_lengths(t: dict, fields: tuple[str, ...] = ("title", "note")) -> None:
+    """P-Health 写卡时的字数上限；超了退回让它改短（老卡、项目展开时不查）。"""
+    title = str(t.get("title") or "")
+    if "title" in fields and len(title) > TITLE_MAX:
+        raise TodoError(f"标题「{title}」{len(title)} 个字，最多 {TITLE_MAX} 个（≤ 8 个最好）：只写做什么，时间写进 when，细节写进 note")
+    note = str(t.get("note") or "")
+    if "note" in fields and len(note) > NOTE_MAX:
+        raise TodoError(f"note「{note}」{len(note)} 个字，最多 {NOTE_MAX} 个：只留一句有信息量的")
+
+
+def clean_project_name(name: str) -> str:
+    """项目名只留名字：去掉「· 56 天」「（每周三次）」「一个月」这类（第几天 App 另外显示）。"""
+    n = re.sub(r"\s*[（(【\[][^）)】\]]*[）)】\]]\s*", "", str(name or ""))
+    n = re.sub(r"\s*[·・]?\s*(\d+|[一二两三四五六七八九十]+)\s*(个月|天|周|星期)$", "", n)
+    return n.strip() or str(name or "").strip()
+
+
+def check_project_name(name: str) -> None:
+    n = str(name or "")
+    if re.search(r"[（(【\[]", n):
+        raise TodoError(f"项目名「{n}」不要带括号：频率、天数写进模板和 days，App 自己显示第几天")
+    short = clean_project_name(n)
+    if len(short) > PROJECT_NAME_MAX:
+        raise TodoError(f"项目名「{short}」{len(short)} 个字，最多 {PROJECT_NAME_MAX} 个（≤ 6 个最好）")
+
+
 class TodoStore:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
@@ -370,6 +401,7 @@ class TodoStore:
     def add(self, todo: dict, today: date) -> dict:
         todo = dict(todo)
         todo.setdefault("date", today.isoformat())
+        check_lengths(todo)
         with self._locked() as data:
             t = normalize(todo)
             check_practice(t, self.cfg)
@@ -392,6 +424,8 @@ class TodoStore:
                 patch["escalate"] = None
             if patch.get("media") and "steps" not in patch and (patch.get("kind") or cur.get("kind")) == "follow":
                 patch = {**patch, "steps": []}      # 换视频只给了 media：替换掉卡上原来的那一段，不是叠在旁边
+            if by == "agent":
+                check_lengths(patch, tuple(k for k in ("title", "note") if k in patch))
             t = normalize(patch, cur)
             if any(k in patch for k in ("kind", "steps", "media", "items")):
                 check_practice(t, self.cfg)
@@ -457,6 +491,8 @@ class TodoStore:
             merged = {**cur, **project}      # 已有的项目可以只传要改的字段（比如 {"id":"strength","status":"paused"}）
             if not merged.get("name"):
                 raise TodoError("新项目需要 name")
+            if "name" in project and project["name"] != cur.get("name"):
+                check_project_name(project["name"])
             if merged.get("board") not in BOARDS:
                 raise TodoError(f"project.board 只能是 {BOARDS}")
             if merged.get("status") not in (None, "active", "paused", "done"):
@@ -479,6 +515,9 @@ class TodoStore:
                 norm = normalize(tpl)
                 if changed and not any(_same_content(tpl, old) for old in cur.get("daily") or []):
                     check_practice(norm, self.cfg)  # 新加 / 改过的模板才校验（练习只用视频），老模板照常能读
+                if changed and not any(str(o.get("title")) == str(tpl.get("title")) and str(o.get("note") or "") == str(tpl.get("note") or "")
+                                       for o in cur.get("daily") or []):
+                    check_lengths(tpl)              # 改过标题 / note 的模板才查字数
                 if tpl.get("duration_min") in (None, "") and norm["duration_min"]:
                     tpl = {**tpl, "duration_min": norm["duration_min"]}   # 时长写在视频里的，模板上也带一份（复盘、习惯卡要用）
                 daily.append(tpl)

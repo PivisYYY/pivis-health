@@ -21,6 +21,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
+from .clock import day_of as _day_of
 
 TICK_S = 20
 PRE_MIN = 10          # 到点前多久提醒（默认；老大可以用 pref.remind 的 lead_min 改）
@@ -126,7 +127,7 @@ def apns_sender(tools) -> Callable[[str, str, dict], dict]:
         out = {"ok": any(r.get("ok") for r in results), "tokens": len(tokens),
                "errors": [r.get("reason") for r in results if not r.get("ok")]}
         try:
-            tools.subj.record(tools._now().date().isoformat(), "push_result",
+            tools.subj.record(_day_of(tools._now()).isoformat(), "push_result",
                               {"title": title, "body": body, "kind": f"notify:{data.get('why', '')}", **out})
         except Exception:  # noqa: BLE001
             pass

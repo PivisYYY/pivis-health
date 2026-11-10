@@ -7,11 +7,12 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from .todos import TodoStore
+from .clock import day_of as _day_of
 
 
 def project_stats(tools, project_id: str, days: int = 7, day: date | None = None) -> dict:
     """近 N 天某个项目每天的待办做了没：按模板 key 分别数，给出执行率。今天还没结束的不算进分母。"""
-    day = day or tools._now().date()
+    day = day or _day_of(tools._now())
     store = TodoStore(tools.cfg)
     proj = next((p for p in store.projects() if p["id"] == project_id), None)
     if not proj:
@@ -56,7 +57,7 @@ def sleep_week(tools, nights: int = 7, day: date | None = None) -> dict:
     给 CBT-I 周复盘调窗口用。"""
     from . import whoop as whoop_mod
     from .pages import V2Pages
-    day = day or tools._now().date()
+    day = day or _day_of(tools._now())
     pages = V2Pages(tools)
     ns = pages._nights(day, nights + 2)
     wsleep = whoop_mod.sleep_by_night(tools._whoop or {}, tools.cfg.timezone) if tools._whoop else {}

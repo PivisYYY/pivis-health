@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import content
+from .clock import day_of
 from .agent_context import AgentContextStore
 from .todos import BOARD_LABEL, BOARDS, PENDING, TodoError, TodoStore
 from .todos import _sort_when as _sort_when_key
@@ -58,6 +59,13 @@ def facts(tools, day: date) -> dict:
             out["last_night"] = out["sleep_nights"][-1]
         else:
             out["last_night"] = None
+            # 昨晚的还没出来（人还没睡 / WHOOP 醒后才算好）≠ 数据断了：WHOOP 同步正常时标成 pending
+            try:
+                from . import whoop_sync
+                fresh = not whoop_sync.freshness(tools.cfg).get("stale")
+            except Exception:  # noqa: BLE001
+                fresh = False
+            out["last_night_status"] = "pending" if fresh or getattr(tools.cfg, "sim_mode", False) else "missing"
             # 数据断了几天：仍给出最近的缺觉合计，并标明是哪天的数据，免得 Agent 自己去算
             if blocks:
                 out["sleep_debt_latest"] = {"h": debt, "nights": len(blocks), "asof": blocks[-1]["night_of"],
@@ -409,7 +417,7 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
           "fields": [{"label": "需要", "value": "9.9", "unit": "小时"}],
           "table": {"columns": ["", "睡了", "需要"], "rows": [["10-29", "6.2", "9.8"]]},
           "viz": {"metric": "hrv", "kind": "trend", "days": 14, "show": ["band", "warn"]}},
- "notices": [{"text": "授权缺失、数据断更超过 2 天才写，≤25字"}]}
+ "notices": [{"text": "可选，≤25字；数据断了、授权掉了的提示服务器自己会加，你不写"}]}
 规则：
 - 一页只表达最主要的一个问题。主卡 = 这个问题的值 + 档位；支撑它的数放 fields（最多 3 个）或 table（最多 4 列 5 行，第一列写日期或名目），二选一，也可以都不放。
 - 主卡首选画图 hero.viz：你决定画哪项（metric）、怎么画（kind）、看几天（days）、显示哪些参照（show）；数字由内核按描述填，你不用写进去。
@@ -432,6 +440,8 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
 - 压力页（stress）：从 hrv_trend（近 3 天对比之前）、hrv_ms、resting_hr（对比 avg_prev7）、resp_rate、recovery_pct 里挑最能说明当前生理压力信号的一个。HRV 个人范围没学满时就用这些自己和自己比。都在正常波动内就 level=steady，结论写「压力这块没问题」这类，主卡放最能说明没问题的那个数。不诊断、不推测情绪、不说「因为…所以压力大」。
 - 运动页（sport）：从 recovery_pct（今早醒来测的恢复，决定今天能练多大强度）、workouts（近 7 天练了什么、几次、多久、strain）、strain（每天的负荷）、steps 里挑。早上 recovery_pct.today 有数时，优先用它讲「今天适合怎么练」，可以配上这周练了几次；12 点前今天的步数还没攒起来，不拿今天的步数（steps.today / bind 今天步数）做主卡。
 - 不用「数据不足」做主卡：某个指标断更就换一个有数的指标，note 里写数据日期（如「10-31 的数据」）。
+- last_night 为空、last_night_status 是 pending：昨晚的睡眠还没出来（人还没睡，或 WHOOP 醒后才算好），不是数据断了，不要写「停了 / 断了」；主卡换别的有数指标，或用前一晚并写日期。
+- 数据断了、授权掉了的提示由服务器按同步状态自己加，notices 和结论里都不要写「数据停了 / 没传上来」。
 - sleep_nights 里的 short_h 是「每晚缺觉」，不是睡眠债（睡眠债是 sleep_debt_5n_h 一个数）。
 - 老大对某项图表定过的偏好（pref.viz.<metric>：画法、天数、警戒线、目标）和页面偏好（pref.page.<page>）优先于上面的默认值。
 - shared_context 里是老大定下的偏好，必须遵守。pref.* 是展示和对比偏好（例如图表用折线、跟上一周比）；facts 里有 compare 时，说「比…高/低」一律用 compare 里按老大指定基线算好的数（recent.avg、baseline.avg、change、change_pct），不要再拿别的时间段比。"""
@@ -440,7 +450,7 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
 def evidence_for(tools, page: str) -> dict:
     now = tools._now()
     store = TodoStore(tools.cfg)
-    day = now.date()
+    day = day_of(now)
     projects = []
     for p in store.projects(active_only=True):
         start = date.fromisoformat(p["start"])
@@ -535,7 +545,7 @@ def _check_live_hero(tools, page: str, doc: dict) -> None:
     from . import canvas
     from . import viz as vizmod
     hero = doc.get("hero") or {}
-    day, now = tools._now().date(), tools._now()
+    day, now = day_of(tools._now()), tools._now()
     if hero.get("viz"):
         try:
             vizmod.build(tools, hero["viz"], day, now)
@@ -740,11 +750,75 @@ def _with_poster(cfg, t: dict) -> dict:
     return out
 
 
+# ---------------------------------------------------------------- 数据断了的提示（服务器按真实状态写）
+# P-Health 自己写「数据停了」常常写错：凌晨还没睡就说「昨晚的睡眠停了」、早上 WHOOP 还没算好就说断了。
+# 这类提示一律由服务器看同步状态来写；P-Health 发的页面里这类提示不再显示。
+_OUTAGE = re.compile(r"断更|断了|停了|停在|没传|没同步|同步不上|没更新|读不到|没数据|缺数据|授权")
+
+
+def _is_outage_text(text: str) -> bool:
+    return bool(_OUTAGE.search(text or ""))
+
+
+def _recent_location(cfg, hours: float = 24) -> bool:
+    """手机近 N 小时传过定位：说明 App 和网络都通，Apple 健康没数据就是读不到。"""
+    import sqlite3
+    import time as _time
+    db = Path(cfg.data_dir) / "events.sqlite3"
+    if not db.exists():
+        return False
+    try:
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=2)
+        try:
+            row = con.execute("SELECT MAX(received_ts) FROM raw_events WHERE type = 'location'").fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return False
+    return bool(row and row[0] and _time.time() - float(row[0]) < hours * 3600)
+
+
+def data_notices(tools, page: str, day: date) -> list[dict]:
+    """WHOOP 授权掉了 / 3 小时没同步上；手机在传定位但两天没有 Apple 健康数据（多半是健康权限关了）。"""
+    out: list[dict] = []
+    cfg = tools.cfg
+    if not getattr(cfg, "sim_mode", False):          # 模拟 / 演示 / 测试环境的 WHOOP 快照是固定的旧数据
+        from . import whoop_sync
+        try:
+            f = whoop_sync.freshness(cfg)
+        except Exception:  # noqa: BLE001
+            f = None
+        if f and (f.get("present") or f.get("authorised")):
+            err = (f.get("last_attempt") or {}).get("error")
+            if not f.get("authorised") or err == "not_authorised":
+                out.append({"text": "WHOOP 授权掉了，需要在电脑上重新登录", "source": "server"})
+            elif f.get("stale") and (f.get("age_hours") or 0) >= 3:
+                out.append({"text": f"WHOOP 已经 {int(f['age_hours'])} 小时没同步上", "source": "server"})
+    if page in ("now", "sport"):
+        try:
+            vals = tools.series("steps", 7, day).get("values") or []
+        except Exception:  # noqa: BLE001
+            vals = []
+        latest = max((v["date"] for v in vals), default=None)
+        if (latest is None or latest < (day - timedelta(days=1)).isoformat()) and _recent_location(cfg):
+            out.append({"text": "手机读不到 Apple 健康：设置 › 健康 › 数据访问与设备 › P-Health，全部打开",
+                        "source": "server"})
+    return out
+
+
+def _pub_day(pub: dict) -> date:
+    """页面是老大哪一天编排的（凌晨 0–6 点编排的算前一天）。读不出就当很久以前。"""
+    try:
+        return day_of(datetime.fromisoformat(str(pub.get("published_at") or "")))
+    except ValueError:
+        return date.min
+
+
 def page_doc(tools, page: str) -> dict:
     if page not in PAGES:
         raise ValueError(f"unknown page {page}")
     now = tools._now()
-    day = now.date()
+    day = day_of(now)
     store = TodoStore(tools.cfg)
     store.materialize(day, now)
     _auto_bedtime(tools, store, day - timedelta(days=1))
@@ -752,7 +826,7 @@ def page_doc(tools, page: str) -> dict:
     _expire(store, day, now)
     pub = V3PageStore(tools.cfg).get(page)
     # 主卡是昨天（或更早）编排的：标记过期，后台重新编排；客户端显示「正在更新」
-    stale = (not pub) or str(pub.get("published_at", ""))[:10] < day.isoformat()
+    stale = (not pub) or _pub_day(pub) < day
     if stale:
         republish_async(tools.cfg)
     todos = store.for_date(day, None if page == "now" else page)
@@ -804,7 +878,8 @@ def page_doc(tools, page: str) -> dict:
         "habits": habit_rows(store, page, day),
         "todos": pending, "more": more, "done": done, "hidden": hidden,
         "details": (pub or {}).get("details") or [],
-        "notices": (pub or {}).get("notices") or [],
+        "notices": (data_notices(tools, page, day)
+                    + [n for n in (pub or {}).get("notices") or [] if not _is_outage_text(str(n.get("text") or ""))])[:2],
         "projects": [{"id": p["id"], "name": p["name"], "board": p["board"], "rules": p.get("rules"),
                       "start": p["start"], "days": p["days"], "reviews": p.get("reviews")}
                      for p in store.projects(active_only=True) if page == "now" or p["board"] == page],
@@ -896,13 +971,13 @@ def habit_rows(store: TodoStore, page: str, day: date) -> list[dict]:
             right = f"{date.fromisoformat(p['start']).strftime('%m-%d')} 开始"
         elif any(t["status"] in PENDING for t in mine):
             nxt = next(t for t in mine if t["status"] in PENDING)
-            right = f"今天 {nxt['when']}" if nxt["when"] else "今天待做"
+            right = nxt["when"] or "待做"
         elif mine and all(t["status"] == "done" for t in mine):
-            right = "今天做完了"
+            right = "做完了"
         else:
             # 今天没有要做的（休息日），或今天的都过点了：写下一次
-            right = _next_text(p, day) or "今天休息"
-        label = f"{name} · 第 {n} 天 / {p['days']}" if state == "active" else name
+            right = _next_text(p, day) or "休息"
+        label = f"{name} · {n}/{p['days']}" if state == "active" else name    # 老大 11-10：字要少
         rows.append({"id": p["id"], "name": name, "board": p["board"], "board_label": BOARD_LABEL.get(p["board"], ""),
                      "day": n if state == "active" else 0, "days": p["days"], "state": state,
                      "label": label, "today": right})
@@ -912,7 +987,7 @@ def habit_rows(store: TodoStore, page: str, day: date) -> list[dict]:
 def habit_doc(tools, project_id: str) -> dict | None:
     """习惯卡（对话顶部）：名字、第几天、本周 7 天、每套训练（标题、哪几天、下次、时长、视频）。只读。"""
     now = tools._now()
-    day = now.date()
+    day = day_of(now)
     store = TodoStore(tools.cfg)
     store.materialize(day, now)
     p = next((x for x in store.projects() if x["id"] == project_id), None)
@@ -1192,7 +1267,7 @@ def widget_doc(tools) -> dict:
     from . import viz as vizmod
     from .todos import sort_key
     now = tools._now()
-    day = now.date()
+    day = day_of(now)
     tz = now.tzinfo
     page = page_doc(tools, "now")
     hero = page.get("hero") or {}
@@ -1325,7 +1400,7 @@ def slot_for(now: datetime) -> str:
 
 def _recommend_message(slot: str, now: datetime) -> str:
     name, scene = SLOTS[slot]
-    return (f"{RECOMMEND_PREFIX}{now.date().isoformat()} {now.strftime('%H:%M')}｜{name}\n"
+    return (f"{RECOMMEND_PREFIX}{day_of(now).isoformat()} {now.strftime('%H:%M')}｜{name}\n"
             f"系统的定时推荐，老大看不到这条。现在是{name}（老大{scene}的时候）。"
             f"按 daily-recommend skill 里「{name}」那一节做：看数据和今天已有的待办，主动给老大推荐 1–2 件现在最合适的事，"
             "用待办卡写进对应板块（要占时间或改计划的用 proposal，几分钟的小事直接给打勾卡）；不要和项目里已有的重复。"
@@ -1362,16 +1437,16 @@ def daily_review(tools, boards: list[str] | None = None, force: bool = False, sl
         state = json.loads(state_path.read_text())
     except (OSError, ValueError):
         state = {}
-    key = f"main:{now.date().isoformat()}:{slot}"
+    key = f"main:{day_of(now).isoformat()}:{slot}"
     if state.get(key) and not force:
         return {"slot": slot, "status": "already"}
     msg = _recommend_message(slot, now)
     from .coach import projects_truth
-    msg += _today_counts(tools, now.date())
-    msg += projects_truth(tools, now.date())
+    msg += _today_counts(tools, day_of(now))
+    msg += projects_truth(tools, day_of(now))
     if slot == "morning":
         msg += DAILY_REVIEW_NOTE
-        msg += weekly_review_note(tools, now.date())
+        msg += weekly_review_note(tools, day_of(now))
     try:
         dsh_chat.send_message(msg, "")
         state[key] = now.isoformat(timespec="minutes")

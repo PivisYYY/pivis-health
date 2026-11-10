@@ -79,6 +79,11 @@ class HealthTools:
         from .clock import now as clock_now
         return clock_now(self.cfg)
 
+    def _today(self) -> date:
+        """老大的「今天」（凌晨 6 点前还算前一天），见 clock.day_of。"""
+        from .clock import day_of
+        return day_of(self._now())
+
     def _vault_sig(self) -> object:
         sig = []
         for suffix in ("", "-wal"):
@@ -194,7 +199,7 @@ class HealthTools:
         }
 
     def sleep_day(self, day: date | None = None) -> dict:
-        day = day or (self._now().date() - timedelta(days=1))   # 不给日期就是昨晚（按入睡那天记日期）
+        day = day or (self._today() - timedelta(days=1))   # 不给日期就是昨晚（按入睡那天记日期）
         result = sleep_from_rows(self._rows(day), day, self.cfg.timezone)
         views = self._whoop_views()
         w_sleep = views["sleep"].get(day)
@@ -206,7 +211,7 @@ class HealthTools:
         }
 
     def series(self, canonical: str, days: int = 30, end_day: date | None = None) -> dict:
-        end = end_day or self._now().date()
+        end = end_day or self._today()
         daily = self.daily_series(canonical, end, days)
         return {
             "metric": canonical,
@@ -218,7 +223,7 @@ class HealthTools:
         }
 
     def baseline(self, canonical: str, end_day: date | None = None) -> dict:
-        end = end_day or self._now().date()
+        end = end_day or self._today()
         daily = self.daily_series(canonical, end, 46)
         b: Baseline | None = rolling_baseline(daily, end_exclusive=end, window=30, metric=canonical)
         today_val = daily.get(end)
@@ -259,7 +264,7 @@ class HealthTools:
         return kwargs, extras
 
     def monitor(self, day: date | None = None, now_hour: int | None = None) -> dict:
-        d = day or self._now().date()
+        d = day or self._today()
         hour = self._now().hour if now_hour is None else now_hour
         kwargs, _ = self._rules_context(d)
         findings = rules_evaluate(d, **kwargs)
@@ -282,7 +287,7 @@ class HealthTools:
         }
 
     def today(self, day: date | None = None) -> dict:
-        d = day or self._now().date()
+        d = day or self._today()
         kwargs, extras = self._rules_context(d)
         views = extras["views"]
         sleep = self._sleep_results(d, 1).get(d)
@@ -315,7 +320,7 @@ class HealthTools:
         }
 
     def morning_report(self, day: date | None = None) -> dict:
-        d = day or self._now().date()
+        d = day or self._today()
         kwargs, extras = self._rules_context(d)
         views = extras["views"]
         sleep = self._sleep_results(d, 1).get(d)
@@ -407,7 +412,7 @@ class HealthTools:
         )
 
     def weekly_report(self, week_start: date | None = None) -> dict:
-        d = self._now().date()
+        d = self._today()
         monday = week_start or (d - timedelta(days=d.weekday()))
         sunday = monday + timedelta(days=6)
         sleeps = self._sleep_results(monday + timedelta(days=6), 7)
@@ -458,7 +463,7 @@ class HealthTools:
 
     # -- 主观写入 -----------------------------------------------------------
     def log_subjective(self, kind: str, payload: dict, day: date | None = None) -> dict:
-        d = day or self._now().date()
+        d = day or self._today()
         entry_id = self.subj.record(d.isoformat(), kind, payload)
         return {"ok": True, "id": entry_id, "local_date": d.isoformat(), "kind": kind, "payload": payload}
 
@@ -502,7 +507,7 @@ class HealthTools:
     # -- 推送配额与去重 -------------------------------------------------------
     def push_reserve(self, key: str, day: date | None = None) -> dict:
         """当日去重 + 配额：首次且未超配额返回 allowed=True（并记账）。"""
-        d = (day or self._now().date()).isoformat()
+        d = (day or self._today()).isoformat()
         count = self.subj.push_count(d)
         if count >= self.cfg.daily_push_limit:
             return {"allowed": False, "reason": "daily_push_limit_reached", "count_today": count, "limit": self.cfg.daily_push_limit}
@@ -525,7 +530,7 @@ class HealthTools:
                 return {"trigger": "whoop_arrived", **self.morning_report(now.date())}
             _time.sleep(poll_sec)
             now = self._now()
-        return {"trigger": "deadline_fallback", **self.morning_report(self._now().date())}
+        return {"trigger": "deadline_fallback", **self.morning_report(self._today())}
 
     def nap_today(self) -> dict:
         """WHOOP nap 条目（今日小憩），午休自动识别。"""
@@ -539,7 +544,7 @@ class HealthTools:
                 continue
             try:
                 start = _to_local(str(s["start"]), tz)
-                if start.date() == self._now().date():
+                if start.date() == self._today():
                     end = _to_local(str(s["end"]), tz)
                     naps.append({"start": start.isoformat(), "end": end.isoformat(),
                                  "hours": round((end - start).total_seconds() / 3600, 2)})
@@ -567,7 +572,7 @@ class HealthTools:
             raise ValueError("no valid items")
         payload = {"items": [it["id"] for it in plan],
                    "titles": [it["title"] for it in plan]}
-        self.subj.record(self._now().date().isoformat(), "relax_plan", payload)
+        self.subj.record(self._today().isoformat(), "relax_plan", payload)
         return {"ok": True, "plan": payload["titles"], "items": plan}
 
     def content_rate(self, item_id: str, rating: str) -> dict:

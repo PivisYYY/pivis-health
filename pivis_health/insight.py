@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import journal
+from .clock import day_of as _day_of
 
 STATE = "insight_state.json"
 CANDS = "insight_candidates.json"
@@ -1261,7 +1262,7 @@ def _apply_changes(tools, p: dict) -> list[dict]:
                     hit = True
             if not hit:
                 continue
-            store.project_set({"id": proj["id"], "daily": daily}, tools._now().date(), tools._now())
+            store.project_set({"id": proj["id"], "daily": daily}, _day_of(tools._now()), tools._now())
             journal.action(tools.cfg, "plan", board=proj.get("board"), project=proj["id"], ref=p["id"],
                            detail=f"洞察先改后说：{ch['key']} {ch['from']}→{ch['to']}")
             done.append(ch)
