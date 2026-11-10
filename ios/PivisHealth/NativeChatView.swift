@@ -58,8 +58,10 @@ struct NativeChatView: View {
     @State private var aboutPlayer = PracticePlayer()
     /// 点洞察推送进来：打开后直接点开这条（不经过浮条）
     let openInsight: String?
-    /// 洞察 open 请求还在路上：轮询别把「正在思考」清掉
-    @State private var insightOpening = false
+    /// 洞察 open / 点踩带的那句话 还在路上（服务器发进对话后才回）：轮询别把「正在思考」清掉
+    @State private var promptInFlight = false
+    /// 点了 👎 的那条：底部换成「哪里不好？」面板
+    @State private var feedbackFor: ChatMsg?
     /// 这个对话页的标记（ChatPresence.insightHost 记的是它：新开的对话页先出现、旧的后消失也不会互相清掉）
     @State private var presenceToken = UUID()
     /// 洞察点开时最后一条消息：等回复时它的头像不跟着动（那是上一轮的话，新回复还没来）
@@ -131,7 +133,10 @@ struct NativeChatView: View {
                                         answers: msg.isMe ? nil : answers[msg.key],
                                         streaming: msg.key == liveKey,
                                         quiet: row.quiet,
-                                        onAction: sendAction)
+                                        rateContext: context,
+                                        rateable: row.rateable,
+                                        onAction: sendAction,
+                                        onDislike: openFeedback)
                                     // 行的输入没变就不重算（流式每批字、打字每个键都会刷新整个页面）
                                     .equatable()
                                     .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("chatContent")).minY } action: { y in
@@ -174,6 +179,16 @@ struct NativeChatView: View {
                     .scrollDismissesKeyboard(.interactively)
                     .opacity(revealed ? 1 : 0)
                     .overlay { if !revealed && messages.isEmpty { WorkingLine().frame(width: 90) } }
+                    // 「哪里不好？」开着：对话变暗（还看得见被评的那条），点暗处 = 不评了
+                    .overlay {
+                        if feedbackFor != nil {
+                            Color.black.opacity(0.45)
+                                .contentShape(Rectangle())
+                                .onTapGesture { closeFeedback() }
+                                .transition(.opacity)
+                                .accessibilityHidden(true)
+                        }
+                    }
                     .background(Color.black)
                     // 带进来的习惯 / 待办：钉在对话顶部
                     .safeAreaInset(edge: .top, spacing: 0) {
@@ -227,9 +242,19 @@ struct NativeChatView: View {
                 }
                 .safeAreaInset(edge: .bottom) {
                     VStack(spacing: 0) {
-                        // 洞察浮条：输入框正上方，左右各留 12、离输入框 12
-                        if hostsInsight { InsightBar(onOpen: startInsight) }
-                        inputBar
+                        if let m = feedbackFor {
+                            // 点了 👎：输入栏换成「哪里不好？」（每条重新开始选）
+                            FeedbackPanel(onSubmit: { reasons, note in
+                                closeFeedback()
+                                submitFeedback(m, reasons: reasons, note: note)
+                            }, onClose: closeFeedback)
+                            .id(m.key)
+                            .transition(.move(edge: .bottom))
+                        } else {
+                            // 洞察浮条：输入框正上方，左右各留 12、离输入框 12
+                            if hostsInsight { InsightBar(onOpen: startInsight) }
+                            inputBar
+                        }
                     }
                 }
             }
@@ -400,6 +425,8 @@ struct NativeChatView: View {
         }
         startIdlePolling()
         startLiveStream()
+        // 这个对话里点过的 👍 / 👎：以服务器为准填上（手机上的缓存先已经画出来了）
+        Task { await FeedbackStore.shared.refresh(context) }
         // 自动发送待发送消息（如「换一个：…」），让 Agent 接续处理。
         // 只在这次打开对话时用一次：对话被盖住再露出来时 .task 会再跑一遍，不能再把草稿填回输入框、再发一次
         let firstRun = await MainActor.run { () -> Bool in
@@ -436,7 +463,7 @@ struct NativeChatView: View {
                         self.awaitingReply = true
                         self.toolHint = result.lastTool
                         self.startReplyMonitor(showPendingHint: false)
-                    } else if self.fastPoll == nil, self.streamAttempt == nil, !self.sending, !self.insightOpening,
+                    } else if self.fastPoll == nil, self.streamAttempt == nil, !self.sending, !self.promptInFlight,
                               self.interactions.isEmpty {
                         // 服务器说这一轮已经结束：清掉还挂着的「正在…」（以前只会打开、不会关，退到后台再回来会一直挂着）
                         self.awaitingReply = false
@@ -574,17 +601,23 @@ struct NativeChatView: View {
     }
 
     /// 【每日推荐】（系统发的，显示成一条分隔线）后面 P-Health 回的那一句：quiet，画成分隔线下的小灰字，
-    /// 不当成 P-Health 先开口说话
+    /// 不当成 P-Health 先开口说话。早上那次例外：回的是「今日判断」，老大要看的，照常显示。
+    /// rateable：每一轮 P-Health 回完的最后一条（后面一条不是它说的，或者没有了）下面放 👍 / 👎；最后一轮还在回（等回复中）时先不放。
+    /// 服务器的历史会滤掉【洞察】【反馈】那段，前后两轮 P-Health 的话看着是连着的：这次打开对话里点开洞察 / 点踩转述时
+    /// 记下的上一轮最后一条（turnFloorKey）照样算一轮的结尾；评过的那条不管在哪都留着小手（ReplyThumbs 自己看）
     private var rows: [ChatRowItem] {
         var out: [ChatRowItem] = []
         var afterDigest = false
-        for m in messages {
-            // 洞察：服务器塞给 P-Health 的那段（【洞察…】）不显示、也不画分隔线，P-Health 的回复照常显示
-            if m.isMe && isInsightPrompt(m.text) { afterDigest = false; continue }
+        let msgs = messages
+        for (i, m) in msgs.enumerated() {
+            // 洞察 / 点踩转述：服务器塞给 P-Health 的那段（【洞察…】【反馈…】）不显示、也不画分隔线，P-Health 的回复照常显示
+            if m.isMe && (isInsightPrompt(m.text) || isFeedbackPrompt(m.text)) { afterDigest = false; continue }
             let quiet = afterDigest && m.role == "phealth" && !m.text.contains("```phealth-ui")
-            out.append(ChatRowItem(id: rowAlias[m.key] ?? m.key, msg: m, quiet: quiet))
+            let rateable = m.role == "phealth"
+                && (m.key == turnFloorKey || (i + 1 < msgs.count ? msgs[i + 1].role != "phealth" : !awaitingReply))
+            out.append(ChatRowItem(id: rowAlias[m.key] ?? m.key, msg: m, quiet: quiet, rateable: rateable))
             if m.isMe && isHarnessNoise(m.text) { continue }    // 后台通知不打断
-            afterDigest = m.isMe && m.text.hasPrefix("【每日推荐】")
+            afterDigest = m.isMe && m.text.hasPrefix("【每日推荐】") && recommendSlot(m.text) != "早上"
         }
         return out
     }
@@ -671,6 +704,7 @@ struct NativeChatView: View {
         DshAPI.dbg("chat resume from background")
         finalizeStaleStream()
         startLiveStream()
+        Task { await FeedbackStore.shared.refresh(context) }
         Task {
             let r = await fetchIncremental()
             await MainActor.run {
@@ -947,11 +981,11 @@ struct NativeChatView: View {
         turnFloorKey = messages.last?.key
         awaitingReply = true
         toolHint = nil
-        insightOpening = true
+        promptInFlight = true
         Task {
             let result = await InsightAPI.open(id)
             await MainActor.run {
-                insightOpening = false
+                promptInFlight = false
                 switch result {
                 case .opened:
                     awaitingReply = true
@@ -965,7 +999,57 @@ struct NativeChatView: View {
                 case .failed:
                     if fastPoll == nil, streamAttempt == nil { awaitingReply = false }
                     PageSync.shared.insightUnhandled(id)     // 浮条放回去，等会儿再点
-                    appendMessage(ChatMsg(role: "error", text: "没打开：连不上服务器，等会儿再点「聊聊」", time: ""))
+                    appendMessage(ChatMsg(role: "error", text: "没打开：连不上服务器，等会儿再点一次", time: ""))
+                }
+            }
+        }
+    }
+
+    private func openFeedback(_ m: ChatMsg) {
+        withAnimation(.easeOut(duration: 0.22)) { feedbackFor = m }
+    }
+
+    private func closeFeedback() {
+        withAnimation(.easeOut(duration: 0.2)) { feedbackFor = nil }
+    }
+
+    /// 「哪里不好？」提交：没写字 → 记一下就完（排队发）；写了一句 → 服务器把它转给这个对话里的 P-Health 当场改，
+    /// 对话和点开洞察一样进入「等 P-Health 回复」，回复照常流进来（转过去的那句以【反馈开头，不显示）
+    private func submitFeedback(_ msg: ChatMsg, reasons: [String], note: String) {
+        guard !note.isEmpty else {
+            FeedbackStore.shared.set(.down, context: context, msg: msg, reasons: reasons)
+            return
+        }
+        FeedbackStore.shared.mark(.down, context: context, time: msg.time)
+        activities = []
+        pinnedKey = nil                 // 回复接在最底下，屏幕跟着走
+        scrollReset += 1
+        turnFloorKey = messages.last?.key
+        awaitingReply = true
+        toolHint = nil
+        promptInFlight = true
+        Task {
+            let result = await FeedbackStore.shared.sendNow(context: context, msg: msg, reasons: reasons, note: note)
+            await MainActor.run {
+                promptInFlight = false
+                let idle = fastPoll == nil && streamAttempt == nil
+                switch result {
+                case .forwarded:
+                    awaitingReply = true
+                    startReplyMonitor(showPendingHint: true)
+                case .unknown:
+                    // 服务器还没回：多半在转，安静地等一会儿
+                    startReplyMonitor(showPendingHint: false)
+                case .notForwarded:
+                    if idle { awaitingReply = false }
+                    appendMessage(ChatMsg(role: "error", text: "记下了，但 P-Health 这次没接上，过会儿直接跟它说就行", time: ""))
+                case .queued:
+                    if idle { awaitingReply = false }
+                    appendMessage(ChatMsg(role: "error", text: "连不上服务器：记在手机上了，连上后再转给 P-Health", time: ""))
+                case .rejected:
+                    if idle { awaitingReply = false }
+                    FeedbackStore.shared.mark(.none, context: context, time: msg.time)
+                    appendMessage(ChatMsg(role: "error", text: "没记上，等会儿再点一次", time: ""))
                 }
             }
         }
@@ -1087,6 +1171,7 @@ struct ChatRow: View, Equatable {
     static func == (a: ChatRow, b: ChatRow) -> Bool {
         a.msg == b.msg && a.maxWidth == b.maxWidth && a.avatarActive == b.avatarActive
             && a.answers == b.answers && a.streaming == b.streaming && a.quiet == b.quiet
+            && a.rateContext == b.rateContext && a.rateable == b.rateable
     }
     let msg: ChatMsg
     let maxWidth: CGFloat
@@ -1098,23 +1183,35 @@ struct ChatRow: View, Equatable {
     var streaming = false
     /// 【每日推荐】后面 P-Health 回的那一句：分隔线下的小灰字
     var quiet = false
+    /// 评价记在哪个对话下；nil = 这里不评（没有小手）
+    var rateContext: String? = nil
+    /// 一轮回完的最后一条：一直放 👍 / 👎；别的回复只有评过才放（评过的不能因为后面又来了一条就看不见）
+    var rateable = false
     let onAction: (String) -> Void
+    var onDislike: (ChatMsg) -> Void = { _ in }
+
+    /// 回完了（服务器给了 time）才能评：还在流的、本地的都不放
+    private var thumbsContext: String? {
+        guard let rateContext, !streaming, !msg.time.isEmpty, msg.role == "phealth" else { return nil }
+        return rateContext
+    }
 
     var body: some View {
-        if msg.isMe, isHarnessNoise(msg.text) || isInsightPrompt(msg.text) {
-            // DSH 的后台任务通知、服务器塞的洞察提示等，不是老大说的话
+        if msg.isMe, isHarnessNoise(msg.text) || isInsightPrompt(msg.text) || isFeedbackPrompt(msg.text) {
+            // DSH 的后台任务通知、服务器塞的洞察提示、点踩转述等，不是老大说的话
             EmptyView()
         } else if msg.isMe, msg.text.hasPrefix("【每日推荐】") {
-            // 系统的定时推荐（早上 / 午后 / 傍晚）：不展示指令，只留一条分隔线
-            let head = msg.text.dropFirst(6).prefix(while: { $0 != "\n" })
-            let day = String(head.prefix(10)).split(separator: "-").suffix(2).joined(separator: "/")
-            let slot = head.split(separator: "｜").last.map(String.init) ?? ""
+            // 系统的定时推荐（早上 / 午后 / 傍晚）：不展示指令，只留一条分隔线；早上那次回的是「今日判断」
+            let day = String(msg.text.dropFirst(6).prefix(10)).split(separator: "-").suffix(2).joined(separator: "/")
+            let slot = recommendSlot(msg.text) ?? ""
             HStack(spacing: 10) {
                 Hairline(color: E.line2)
-                Text("\(day) \(slot)推荐").font(E.body(11)).foregroundStyle(E.text3).fixedSize()
+                Text(slot == "早上" ? "\(day) 今日判断" : "\(day) \(slot)推荐").font(E.body(11)).foregroundStyle(E.text3).fixedSize()
                 Hairline(color: E.line2)
             }
             .padding(.vertical, 8)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("chat-recommend-divider")
         } else if msg.isMe, msg.text.hasPrefix("【每日整理】") {
             // 系统的每日整理：不展示指令，只留一条日期分隔线
             let day = String(msg.text.dropFirst(6).prefix(10)).split(separator: "-").suffix(2).joined(separator: "/")
@@ -1169,15 +1266,23 @@ struct ChatRow: View, Equatable {
             ChatBubble(msg: msg, maxWidth: maxWidth)
         } else if quiet {
             // 每日推荐是系统按点发的（上面一条分隔线），P-Health 回的那一句跟在线下面、小灰字，不像它先开口说话
-            Text(cjkMarkdown(msg.text.trimmingCharacters(in: .whitespacesAndNewlines)))
-                .font(E.body(12)).foregroundStyle(E.text3).lineSpacing(3)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 28)
-                .padding(.top, -10)
-                .padding(.bottom, 6)
-                .accessibilityIdentifier("chat-digest-note")
+            let t = msg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            VStack(spacing: 0) {
+                Text(cjkMarkdown(t))
+                    .font(E.body(12)).foregroundStyle(E.text3).lineSpacing(3)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 28)
+                    .accessibilityIdentifier("chat-digest-note")
+                // 一句话的小结不放小手（太碎）；P-Health 写长了（几行）才放，和字一样居中
+                if let ctx = thumbsContext {
+                    ReplyThumbs(context: ctx, msg: msg, always: rateable && (t.contains("\n") || t.count > 80),
+                                centered: true, onDown: onDislike)
+                }
+            }
+            .padding(.top, -10)
+            .padding(.bottom, 6)
         } else {
             // P-Health：解析 ```phealth-ui 块，失败回退纯文本
             let segs = GenParser.parse(msg.text)
@@ -1197,6 +1302,10 @@ struct ChatRow: View, Equatable {
                                 .frame(maxWidth: maxWidth, alignment: .leading)
                         }
                     }
+                    // 一轮回完：下面两只小手，和字的左边对齐
+                    if let ctx = thumbsContext {
+                        ReplyThumbs(context: ctx, msg: msg, always: rateable, onDown: onDislike)
+                    }
                 }
                 Spacer(minLength: 8)
             }
@@ -1215,6 +1324,8 @@ struct ChatRowItem: Identifiable {
     let id: String
     let msg: ChatMsg
     var quiet = false
+    /// 一轮回复的最后一条：下面放 👍 / 👎
+    var rateable = false
 }
 
 /// DSH 运行时自己塞进会话的消息（后台任务完成通知等）
@@ -1226,6 +1337,20 @@ func isHarnessNoise(_ text: String) -> Bool {
 /// 洞察点开时服务器塞进主对话的那段（以【洞察 开头）：服务器的历史会滤掉，这里再兜一次底
 func isInsightPrompt(_ text: String) -> Bool {
     text.drop(while: { $0.isWhitespace }).hasPrefix("【洞察")
+}
+
+/// 点踩时写的那句，服务器转给 P-Health 的那段（以【反馈 开头）：不是老大在对话里打的字，不显示
+func isFeedbackPrompt(_ text: String) -> Bool {
+    text.drop(while: { $0.isWhitespace }).hasPrefix("【反馈")
+}
+
+/// 【每日推荐】那条是哪一档：第一行「｜」后面的字（早上 / 午后 / 傍晚）
+func recommendSlot(_ text: String) -> String? {
+    guard text.hasPrefix("【每日推荐】") else { return nil }
+    let head = text.dropFirst(6).prefix(while: { $0 != "\n" })
+    guard let bar = head.lastIndex(of: "｜") else { return nil }
+    let slot = head[head.index(after: bar)...].trimmingCharacters(in: .whitespaces)
+    return slot.isEmpty ? nil : slot
 }
 
 /// 解析服务器发给 P-Health 的「【待办提交】」消息
@@ -2200,6 +2325,9 @@ struct ChatInputField: UIViewRepresentable {
     var focus: Binding<Bool> = .constant(false)
     /// 变了就把输入框清空（发出去之后）。组字中也清：以前组字时一律不碰文字，发出去后整句还留在框里、框也一直是高的
     var clearSignal: Int = 0
+    /// 点踩小单子里的「应该是……」也用它（中文组字稳）：标识、return 键各自给
+    var identifier = "chat-input"
+    var returnKey: UIReturnKeyType = .send
     var onSend: (String) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -2211,7 +2339,7 @@ struct ChatInputField: UIViewRepresentable {
             guard let coordinator, let tv else { return }
             coordinator.syncHeight(tv)
         }
-        tv.accessibilityIdentifier = "chat-input"
+        tv.accessibilityIdentifier = identifier
         tv.font = UIFont.systemFont(ofSize: 16)
         tv.textColor = UIColor(E.text)
         tv.tintColor = .white
@@ -2219,7 +2347,7 @@ struct ChatInputField: UIViewRepresentable {
         tv.delegate = context.coordinator
         tv.isScrollEnabled = false
         tv.isEditable = true
-        tv.returnKeyType = .send
+        tv.returnKeyType = returnKey
         tv.enablesReturnKeyAutomatically = true
         tv.autocapitalizationType = .none
         tv.autocorrectionType = .no

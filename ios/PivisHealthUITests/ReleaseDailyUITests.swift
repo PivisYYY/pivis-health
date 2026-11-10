@@ -659,4 +659,50 @@ final class ReleaseDailyUITests: XCTestCase {
         XCTAssertTrue(any("habit-card").exists || text(containing: "P-Health · 运动").exists, "关掉全屏后没回到对话")
         closeChat()
     }
+
+    // build 52：P-Health 每轮回完的那条下面有 👍 / 👎；👎 弹「哪里不好？」，选原因提交后小手变实心，重开对话还在。
+    // 只选原因、不写字：服务器只记一笔，不转给 P-Health（不会多一轮对话）。最后再点一次撤回，测试环境不留痕
+    func test31_FeedbackThumbs() {
+        launch()
+        openMainChat()
+        let downs = app.buttons.matching(identifier: "fb-down")
+        XCTAssertTrue(downs.firstMatch.waitForExistence(timeout: 15), "主对话里 P-Health 的回复下面没有 👎（测试环境主对话要有 P-Health 回过的话）")
+        // 最新一轮回复（最下面那条）
+        var down: XCUIElement { downs.element(boundBy: downs.count - 1) }
+        XCTAssertGreaterThan(app.buttons.matching(identifier: "fb-up").count, 0, "回复下面没有 👍")
+        // 上一轮跑完没撤回（服务器上还是 👎）：先撤回，好从头点
+        if waitUntil(3, { down.isSelected }) {
+            down.tap()
+            XCTAssertTrue(waitUntil(5) { !down.isSelected }, "点已经选中的 👎 没撤回")
+        }
+        down.tap()
+        let sheet = any("fb-sheet")
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "点 👎 没弹出「哪里不好？」")
+        XCTAssertTrue(text(containing: "哪里不好").exists, "面板上没有标题「哪里不好？」")
+        XCTAssertTrue(any("fb-note").exists, "面板上没有「应该是……」输入框")
+        let submit = app.buttons["fb-submit"].firstMatch
+        XCTAssertFalse(submit.isEnabled, "什么都没选时「提交」应是灰的")
+        let reason = app.buttons["fb-reason-说错了"].firstMatch
+        XCTAssertTrue(reason.exists, "没有原因「说错了」")
+        reason.tap()
+        XCTAssertTrue(waitUntil(3) { reason.isSelected }, "点了原因没选上")
+        XCTAssertTrue(submit.isEnabled, "选了原因「提交」还是灰的")
+        shot("31-feedback-panel")
+        submit.tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5), "提交后面板没收起")
+        XCTAssertTrue(waitUntil(5) { down.isSelected }, "提交后 👎 没变成选中")
+        XCTAssertTrue(app.textViews["chat-input"].firstMatch.exists, "面板收起后输入框没回来")
+        // 只选原因不写字：不该引起新的一轮
+        XCTAssertFalse(any("chat-activity").waitForExistence(timeout: 3), "只选原因提交后 P-Health 开始说话了")
+        shot("31-feedback-selected")
+        // 重开对话：手机上的缓存 + 服务器拉回来的都还是 👎
+        closeChat()
+        openMainChat()
+        XCTAssertTrue(downs.firstMatch.waitForExistence(timeout: 15), "重开对话后没有 👎")
+        XCTAssertTrue(waitUntil(8) { down.isSelected }, "重开对话后 👎 不是选中的")
+        // 再点一次 = 撤回
+        down.tap()
+        XCTAssertFalse(sheet.waitForExistence(timeout: 2), "点已经选中的 👎 又弹了面板（应该直接撤回）")
+        XCTAssertTrue(waitUntil(5) { !down.isSelected }, "点已经选中的 👎 没撤回")
+    }
 }

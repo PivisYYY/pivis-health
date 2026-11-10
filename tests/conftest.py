@@ -194,3 +194,14 @@ def tools_env(tmp_path, monkeypatch, objective_db, whoop_snapshot):
     from pivis_health.config import load_config
     from pivis_health.tools import HealthTools
     return HealthTools(load_config())
+
+
+
+@pytest.fixture(autouse=True)
+def _no_real_workspace(tmp_path_factory, monkeypatch):
+    """测试绝不碰真实 DSH 工作区：工作区目录换成临时目录（偏好段、全盘简报都写在工作区里）。"""
+    from pivis_health import dsh_chat
+    ws = tmp_path_factory.mktemp("dsh-ws")
+    (ws / "AGENTS.md").write_text("# 测试工作区\n", encoding="utf-8")
+    monkeypatch.setattr(dsh_chat, "DSH_CWD", str(ws))
+    monkeypatch.setattr(dsh_chat, "SESSIONS_DIR", ws / "sessions")     # 也不读真实的对话记录

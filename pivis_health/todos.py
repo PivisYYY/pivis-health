@@ -343,6 +343,14 @@ def clean_project_name(name: str) -> str:
     return n.strip() or str(name or "").strip()
 
 
+def _check_plan(cfg, t: dict) -> None:
+    """和今晚睡眠安排的明显冲突（洗澡太晚、剧烈运动太晚、CBT-I 上床 / 午睡）：退回让 P-Health 改。"""
+    from . import plan_lint
+    bad = plan_lint.check(cfg, t)
+    if bad:
+        raise TodoError("和睡眠安排冲突：" + "；".join(bad) + "。改好再写（同一件事今天其他卡有冲突的也一起改）")
+
+
 def check_project_name(name: str) -> None:
     n = str(name or "")
     if re.search(r"[（(【\[]", n):
@@ -402,6 +410,7 @@ class TodoStore:
         todo = dict(todo)
         todo.setdefault("date", today.isoformat())
         check_lengths(todo)
+        _check_plan(self.cfg, todo)
         with self._locked() as data:
             t = normalize(todo)
             check_practice(t, self.cfg)
@@ -427,6 +436,9 @@ class TodoStore:
             if by == "agent":
                 check_lengths(patch, tuple(k for k in ("title", "note") if k in patch))
             t = normalize(patch, cur)
+            if by == "agent" and any(k in patch for k in ("when", "title", "note", "duration_min")) \
+                    and t.get("status") in ("scheduled", "proposed", "processing"):
+                _check_plan(self.cfg, t)
             if any(k in patch for k in ("kind", "steps", "media", "items")):
                 check_practice(t, self.cfg)
             t["id"] = todo_id
@@ -518,6 +530,9 @@ class TodoStore:
                 if changed and not any(str(o.get("title")) == str(tpl.get("title")) and str(o.get("note") or "") == str(tpl.get("note") or "")
                                        for o in cur.get("daily") or []):
                     check_lengths(tpl)              # 改过标题 / note 的模板才查字数
+                if changed and not any(_same_content(tpl, old) and str(old.get("when")) == str(tpl.get("when"))
+                                       for old in cur.get("daily") or []):
+                    _check_plan(self.cfg, tpl)      # 新加 / 改过的模板才查和睡眠安排的冲突
                 if tpl.get("duration_min") in (None, "") and norm["duration_min"]:
                     tpl = {**tpl, "duration_min": norm["duration_min"]}   # 时长写在视频里的，模板上也带一份（复盘、习惯卡要用）
                 daily.append(tpl)

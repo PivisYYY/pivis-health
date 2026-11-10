@@ -274,6 +274,9 @@ def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[
 
 
 # ---------------------------------------------------------------- 巡一次 / 后台线程
+BRIEF_EVERY_S = 600
+
+
 def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
     """巡一次。同一时间只有一个进程在巡；第一次跑只记位置不推。"""
     from . import dsh_chat
@@ -299,6 +302,15 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
             out += todos(state, lambda *_a: {"ok": False, "skipped": "first_run"}, TodoStore(cfg), now, lead_minutes(cfg))
         else:
             out += todos(state, send, TodoStore(cfg), now, lead_minutes(cfg))
+        # 全盘简报（build 52）：每 10 分钟看一次，数据变了才重写 CLAUDE.local.md（DSH 会补进每个对话）
+        last = state.get("brief_check")
+        if not last or (now - datetime.fromisoformat(last)).total_seconds() >= BRIEF_EVERY_S:
+            state["brief_check"] = now.isoformat()
+            try:
+                from . import brief
+                brief.refresh(tools, now=now)
+            except Exception as exc:  # noqa: BLE001  简报出错不能拖垮推送
+                state["brief_error"] = str(exc)[:200]
         state["sent"] = _prune(state.get("sent", {}), now)
         state["at"] = now.isoformat()
         _save(path, state)

@@ -11,13 +11,16 @@ struct PendingInsight: Decodable, Equatable {
     var id = ""
     var n: Int?
     var text = ""
+    /// 浮条右边按钮上的字（服务器按这次的事给，比如「看看」）；没给就是「聊聊」
+    var button = ""
 
-    private enum K: String, CodingKey { case id, n, text }
+    private enum K: String, CodingKey { case id, n, text, button }
 
-    init(id: String, n: Int? = nil, text: String) {
+    init(id: String, n: Int? = nil, text: String, button: String = "") {
         self.id = id
         self.n = n
         self.text = text
+        self.button = button
     }
 
     init(from decoder: Decoder) {
@@ -25,7 +28,10 @@ struct PendingInsight: Decodable, Equatable {
         id = (try? c.decode(String.self, forKey: .id)) ?? ""
         n = (try? c.decode(Int.self, forKey: .n)) ?? (try? c.decode(Double.self, forKey: .n)).map { Int($0) }
         text = (try? c.decode(String.self, forKey: .text)) ?? ""
+        button = ((try? c.decode(String.self, forKey: .button)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    var buttonLabel: String { button.isEmpty ? "聊聊" : button }
 
     /// 浮条上那句话：服务器给的为准，没给就按件数拼
     var line: String {
@@ -181,7 +187,7 @@ final class PostOutbox {
     }
 }
 
-// MARK: - 浮条：主对话输入框上方，一行字 +「聊聊」；没有关闭按钮，左右划掉 = 不聊
+// MARK: - 浮条：主对话输入框上方，一行字 +「聊聊」（服务器可以换成别的字）；没有关闭按钮，左右划掉 = 不聊
 struct InsightBar: View {
     @ObservedObject private var sync = PageSync.shared
     /// 点「聊聊」：对话页收起浮条、调 open、进入等回复的状态
@@ -209,7 +215,7 @@ struct InsightBar: View {
                 .lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button { onOpen(ins.id) } label: {
-                Text("聊聊")
+                Text(ins.buttonLabel)
                     .font(E.body(14)).foregroundStyle(E.text)
                     .lineLimit(1).fixedSize()
                     .padding(.horizontal, 14)

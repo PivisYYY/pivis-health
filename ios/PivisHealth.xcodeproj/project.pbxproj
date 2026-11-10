@@ -308,7 +308,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				CURRENT_PROJECT_VERSION = 51;
+				CURRENT_PROJECT_VERSION = 52;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pivis.health;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -335,7 +335,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				CURRENT_PROJECT_VERSION = 51;
+				CURRENT_PROJECT_VERSION = 52;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pivis.health;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -381,7 +381,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PivisHealthWidgets/PivisHealthWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 51;
+				CURRENT_PROJECT_VERSION = 52;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetsInfo.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "P-Health";
@@ -406,7 +406,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PivisHealthWidgets/PivisHealthWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 51;
+				CURRENT_PROJECT_VERSION = 52;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetsInfo.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "P-Health";

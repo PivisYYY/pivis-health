@@ -100,6 +100,20 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("project-list")
     sp = sub.add_parser("media-library", help="可用的放松/跟练素材（只能从这里选链接）")
     sp = sub.add_parser("facts", help="v3 主卡可引用的数字"); sp.add_argument("--date")
+    sp = sub.add_parser("brief", help="全盘简报：老大此刻的全部数据、今晚时间线、交叉信号、数据缺口（服务器算好的）")
+    sp.add_argument("--write", action="store_true", help="同时写进工作区 CLAUDE.local.md（DSH 会补进每个对话）")
+    sp.add_argument("--json", action="store_true")
+    sp = sub.add_parser("goal-set", help="记 / 改一个目标（metric: weight / sleep_h / steps / project:<id> / none）")
+    sp.add_argument("--json", required=True, help='{"id":"weight","title":"减到 70 kg","metric":"weight","target":70,"deadline":"2027-03-01"}')
+    sub.add_parser("goal-list", help="老大的目标和进度")
+    sp = sub.add_parser("review-cycle", help="每周对话复盘（周一早上由 insight-cycle.sh 调）")
+    sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--force", action="store_true")
+    sp = sub.add_parser("review-decide", help="老大对复盘里某一条改法的决定（同意 / 不对）")
+    sp.add_argument("--period", required=True); sp.add_argument("--n", type=int, required=True)
+    g = sp.add_mutually_exclusive_group(required=True)
+    g.add_argument("--agree", action="store_true"); g.add_argument("--reject", action="store_true")
+    sp.add_argument("--note", default="")
+    sub.add_parser("review-fixes", help="老大同意了、等开发改的复盘改法")
     sp = sub.add_parser("page-v3", help="查看 v3 页面文档"); sp.add_argument("page", choices=["now", "sleep", "sport", "stress"])
     sp = sub.add_parser("daily-review", help="定时场景推荐（早上 8 点 / 午后 1 点 / 傍晚 6 点）：让 P-Health 主动推荐 1–2 件事"); sp.add_argument("--board", choices=["sleep", "sport", "stress"]); sp.add_argument("--force", action="store_true")
     sp.add_argument("--slot", choices=["morning", "noon", "evening"], help="不写就按现在的钟点判断")
@@ -412,8 +426,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.dry_run:
                 _json({"pending": delivery.pending()[:args.limit], "dispatched": 0, "failed": []})
             else:
-                _json(delivery.dispatch(lambda event: send_event_to_agent(tools.cfg, event),
-                                        limit=args.limit))
+                from .event_dispatch import dispatch_filtered
+                _json(dispatch_filtered(tools.cfg, limit=max(args.limit, 50)))     # build 52：先筛再交，合成一轮
         elif args.cmd in ("todo-add", "todo-update", "todo-remove", "todo-list", "project-set", "project-list"):
             from .todos import TodoStore
             store = TodoStore(tools.cfg)
@@ -459,6 +473,33 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "media-library":
             from .v3 import media_library
             _json({"items": media_library(tools)})
+        elif args.cmd == "brief":
+            from . import brief as brief_mod
+            if args.write:
+                _json(brief_mod.refresh(tools, force=True))
+            else:
+                b = brief_mod.build(tools)
+                if args.json:
+                    _json(b)
+                else:
+                    print(b["text"])
+        elif args.cmd == "review-cycle":
+            from . import review
+            _json(review.cycle(tools, force=args.force, dry_run=args.dry_run))
+        elif args.cmd == "review-decide":
+            from . import review
+            _json(review.decide(tools, args.period, args.n, bool(args.agree), args.note))
+        elif args.cmd == "review-fixes":
+            from . import review
+            _json({"open": review.open_fixes(tools.cfg)})
+        elif args.cmd == "goal-set":
+            from . import goals as goals_mod
+            _json(goals_mod.set_goal(tools.cfg, json.loads(args.json), _day_of(tools._now())))
+        elif args.cmd == "goal-list":
+            from . import brief as brief_mod
+            from . import goals as goals_mod
+            b = brief_mod.build(tools)
+            _json({"goals": goals_mod.load(tools.cfg), "progress": b["sections"]["goals"]})
         elif args.cmd == "facts":
             from .v3 import facts
             _json(facts(tools, _day(args.date) or _day_of(tools._now())))

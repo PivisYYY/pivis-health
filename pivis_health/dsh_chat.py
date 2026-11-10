@@ -269,7 +269,8 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
                                              "The approval policy changed",
                                              "The sandbox mode changed",
                                              "Sandbox mode changed",
-                                             "【洞察")):     # 洞察：服务器替老大点「聊聊」发的系统消息，老大只看到 P-Health 那段话
+                                             "【洞察",     # 洞察 / 对话复盘：服务器替老大点「聊聊」发的系统消息，老大只看到 P-Health 那段话
+                                             "【反馈")):   # 点踩时写的那句：服务器转给 P-Health 的，老大那边已经看过
                         continue
                     body, ctx = split_context(c["text"])
                     msg = {

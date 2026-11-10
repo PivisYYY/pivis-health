@@ -111,6 +111,11 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             from . import v3 as v3mod
             from .todos import TodoStore
             from urllib.parse import unquote
+            if u.path == "/api/v3/feedback":
+                # 打开对话时拉一次：这段对话里哪些回复点过赞 / 踩（{回复时间: up|down}）
+                from . import feedback
+                self._json({"ratings": feedback.ratings(cfg, (q.get("context") or [""])[0])})
+                return True
             if u.path.startswith("/media/follow/"):
                 from .follow import media_path
                 f = media_path(cfg, u.path)
@@ -224,6 +229,13 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 except canvas.CanvasError as exc:
                     self._json({"error": "invalid", "message": str(exc)}, 422)
                 return
+            if u.path == "/api/v3/feedback":
+                # 回复下面的 👍 / 👎：{context, reply_time, rating: up|down|none, reasons?, note?, text?}
+                from . import feedback
+                self._json(feedback.record(cfg, str(body.get("context") or ""), str(body.get("reply_time") or ""),
+                                           str(body.get("rating") or ""), list(body.get("reasons") or []),
+                                           str(body.get("note") or ""), str(body.get("text") or "")[:200]))
+                return
             if u.path == "/api/v3/push-tap":
                 # 点了哪条推送（App 离线时排队补发）：洞察引擎用它算提醒后多久动手
                 from . import journal
@@ -236,7 +248,10 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 if len(parts) != 5 or parts[4] not in ("open", "dismiss"):
                     self._json({"error": "not_found"}, 404)
                     return
-                fn = insight.open_pending if parts[4] == "open" else insight.dismiss_pending
+                mod = insight
+                if parts[3].startswith("rv-"):            # 每周对话复盘和洞察共用浮条和这两个接口
+                    from . import review as mod
+                fn = mod.open_pending if parts[4] == "open" else mod.dismiss_pending
                 self._json(fn(tools, parts[3]))
                 return
             if u.path == "/api/v3/sync-health":

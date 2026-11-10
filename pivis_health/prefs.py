@@ -145,6 +145,15 @@ def agents_md_path() -> Path:
     return Path(dsh_chat.DSH_CWD) / "AGENTS.md"
 
 
+def own_workspace(cfg) -> bool:
+    """这份配置的数据目录是不是 DSH 工作区自己的（真实 / 模拟 / 演示 / 测试环境都是 <工作区>/pivis-runtime）。
+    不是就别往工作区写指令文件：单元测试用临时数据目录，以前会把测试数据写进真实工作区的偏好段。"""
+    from . import dsh_chat
+    data_parent = Path(cfg.data_dir).resolve().parent
+    cwd = Path(dsh_chat.DSH_CWD).resolve()
+    return data_parent in (cwd, cwd.parent)
+
+
 LOCAL_NAME = "AGENTS.local.md"   # 和 AGENTS.md 同目录；DSH 默认会读，而且按文件单独刷新
 
 
@@ -161,7 +170,10 @@ def sync_agents_md(cfg, path: Path | None = None) -> dict:
     build 51 起不再写进 AGENTS.md：DSH 每轮会检查指令文件，哪个文件变了就把它整份补进每个对话。
     偏好段写在 45 KB 的 AGENTS.md 里时，记一条偏好所有对话都要再收一份全文（主对话堆了 34 份）；
     拆出来以后，记偏好只补这几 KB，AGENTS.md 只在发版时变。AGENTS.md 里旧的偏好段顺手删掉。"""
-    path = path or agents_md_path()
+    if path is None:
+        if not own_workspace(cfg):
+            return {"ok": False, "reason": "数据目录不属于当前 DSH 工作区，不写指令文件"}
+        path = agents_md_path()
     if not path.is_file() or path.is_symlink():
         return {"ok": False, "reason": f"{path} 不是普通文件"}
     local = path.with_name(LOCAL_NAME)

@@ -1211,6 +1211,9 @@ def sync_status(tools) -> dict:
     # 洞察：有待发的一期时带上（App 在主对话输入框上方浮一条、中间圆钮亮点）
     from . import insight
     pending = insight.pending_status(cfg)
+    if not pending:                                 # 洞察优先；没有洞察时才放每周对话复盘（同一个浮条）
+        from . import review
+        pending = review.pending_status(cfg)
     if pending:
         out["insight"] = pending
     return out
@@ -1400,12 +1403,29 @@ def slot_for(now: datetime) -> str:
 
 def _recommend_message(slot: str, now: datetime) -> str:
     name, scene = SLOTS[slot]
-    return (f"{RECOMMEND_PREFIX}{day_of(now).isoformat()} {now.strftime('%H:%M')}｜{name}\n"
-            f"系统的定时推荐，老大看不到这条。现在是{name}（老大{scene}的时候）。"
-            f"按 daily-recommend skill 里「{name}」那一节做：看数据和今天已有的待办，主动给老大推荐 1–2 件现在最合适的事，"
-            "用待办卡写进对应板块（要占时间或改计划的用 proposal，几分钟的小事直接给打勾卡）；不要和项目里已有的重复。"
-            "练习只推荐 follow 出过片的（follow session list 能查）；没有就请老大发一个博主视频，今天已经问过就别再问。"
-            "做完只回一句话，例如「早上推荐了：晨光散步、网球前臂离心」。")
+    head = (f"{RECOMMEND_PREFIX}{day_of(now).isoformat()} {now.strftime('%H:%M')}｜{name}\n"
+            f"系统的定时推荐。现在是{name}（老大{scene}的时候）。先看工作区 CLAUDE.local.md 的「全盘简报」"
+            "（服务器刚更新过：今天状态、作息、训练、习惯完成率、今晚时间线、交叉信号、数据缺口），"
+            f"再按 daily-recommend skill 里「{name}」那一节做。推荐必须从全盘出发：交叉信号命中的先处理"
+            "（恢复日就别推强度，作息偏晚就推见光、固定起床），每件事的理由写老大自己的数；不要和项目里已有的重复，"
+            "下面「近 3 天推荐过的」不要原样再推（同一件事最多连着 2 天）。"
+            "练习只推荐 follow 出过片的（follow session list 能查）；没有就请老大发一个博主视频，今天已经问过就别再问。")
+    if slot == "morning":
+        return head + ("\n早上这次回复老大看得到，写成「今日判断」，三行以内：① 今天是什么状态（一句话判断 + 2 个数，比如"
+                       "「恢复 39、呼吸频率高出常态：今天按恢复日过」）；② 今天最该做的 1–2 件（卡已经排好）；③ 今天要避开的 1 件。")
+    return head + "\n做完只回一句话，写推荐了什么和为什么（带一个数），例如「午后推荐：闭眼歇 3 分钟——昨晚只睡 5.6 小时，CBT-I 期间不补觉」。"
+
+
+def _recent_recommends(tools, day: date) -> str:
+    """近 3 天 P-Health 推荐过的卡（不在项目里的）：别连着几天都推「出门走 10 分钟」。"""
+    store = TodoStore(tools.cfg)
+    seen = []
+    for k in range(1, 4):
+        d = day - timedelta(days=k)
+        for t in store.for_date(d):
+            if not t.get("project") and t.get("source") in (None, "agent"):
+                seen.append(f"{d.strftime('%m-%d')} {t['title']}（{ {'done': '做了', 'skipped': '跳过', 'expired': '没做'}.get(t['status'], t['status']) }）")
+    return "\n近 3 天推荐过的：" + ("；".join(seen) if seen else "没有")
 
 
 DAILY_REVIEW_NOTE = ("\n这是早上那次【每日推荐】，顺带做每日整理：看昨天的待办做得怎么样（漏了的问原因，连续漏两次的按 habit-coach 处理）、"
@@ -1440,7 +1460,13 @@ def daily_review(tools, boards: list[str] | None = None, force: bool = False, sl
     key = f"main:{day_of(now).isoformat()}:{slot}"
     if state.get(key) and not force:
         return {"slot": slot, "status": "already"}
+    try:
+        from . import brief as brief_mod
+        brief_mod.refresh(tools, force=True, now=now)       # 推荐之前把全盘简报刷成最新
+    except Exception:  # noqa: BLE001
+        pass
     msg = _recommend_message(slot, now)
+    msg += _recent_recommends(tools, day_of(now))
     from .coach import projects_truth
     msg += _today_counts(tools, day_of(now))
     msg += projects_truth(tools, day_of(now))
