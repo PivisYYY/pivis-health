@@ -122,6 +122,7 @@ struct V3Page: Decodable {
         let state: String         // active / not_started
         let label: String         // 力量训练 · 第 11 天 / 56
         let today: String         // 今天 20:00 / 今天做完了 / 11-23 开始
+        var icon: String? = nil   // build 53：项目自己的线条图标（SF Symbol 名），没有就用板块图标
     }
     struct Detail: Decodable, Identifiable {
         var id: String { title + kind }
@@ -252,6 +253,13 @@ struct V3Todo: Decodable, Identifiable, Hashable {
     var items: [String]? = nil      // checklist：几小步
     var record: V3Record? = nil
     var last: V3Last? = nil
+    var timeDraft: Bool? = nil      // build 53：服务器拟的时间，等老大确认（「好」/ 换个时间）
+    var draftWhy: String? = nil     // 拟这个时间的依据，比如「按 23:30 上床倒推」
+    var remind: V3Remind? = nil     // P-Health 改过的提醒方式；nil = 默认（提前 + 到点）
+
+    /// 这张卡会不会提醒（卡上画铃铛用）：有时间、不是自动记的、没被关掉、还没开始（和服务器 notify.todos 同一条规则：
+    /// 只提醒 scheduled / proposed 的卡，开始了的计时、做了一半的清单不再推）
+    var reminds: Bool { !when.isEmpty && auto == nil && remind?.off != true && ["scheduled", "proposed"].contains(status) }
 
     var boardLabel: String { ["sleep": "休息", "sport": "运动", "stress": "压力", "life": "日常"][board] ?? "" }
     var allSteps: [V3Step] {
@@ -261,11 +269,20 @@ struct V3Todo: Decodable, Identifiable, Hashable {
     }
 }
 
+/// 这张卡怎么提醒（build 53，P-Health 可以改）
+struct V3Remind: Decodable, Hashable {
+    var off: Bool? = nil
+    var leadMin: Int? = nil
+    var extra: [String]? = nil
+    var nudge: Bool? = nil
+}
+
 /// 习惯卡（对话顶部）：本周 7 天 + 每套训练「标题 → 视频」
 struct V3HabitDoc: Decodable, Hashable {
     let id: String
     let name: String
     let board: String
+    var icon: String? = nil   // build 53：项目图标（SF Symbol 名）
     let state: String
     let day: Int
     let days: Int
@@ -329,13 +346,27 @@ enum V3API {
     }
 
     /// 下拉刷新：让服务器马上拉一次 WHOOP。返回给老大看的一句话和是否成功（连不上服务器算失败）
-    struct HealthSync: Decodable { let ok: Bool; let whoop: String?; let message: String? }
+    /// build 53：服务器马上回（不再当场等 WHOOP）。whoop: fresh / late / needs_login / unknown；
+    /// apple: fresh / quiet（手机没开 App）/ server（服务器的问题）/ blocked（权限关了）/ late。
+    /// action 不为空才需要老大动手（这时 ok = false）；pulling = 服务器在后台补拉 WHOOP
+    struct HealthSync: Decodable {
+        let ok: Bool
+        let whoop: String?
+        let message: String?
+        var whoopAgeMin: Int? = nil
+        var apple: String? = nil
+        var appleAgeH: Double? = nil
+        var pulling: Bool? = nil
+        var action: String? = nil
+    }
     static func syncHealth() async -> HealthSync {
-        let req = PivisAPI.request("api/v3/sync-health", method: "POST", timeout: 25)
-        guard let r = try? await PivisAPI.fetch(HealthSync.self, req) else {
-            return HealthSync(ok: false, whoop: "failed", message: "WHOOP 没同步上：连不上服务器")
+        // 服务器马上回，不用等 25 秒；连不上服务器时两个点都是空心，不说「没同步上」（页面自己会显示连不上）
+        let req = PivisAPI.request("api/v3/sync-health", method: "POST", timeout: 12)
+        do { return try await PivisAPI.fetch(HealthSync.self, req) }
+        catch {
+            DshAPI.dbg("sync-health failed: \(error.localizedDescription)")
+            return HealthSync(ok: false, whoop: "unknown", message: nil)
         }
-        return r
     }
 
     static func habit(_ id: String) async throws -> V3HabitDoc {

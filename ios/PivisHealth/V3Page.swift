@@ -12,6 +12,10 @@ struct BoardPageView: View {
     @State private var pendingExpand: String?   // 冷启动时页面还没拉到：拉到后再展开
     @State private var poller: Task<Void, Never>?
     @State private var toast: String?
+    /// 下拉刷新后顶上的两个小圆点（WHOOP / Apple 健康）；token 防止上一次的淡出把这次的提前收掉
+    @State private var syncDots: HealthDots?
+    @State private var syncDotsToken = UUID()
+    @State private var showWhoopLogin = false
     @ObservedObject private var sync = PageSync.shared
     @State private var heroHold = false
 
@@ -40,11 +44,7 @@ struct BoardPageView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                if sync.agentBusy {
-                    AgentBusyLine(label: sync.agentLabel)
-                        .padding(.top, 6)
-                        .transition(.opacity)
-                }
+                // P-Health 在处理：底栏圆钮里的莫比乌斯在走 + 主卡的流光框，页面上不再写一行字（build 53）
                 if let doc {
                     if !doc.headline.text.isEmpty && doc.stale != true {
                         Text(doc.headline.text)
@@ -71,7 +71,24 @@ struct BoardPageView: View {
                     if let habits = doc.habits, !habits.isEmpty { HabitRows(habits: habits).padding(.top, 14) }
                     if !doc.todos.isEmpty { todoSection(doc) }
                     ForEach(doc.notices, id: \.self) { n in
-                        Text(n.text).font(E.body(12)).foregroundStyle(E.text3).padding(.top, 12)
+                        if n.text.contains("重新登录 WHOOP") {
+                            // 服务器说 WHOOP 登录真失效了：这条提示可以点，直接在手机上重新登录
+                            Button { showWhoopLogin = true } label: {
+                                HStack(spacing: 6) {
+                                    Text(n.text).font(E.body(12)).foregroundStyle(E.text2)
+                                        .multilineTextAlignment(.leading)
+                                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .light))
+                                        .foregroundStyle(E.text3)
+                                }
+                                .frame(minHeight: 44, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(EPress())
+                            .padding(.top, 2)
+                            .accessibilityIdentifier("notice-whoop-login")
+                        } else {
+                            Text(n.text).font(E.body(12)).foregroundStyle(E.text3).padding(.top, 12)
+                        }
                     }
                 } else if loader.failed {
                     VStack(alignment: .leading, spacing: 12) {
@@ -96,24 +113,40 @@ struct BoardPageView: View {
         }
         .onChange(of: heroKey) { _, _ in heroHold = false }
         .refreshable {
-            // 下拉：先同步一次健康数据（Apple 健康由手机直接传、WHOOP 由服务器去拉，两边同时进行），
-            // 再拉最新页面；结果如实说一句。P-Health 还在改主卡就顺带说明改好会自动换上
+            // 下拉：Apple 健康由手机直接传、服务器马上回 WHOOP / Apple 的数据有多新（需要时它在后台补拉 WHOOP），
+            // 两边同时进行；再拉最新页面。不写字：轻震一下 + 顶上两个小圆点（实心 = 新的），2 秒后淡出。
+            // 只有服务器说要老大动手（action）时才写那一句；P-Health 还在改主卡由流光框表示
             async let apple = DeviceDataReporter.shared.syncNow()
             async let whoop = V3API.syncHealth()
             let (appleOK, w) = await (apple, whoop)
+            DshAPI.dbg("下拉刷新 whoop=\(w.whoop ?? "-") apple=\(w.apple ?? "-") 手机上传=\(appleOK) pulling=\(w.pulling == true) action=\(w.action != nil)")
             await sync.poll()
             await loader.load()
-            var msg: String
-            switch (appleOK, w.ok) {
-            case (true, true): msg = "健康数据已同步"
-            case (false, true): msg = w.whoop == "skipped" ? "页面已刷新" : "WHOOP 已同步"
-            case (true, false): msg = "Apple 健康已同步；" + (w.message ?? "WHOOP 没同步上")
-            case (false, false): msg = w.message ?? "健康数据没同步上"
-            }
-            if heroUpdating || sync.agentBusy { msg += " · P-Health 还在改，改好会自动换上" }
-            flash(msg)
+            // 菊花收起的同时出来（不和它叠在一起）
+            Haptic.tap()
+            showSyncDots(HealthDots(sync: w, appleUploaded: appleOK))
         }
-        .overlay(alignment: .top) { toastView }
+        .overlay(alignment: .top) {
+            ZStack(alignment: .top) {
+                if let d = syncDots {
+                    // 和页面标题同一高度、居中（标题在左、钟在右，中间是空的）
+                    HealthDotsView(dots: d) { showWhoopLogin = true }
+                        .padding(.top, 21)
+                        .padding(.horizontal, E.gutter)
+                        .transition(.opacity)
+                }
+                toastView
+            }
+        }
+        .sheet(isPresented: $showWhoopLogin, onDismiss: {
+            // 登录好了（或者关掉）：页面、状态都重新对一次，提示没了就不再显示
+            refresh()
+            PageSync.shared.poke()
+        }) {
+            WhoopLoginSheet()
+                .presentationDetents([.large])
+                .presentationBackground(Color.black)
+        }
         .task { if visible || isReminderSource { await loader.load() } }
         // 切到这一页：之前收到过刷新信号（或者还没拉过）就现在拉
         .onChange(of: visible) { _, now in
@@ -201,8 +234,21 @@ struct BoardPageView: View {
     /// 页面上所有还没做的待办（此刻页含收起来的那些）
     static func allTodos(_ d: V3Page) -> [V3Todo] { d.todos + (d.more ?? []) }
 
+    #if DEBUG
+    /// 测试（仅模拟器回放、Debug 包）：-timeDraftPreview 把有时间的卡都画成「P-Health 拟的时间」（只改显示，不发服务器），
+    /// 测试数据里没有拟的时间时用来看虚线时间和时间轮
+    private static let draftPreview = Profile.isSim && ProcessInfo.processInfo.arguments.contains("-timeDraftPreview")
+    #endif
+
     private func todoRow(_ todo: V3Todo, _ doc: V3Page) -> some View {
-        VStack(spacing: 0) {
+        var todo = todo
+        #if DEBUG
+        if Self.draftPreview, !todo.when.isEmpty, todo.auto == nil, todo.timeDraft == nil {
+            todo.timeDraft = true
+            todo.draftWhy = "按 23:30 上床倒推（预览）"
+        }
+        #endif
+        return VStack(spacing: 0) {
                 TodoCardView(todo: todo,
                              expanded: expandedTodo == todo.id,
                              showBoard: board.id == "now",
@@ -236,6 +282,21 @@ struct BoardPageView: View {
     private func openTodo(_ id: String) {
         withAnimation(.easeOut(duration: 0.2)) { expandedTodo = id }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { scrollRequest = id }
+    }
+
+    /// 测试（仅模拟器回放）：-syncDotsHold 让小圆点多留 8 秒（XCUITest 手势结束后要等 App 空闲约 2 秒，2 秒的窗口抓不到）
+    private static let syncDotsHold = Profile.isSim && ProcessInfo.processInfo.arguments.contains("-syncDotsHold")
+
+    /// 两个小圆点：出来后 2 秒淡出；要老大动手（有那句话）时多留一会儿，够读完、够点
+    private func showSyncDots(_ d: HealthDots) {
+        let token = UUID()
+        syncDotsToken = token
+        withAnimation(.easeOut(duration: 0.2)) { syncDots = d }
+        let stay = (d.action == nil ? 2.0 : 8.0) + (Self.syncDotsHold ? 8 : 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + stay) {
+            guard syncDotsToken == token else { return }
+            withAnimation(.easeIn(duration: 0.5)) { syncDots = nil }
+        }
     }
 
     private func flash(_ text: String) {
@@ -420,7 +481,8 @@ struct HabitRows: View {
                 } label: {
                     // 一行：图标、名字 · 第几天/共几天、右边今天要做的（老大 11-10：字要少，不再每行写「坚持习惯」）
                     HStack(spacing: 12) {
-                        BoardGlyph(board: h.board)
+                        // 每个项目自己的线条图标（「腰背放松」不再是网球拍）；没给就用板块图标
+                        ProjectGlyph(icon: h.icon, board: h.board)
                         Text(h.label).font(E.body(15)).foregroundStyle(E.text).lineLimit(1)
                         Spacer(minLength: 8)
                         Text(h.today).font(E.body(12)).foregroundStyle(E.text2).lineLimit(1)
@@ -471,20 +533,5 @@ struct HeroFields: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("hero-fields")
-    }
-}
-
-/// 页面顶部一行：P-Health 正在处理（关掉对话后它还在改东西时，页面上也看得到）
-struct AgentBusyLine: View {
-    let label: String?
-    var body: some View {
-        HStack(spacing: 2) {
-            LevelDot(level: "watch", size: 5, filled: true)
-            Text(label.map { "P-Health 在处理 · \($0)" } ?? "P-Health 在处理")
-                .font(E.body(12)).foregroundStyle(E.text3)
-                .lineLimit(1)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("agent-busy")
     }
 }

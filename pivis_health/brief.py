@@ -32,6 +32,7 @@ PROFILE_FIELDS = [
     ("在用的药", ("profile.meds", "profile.medication")),
     ("工作和通勤时间", ("profile.work", "profile.schedule", "profile.commute")),
     ("饮食习惯", ("profile.diet", "pref.diet")),
+    ("身高、年龄、性别（算营养目标用）", ("profile.body",)),
     ("运动经历", ("profile.training", "sport.preference")),
     ("想睡多久", ("profile.sleep_need", "sleep.cbti")),
 ]
@@ -305,17 +306,12 @@ def _signals(state: dict, sleep: dict, train: dict, habits: list[dict]) -> list[
 
 def _gaps(tools, day: date, train: dict, weight: dict, habits: list[dict]) -> list[str]:
     out = []
-    if not getattr(tools.cfg, "sim_mode", False):
-        try:
-            from . import whoop_sync
-            f = whoop_sync.freshness(tools.cfg)
-            if f.get("stale") and (f.get("age_hours") or 0) >= 3:
-                out.append(f"WHOOP {int(f['age_hours'])} 小时没同步上")
-        except Exception:  # noqa: BLE001
-            pass
-    sl = train.get("steps_latest")
-    if not sl or sl < (day - timedelta(days=1)).isoformat():
-        out.append("Apple 健康" + (f"从 {sl[5:]} 起" if sl else "") + "没传上来（设置 › 健康 › 数据访问与设备 › P-Health 全部打开）")
+    # WHOOP / Apple 健康：按 datastatus 的原因写（build 53）。服务器的问题不让老大改设置，手机没开 App 不算缺口
+    try:
+        from . import datastatus
+        out += datastatus.brief_lines(tools.cfg)
+    except Exception:  # noqa: BLE001
+        pass
     if weight and weight.get("age_days", 0) >= 7:
         out.append(f"体重 {weight['age_days']} 天没称（目标在减重：排一张早上空腹称重卡）")
     for h in habits:
@@ -385,6 +381,8 @@ def build(tools, now: datetime | None = None) -> dict:
         "timeline": ([f"今晚时间线（按 {bed_src} {bed} 上床" + (f"、{wake} 起床" if wake else "") + " 倒推）："
                       + " · ".join(f"{a} {b}" for a, b in tl)] if tl else []),
         "limits": ["身体限制：" + "；".join(_limits(tools.cfg))] if _limits(tools.cfg) else [],
+        "rehab": _safe(lambda: __import__("pivis_health.rehab", fromlist=["x"]).brief_lines(tools.cfg, day)),
+        "nutrition": _safe(lambda: __import__("pivis_health.nutrition", fromlist=["x"]).brief_lines(tools, day)),
         "signals": _signals(state, sleep, train, habits),
         "gaps": _gaps(tools, day, train, weight, habits),
         "goals": goals_lines(tools, day, goals, sleep, weight, habits),
@@ -393,10 +391,21 @@ def build(tools, now: datetime | None = None) -> dict:
     return {"day": day.isoformat(), "sections": sections, "text": render(sections)}
 
 
+def _safe(fn) -> list[str]:
+    try:
+        return fn() or []
+    except Exception:  # noqa: BLE001  简报的一段出错不能拖垮整份
+        return []
+
+
 def render(s: dict) -> str:
     lines = [s["head"]]
     for k in ("today", "sleep", "train", "habits", "todos", "timeline", "limits"):
         lines += s.get(k) or []
+    if s.get("rehab"):
+        lines.append("康复（rehab-status 算的，进阶 / 退一步照这里说）：")
+        lines += [f"- {x}" for x in s["rehab"]]
+    lines += s.get("nutrition") or []
     if s.get("goals"):
         lines.append("目标：" + "；".join(s["goals"]))
     else:

@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
-from . import content
+from . import content, icons
 from .clock import day_of
 from .agent_context import AgentContextStore
 from .todos import BOARD_LABEL, BOARDS, PENDING, TodoError, TodoStore
@@ -779,31 +779,13 @@ def _recent_location(cfg, hours: float = 24) -> bool:
 
 
 def data_notices(tools, page: str, day: date) -> list[dict]:
-    """WHOOP 授权掉了 / 3 小时没同步上；手机在传定位但两天没有 Apple 健康数据（多半是健康权限关了）。"""
-    out: list[dict] = []
-    cfg = tools.cfg
-    if not getattr(cfg, "sim_mode", False):          # 模拟 / 演示 / 测试环境的 WHOOP 快照是固定的旧数据
-        from . import whoop_sync
-        try:
-            f = whoop_sync.freshness(cfg)
-        except Exception:  # noqa: BLE001
-            f = None
-        if f and (f.get("present") or f.get("authorised")):
-            err = (f.get("last_attempt") or {}).get("error")
-            if not f.get("authorised") or err == "not_authorised":
-                out.append({"text": "WHOOP 授权掉了，需要在电脑上重新登录", "source": "server"})
-            elif f.get("stale") and (f.get("age_hours") or 0) >= 3:
-                out.append({"text": f"WHOOP 已经 {int(f['age_hours'])} 小时没同步上", "source": "server"})
-    if page in ("now", "sport"):
-        try:
-            vals = tools.series("steps", 7, day).get("values") or []
-        except Exception:  # noqa: BLE001
-            vals = []
-        latest = max((v["date"] for v in vals), default=None)
-        if (latest is None or latest < (day - timedelta(days=1)).isoformat()) and _recent_location(cfg):
-            out.append({"text": "手机读不到 Apple 健康：设置 › 健康 › 数据访问与设备 › P-Health，全部打开",
-                        "source": "server"})
-    return out
+    """页面上的数据提示（build 53）：只放真要老大动手的（WHOOP 登录失效、Apple 健康权限确认关了）。
+    服务器 / 开发这边的问题、手机只是没开 App，都不提示——原因判断在 datastatus。"""
+    from . import datastatus
+    try:
+        return [{"text": n["text"], "source": "server"} for n in datastatus.notices(tools.cfg)]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _pub_day(pub: dict) -> date:
@@ -979,6 +961,7 @@ def habit_rows(store: TodoStore, page: str, day: date) -> list[dict]:
             right = _next_text(p, day) or "休息"
         label = f"{name} · {n}/{p['days']}" if state == "active" else name    # 老大 11-10：字要少
         rows.append({"id": p["id"], "name": name, "board": p["board"], "board_label": BOARD_LABEL.get(p["board"], ""),
+                     "icon": icons.for_project(p),
                      "day": n if state == "active" else 0, "days": p["days"], "state": state,
                      "label": label, "today": right})
     return rows
@@ -1059,7 +1042,7 @@ def habit_doc(tools, project_id: str) -> dict | None:
     else:
         summary = f"第 {n} 天" + (f" · 下次 {first['next']} {first['title']}" if first else "")
     return {"id": p["id"], "name": name, "board": p["board"], "board_label": BOARD_LABEL.get(p["board"], ""),
-            "state": state, "day": n if state == "active" else 0, "days": p["days"], "start": p["start"],
+            "icon": icons.for_project(p), "state": state, "day": n if state == "active" else 0, "days": p["days"], "start": p["start"],
             "status": p.get("status"), "week": week, "sessions": sessions, "summary": summary,
             "label": f"{name} · 第 {n} 天 / {p['days']}" if state == "active" else name}
 
@@ -1144,35 +1127,37 @@ def _turn(context: str) -> dict | None:
     return st
 
 
-def sync_health(tools, now: datetime | None = None) -> dict:
-    """老大在 App 里下拉刷新：马上拉一次 WHOOP（App 同时把 Apple 健康的数据传上来）。
-    - 60 秒内重复下拉不重复拉，直接说刚同步过；
-    - 模拟回放 / 演示环境不连 WHOOP。"""
-    cfg = tools.cfg
-    if getattr(cfg, "sim_mode", False):
-        return {"ok": True, "whoop": "skipped", "message": "模拟环境不连 WHOOP"}
+_WHOOP_BG = {"running": False}
+
+
+def _whoop_bg(cfg) -> None:
     from . import whoop_sync
-    mark = cfg.data_dir / "whoop_manual_sync.json"
-    t = time.time()
     try:
-        last = json.loads(mark.read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        last = {}
-    if t - float(last.get("at") or 0) < 60 and last.get("ok"):
-        return {"ok": True, "whoop": "recent", "message": "刚同步过", "latest": last.get("latest")}
-    try:
-        r = whoop_sync.sync(cfg, force=True)
-        out = {"ok": True, "whoop": "synced", "latest": r.get("latest_recovery_night"),
-               "message": "WHOOP 已同步"}
-    except whoop_sync.WhoopError as exc:
-        out = {"ok": False, "whoop": "failed", "message": f"WHOOP 同步失败：{str(exc)[:60]}"}
-    except Exception as exc:  # noqa: BLE001
-        out = {"ok": False, "whoop": "failed", "message": f"WHOOP 同步失败：{type(exc).__name__}"}
-    try:
-        mark.write_text(json.dumps({"at": t, "ok": out["ok"], "latest": out.get("latest")}), encoding="utf-8")
-    except OSError:
+        whoop_sync.sync(cfg, force=True)
+    except Exception:  # noqa: BLE001  失败记在 whoop_sync_status.json，datastatus 按它判断
         pass
-    return out
+    finally:
+        _WHOOP_BG["running"] = False
+
+
+def sync_health(tools, now: datetime | None = None) -> dict:
+    """老大在 App 里下拉刷新（build 53）：不再当场等 WHOOP（以前限时 25 秒，撞上定时同步或接口慢就报「没同步上」，
+    其实数据是新的）。马上回数据有多新；WHOOP 超过 10 分钟没拉就在后台补拉一次（App 同时把 Apple 健康传上来）。
+    ok=False 只在真要老大动手时（action 写着要做什么）。"""
+    from . import datastatus
+    cfg = tools.cfg
+    st = datastatus.status(cfg)
+    w, a = st["whoop"], st["apple"]
+    kicked = False
+    if not getattr(cfg, "sim_mode", False) and w.get("state") != "needs_login" \
+            and (w.get("age_min") is None or w["age_min"] >= 10) and not _WHOOP_BG["running"]:
+        _WHOOP_BG["running"] = True
+        threading.Thread(target=_whoop_bg, args=(cfg,), name="whoop-pull", daemon=True).start()
+        kicked = True
+    action = st["actions"][0] if st["actions"] else None
+    return {"ok": action is None, "whoop": w.get("state"), "whoop_age_min": w.get("age_min"),
+            "apple": a.get("state"), "apple_age_h": a.get("age_h"), "pulling": kicked,
+            "action": action, "message": action}
 
 
 def sync_status(tools) -> dict:
@@ -1349,6 +1334,13 @@ def submit(tools, todo_id: str, body: dict) -> dict:
             if photos not in p.parents or not p.is_file():
                 raise ValueError("照片路径无效")
     t = store.user_submit(todo_id, action, values, text, body.get("summary"), now, op_id=body.get("op_id"))
+    if action == "done" and t.get("log"):
+        # 疼痛打卡：顺手记进康复的疼痛记录（build 53），不用 P-Health 再跑一轮；记不上不影响卡片完成
+        try:
+            from . import rehab
+            rehab.log_from_card(tools.cfg, t, values, now)
+        except Exception as exc:  # noqa: BLE001
+            _log_agent_error(tools.cfg, "rehab", todo_id, f"{type(exc).__name__}: {exc}")
     if action == "agent":
         msg = _agent_message(t, values, text)
         context = CONTEXT_OF_BOARD.get(t["board"], "")

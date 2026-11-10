@@ -138,8 +138,10 @@ final class ReleaseDailyUITests: XCTestCase {
     func test01_SplashTapExpandsThenEnters() {
         launch(splash: true)
         XCTAssertTrue(any("splash").waitForExistence(timeout: 5), "开屏没出来")
-        XCTAssertTrue(text(containing: "反直觉").waitForExistence(timeout: 3), "开屏没有「反直觉 · 但是对的」")
+        // build 53：开屏只有那句话本身（没有「反直觉 · 但是对的」标签行）：按标识认开屏，标签行不该再出现
         sleep(2)
+        XCTAssertTrue(any("splash").exists, "开屏两秒内就没了")
+        XCTAssertFalse(text(containing: "反直觉").exists, "开屏还留着「反直觉 · 但是对的」标签行")
         shot("01-splash")
         any("splash").tap()
         XCTAssertTrue(waitUntil(4) { text(containing: "怎么做").exists || text(containing: "依据").exists }, "点一下没展开解释")
@@ -328,7 +330,9 @@ final class ReleaseDailyUITests: XCTestCase {
         XCTAssertTrue(submit.isEnabled, "填完了行尾的对勾还是灰的")
         submit.tap()
         // 时间 / 文字项默认交给 P-Health（服务器归一化成 submit=agent）：卡片收起或进入处理都算交上了
-        XCTAssertTrue(waitUntil(3) { any("todo-settled").exists || !submit.exists || text(containing: "P-Health").exists },
+        // build 53 起页面顶上不再写「P-Health 在处理」：交给 P-Health 后卡片自己读出「P-Health 在处理」（画面上是一圈流光）
+        let handed = c.buttons.matching(NSPredicate(format: "value CONTAINS %@", "P-Health 在处理")).firstMatch
+        XCTAssertTrue(waitUntil(3) { any("todo-settled").exists || !submit.exists || handed.exists },
                       "多字段提交没反应")
     }
 
@@ -357,7 +361,8 @@ final class ReleaseDailyUITests: XCTestCase {
         shot("13-proposal")
         c.buttons["方案一"].firstMatch.tap()
         XCTAssertTrue(waitUntil(3) { c.descendants(matching: .any).matching(identifier: "todo-settled").firstMatch.exists
-                                     || text(containing: "P-Health").exists || !row("QA 提议").exists },
+                                     || c.buttons.matching(NSPredicate(format: "value CONTAINS %@", "P-Health 在处理")).firstMatch.exists
+                                     || !row("QA 提议").exists },
                       "选了方案没反应")
     }
 
@@ -416,23 +421,29 @@ final class ReleaseDailyUITests: XCTestCase {
     }
 
     func test17_PullToRefresh() {
-        launch()
+        // -syncDotsHold：小圆点多留 8 秒（手势结束后 XCUITest 还要等 App 空闲约 2 秒，正常 2 秒的窗口抓不到）
+        launch(["-syncDotsHold"])
         tab("tab-now", "此刻")
         XCTAssertTrue(hero.waitForExistence(timeout: 20))
         sleep(2)
-        // 从标语（纯文字，不是按钮）开始往下拉；拉完 1 秒、3 秒各拍一张，看手势有没有触发
-        let head = app.staticTexts["headline-now"].firstMatch
-        let anchor = head.exists ? head : app.staticTexts["page-title"].firstMatch
-        let toast = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@ OR identifier == %@", "已刷新", "已同步", "toast")).firstMatch
+        // build 53：下拉后不写字，顶上出两个小圆点（WHOOP / Apple 健康，标识 sync-dots，读屏标签说新不新），然后淡出
+        let dots = any("sync-dots")
         var seen = false
-        // XCUITest 的按住拖动在 iOS 26 上不会带动页面滚动（截图里页面不动；手动下拉正常会出「页面已刷新」），改用系统下滑手势
-        for i in 0..<2 where !seen {
-            app.scrollViews.firstMatch.swipeDown(velocity: XCUIGestureVelocity(500))
-            sleep(1); shot("17-after-swipe-\(i)-1s")
-            seen = toast.waitForExistence(timeout: 10)
+        // 以前的 swipeDown 在 iOS 26 上拉不够远、从没触发过刷新（b40–b52 这条一直挂）；
+        // 按住从上往下拖、到底停一下，能触发（build 53 在模拟器上核对过）
+        let w = app.windows.firstMatch
+        for v in [600.0, 1500.0] where !seen {
+            w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+                .press(forDuration: 0.05, thenDragTo: w.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)),
+                       withVelocity: XCUIGestureVelocity(v), thenHoldForDuration: 0.25)
+            seen = dots.waitForExistence(timeout: 8)
         }
-        XCTAssertTrue(seen, "下拉刷新后没有提示")
-        shot("17-refresh-toast")
+        XCTAssertTrue(seen, "下拉刷新后没有出两个小圆点")
+        shot("17-refresh-dots")
+        XCTAssertTrue(dots.label.contains("WHOOP") && dots.label.contains("Apple 健康"), "小圆点的读屏标签不对：\(dots.label)")
+        // 测试环境数据是新的、不用老大动手：不该有任何「没连上 / 没同步上」的字
+        XCTAssertFalse(text(containing: "没同步上").exists || text(containing: "没连上").exists, "下拉后出现了「没连上 / 没同步上」")
+        XCTAssertTrue(waitUntil(15) { !dots.exists }, "小圆点没有自己淡出")
     }
 
     // build 43：点卡上的 P-Health 图标，带着这张卡进对话：顶部是这张卡，输入框上方「关于：标题」，输入框是空的

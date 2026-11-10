@@ -26,7 +26,8 @@ from .clock import day_of as _day_of
 TICK_S = 20
 PRE_MIN = 10          # 到点前多久提醒（默认；老大可以用 pref.remind 的 lead_min 改）
 NUDGE_MIN = 15        # 练习 / 打勾过点多久还没做再催
-GRACE_MIN = 5         # 到点那条：服务刚重启时，过点 5 分钟内还补发，更久就不补了（别一开机推一串）
+GRACE_MIN = 5         # 计时到了：过点 5 分钟内还补发
+DUE_LATE_MIN = 15     # 到点那条 / 另加的钟点：服务停过、推送失败，过点 15 分钟内补发（build 53，以前 5 分钟）
 ASK_FRESH_MIN = 30    # 新卡多久之内算「新问的」
 KEEP_DAYS = 3
 STATE_FILE = "notify_state.json"
@@ -103,7 +104,7 @@ def apns_sender(tools) -> Callable[[str, str, dict], dict]:
         data = {**data, "push_id": data.get("push_id") or journal.new_push_id()}
         out = _send(title, body, data)
         journal.push_sent(tools.cfg, data["push_id"], title, body, data, out, at=tools._now().isoformat(timespec="seconds"))
-        if out.get("ok") and data.get("why") in ("pre", "due", "nudge", "timer", "insight"):
+        if out.get("ok") and data.get("why") in ("pre", "due", "nudge", "extra", "timer", "insight", "reminder"):
             todo = data.get("todo")
             journal.action(tools.cfg, "remind", board=data.get("page") if data.get("page") in BOARD_CONTEXT else None,
                            ref=todo or data.get("insight"), detail=f"{data.get('why')} · {title}"[:60],
@@ -117,6 +118,8 @@ def apns_sender(tools) -> Callable[[str, str, dict], dict]:
         results = []
         for t in tokens:
             extra = {"thread-id": data.get("thread", "phealth")}
+            if data.get("category"):
+                extra["category"] = data["category"]        # 通知上的按钮（拟的时间：「好」「换个时间」）
             if data.get("why") in ("timer", "due"):
                 # 计时到了 / 到点：带声音、时效性（专注模式下也能出来），和手机上的闹钟一起响
                 extra.update({"sound": "default", "interruption-level": "time-sensitive"})
@@ -209,8 +212,58 @@ def timer_end(t: dict) -> datetime | None:
     return start + timedelta(minutes=float(mins)) if mins else None
 
 
-def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[dict]:
+MAX_TRIES = 3          # 推送失败（APNs 没接）：下一轮再试，最多 3 次
+DRAFT_CATEGORY = "TODO_TIME"
+
+
+def _try_send(state: dict, key: str, send, title: str, body: str, data: dict, now: datetime) -> dict | None:
+    """发一条；成功才记「推过」。失败记次数，下一轮再试，第 3 次还失败就放弃（记在 failed 里，自检会报）。"""
+    sent = state.setdefault("sent", {})
+    tries = state.setdefault("tries", {})
+    r = send(title, body, data) or {}
+    if r.get("ok") or r.get("skipped") in ("disabled", "first_run", "not_configured", "no_tokens"):
+        sent[key] = now.isoformat()
+        tries.pop(key, None)
+    else:
+        tries[key] = int(tries.get(key, 0)) + 1
+        if tries[key] >= MAX_TRIES:
+            sent[key] = now.isoformat()
+            state.setdefault("failed", {})[key] = now.isoformat()
+            tries.pop(key, None)
+    return r
+
+
+def reminder_plan(t: dict, lead: int) -> list[tuple[str, datetime, datetime, str]]:
+    """这张卡的提醒：(哪一条, 从, 到, 正文)。窗口内没推出去（服务重启、推送失败）下一轮补；过了窗口就不补了。
+    P-Health 可以用卡上的 remind 改：off 不提醒；lead_min 提前量；extra 另加钟点；nudge 过点再不再催。"""
     from .todos import due_at
+    rem = t.get("remind") or {}
+    if rem.get("off") or not t.get("when"):
+        return []
+    due = due_at(t["date"], t["when"])
+    if due is None:
+        return []
+    hhmm, note = t["when"], (t.get("note") or "").strip()
+    lead = int(rem["lead_min"]) if rem.get("lead_min") is not None else lead
+    plan = []
+    if lead > 0:
+        plan.append(("pre", due - timedelta(minutes=lead), due,
+                     f"{lead} 分钟后 · {hhmm}" + (f" · {note[:40]}" if note else "")))
+    plan.append(("due", due, due + timedelta(minutes=DUE_LATE_MIN), "到时间了" + (f" · {note[:40]}" if note else "")))
+    for x in rem.get("extra") or []:
+        at = due_at(t["date"], x)
+        if at:
+            plan.append((f"extra{x.replace(':', '')}", at, at + timedelta(minutes=DUE_LATE_MIN),
+                         f"{hhmm} 的事" if at < due else "还没做的话，现在做"))
+    nudge = rem.get("nudge")
+    if nudge or (nudge is None and t.get("kind") in NUDGE_KINDS):
+        mins = t.get("duration_min")
+        plan.append(("nudge", due + timedelta(minutes=NUDGE_MIN), due + timedelta(minutes=60),
+                     "还没开始？" + (f"{int(mins)} 分钟就好" if mins else "")))
+    return plan
+
+
+def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[dict]:
     sent = state.setdefault("sent", {})
     nowl = now.replace(tzinfo=None)
     out = []
@@ -226,55 +279,132 @@ def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[
             end = timer_end(t)
             key = f"timer:{tid}:{(t.get('record') or {}).get('started_at')}"
             if end and key not in sent and end <= nowl < end + timedelta(minutes=GRACE_MIN):
-                r = send(t.get("title") or "P-Health", "时间到了" + (f" · {t['note'][:40]}" if t.get("note") else ""),
-                         {"todo": tid, "kind": "timer", "page": t.get("board") if t.get("board") in CONTEXT_PAGE.values() else "now",
-                          "thread": f"todo-{tid}", "why": "timer"})
-                sent[key] = now.isoformat()
+                r = _try_send(state, key, send, t.get("title") or "P-Health",
+                              "时间到了" + (f" · {t['note'][:40]}" if t.get("note") else ""),
+                              {"todo": tid, "kind": "timer", "page": t.get("board") if t.get("board") in CONTEXT_PAGE.values() else "now",
+                               "thread": f"todo-{tid}", "why": "timer"}, now)
                 out.append({"why": "timer", "todo": tid, "ok": r.get("ok")})
             continue
         if not tid or t.get("status") not in ("scheduled", "proposed") or t.get("auto"):
             continue
         page = t.get("board") if t.get("board") in CONTEXT_PAGE.values() else "now"
         data = {"todo": tid, "kind": t.get("kind"), "page": page, "thread": f"todo-{tid}"}
+        fresh = _fresh(t)
         # 新问的：要选的卡 / 标了「有话问」的卡（只算刚出现的，别把老卡都推一遍）
         ask_key = f"ask:{tid}" if t.get("kind") in ASK_KINDS else (f"esc:{tid}" if t.get("escalate") == "chat" else None)
         if ask_key and ask_key not in sent and t.get("source") == "agent":
-            stamp = str(t.get("updated_at") or t.get("created_at") or "")
-            try:   # 待办的时间戳是这台机器的本地时间（todos._now_iso），不是老大那边的钟
-                fresh = datetime.now() - datetime.fromisoformat(stamp[:19]) <= timedelta(minutes=ASK_FRESH_MIN)
-            except ValueError:
-                fresh = False
             if fresh:
-                r = send("P-Health 问你", t.get("title") or "", {**data, "why": "ask"})
+                r = _try_send(state, ask_key, send, "P-Health 问你", t.get("title") or "", {**data, "why": "ask"}, now)
                 out.append({"why": "ask", "todo": tid, "ok": r.get("ok")})
-            sent[ask_key] = now.isoformat()                  # 不新鲜的也记上，以后不再看
-        due = due_at(t["date"], t["when"]) if t.get("when") else None
-        if due is None:
-            continue
-        hhmm = t["when"]
-        note = (t.get("note") or "").strip()
-        plan = [
-            ("pre", due - timedelta(minutes=lead), due, f"{lead} 分钟后 · {hhmm}" + (f" · {note[:40]}" if note else "")),
-            ("due", due, due + timedelta(minutes=GRACE_MIN), "到时间了" + (f" · {note[:40]}" if note else "")),
-        ]
-        if lead <= 0:
-            plan = plan[1:]                                   # 老大说不要提前提醒
-        if t.get("kind") in NUDGE_KINDS:
-            mins = t.get("duration_min")
-            plan.append(("nudge", due + timedelta(minutes=NUDGE_MIN), due + timedelta(minutes=60),
-                         "还没开始？" + (f"{int(mins)} 分钟就好" if mins else "")))
-        for what, start, end, body in plan:
-            key = f"{what}:{tid}:{t['date']}:{hhmm}"            # 改了时间算新的一件
+            else:
+                sent[ask_key] = now.isoformat()              # 不新鲜的也记上，以后不再看
+        # 拟的时间：请老大确认（「好」「换个时间」两个按钮）；不回就按这个时间提醒
+        if t.get("time_draft") and t.get("when"):
+            dkey = f"draft:{tid}:{t['when']}"
+            if dkey not in sent:
+                if fresh:
+                    why = t.get("draft_why") or ""
+                    r = _try_send(state, dkey, send, "P-Health 先排了个时间",
+                                  f"「{t.get('title') or ''}」{t['when']}" + (f"（{why}）" if why else "") + "，行吗？",
+                                  {**data, "why": "draft", "when": t["when"], "category": DRAFT_CATEGORY}, now)
+                    out.append({"why": "draft", "todo": tid, "ok": r.get("ok")})
+                else:
+                    sent[dkey] = now.isoformat()
+        for what, start, end, body in reminder_plan(t, lead):
+            key = f"{what}:{tid}:{t['date']}:{t['when']}"            # 改了时间算新的一件
             if key in sent or not (start <= nowl < end):
                 continue
-            r = send(t.get("title") or "P-Health", body, {**data, "why": what})
-            sent[key] = now.isoformat()
+            r = _try_send(state, key, send, t.get("title") or "P-Health", body, {**data, "why": what}, now)
             out.append({"why": what, "todo": tid, "ok": r.get("ok")})
     return out
 
 
+def _fresh(t: dict) -> bool:
+    stamp = str(t.get("updated_at") or t.get("created_at") or "")
+    try:   # 待办的时间戳是这台机器的本地时间（todos._now_iso），不是老大那边的钟
+        return datetime.now() - datetime.fromisoformat(stamp[:19]) <= timedelta(minutes=ASK_FRESH_MIN)
+    except ValueError:
+        return False
+
+
+# ---------------------------------------------------------------- 单独的提醒（不是卡）
+REMINDERS = "reminders.json"
+
+
+def add_reminder(cfg, day: str, at: str, title: str, body: str = "", board: str | None = None) -> dict:
+    """P-Health 自己排一条到点推送（不是待办卡），比如「22:30 提醒老大收手机」。服务器到点一定推。"""
+    import re as _re
+    from datetime import date as _date
+    if not _re.match(r"^([01]\d|2[0-3]):[0-5]\d$", at or ""):
+        raise ValueError("at 必须是 HH:MM")
+    _date.fromisoformat(day)
+    title = (title or "").strip()
+    if not title or len(title) > 20:
+        raise ValueError("title 必填，最多 20 个字")
+    path = Path(cfg.data_dir) / REMINDERS
+    rows = _load(path).get("items", []) if path.exists() else []
+    item = {"id": f"r{int(time.time() * 1000)}", "date": day, "at": at, "title": title, "body": (body or "")[:80],
+            "board": board if board in CONTEXT_PAGE.values() else None, "created_at": datetime.now().isoformat(timespec="seconds")}
+    rows = [r for r in rows if str(r.get("date", "")) >= (_date.fromisoformat(day) - timedelta(days=KEEP_DAYS)).isoformat()]
+    rows.append(item)
+    _save(path, {"items": rows})
+    return item
+
+
+def reminders(state: dict, send, cfg, now: datetime) -> list[dict]:
+    from .todos import due_at
+    path = Path(cfg.data_dir) / REMINDERS
+    if not path.exists():
+        return []
+    nowl = now.replace(tzinfo=None)
+    out = []
+    for r in _load(path).get("items", []):
+        key = f"rem:{r['id']}"
+        at = due_at(r["date"], r["at"])
+        if key in state.get("sent", {}) or at is None or not (at <= nowl < at + timedelta(minutes=DUE_LATE_MIN)):
+            continue
+        res = _try_send(state, key, send, r["title"], r.get("body") or "P-Health 提醒",
+                        {"why": "reminder", "page": r.get("board") or "now", "thread": f"rem-{r['id']}"}, now)
+        out.append({"why": "reminder", "id": r["id"], "ok": res.get("ok")})
+    return out
+
+
+def _created_local(t: dict, tz: str) -> datetime | None:
+    """待办的 created_at 是这台机器的本地时间：换成老大那边的钟（不带时区），好和提醒时间比。"""
+    from zoneinfo import ZoneInfo
+    try:
+        return datetime.fromisoformat(str(t.get("created_at"))[:19]).astimezone(ZoneInfo(tz)).replace(tzinfo=None)
+    except (ValueError, TypeError):
+        return None
+
+
+def audit(state: dict, store, now: datetime, lead: int = PRE_MIN, tz: str = "Asia/Shanghai") -> list[dict]:
+    """自检：今天有时间、窗口已过、却没推出去的提醒（服务停了、推送一直失败）。卡是窗口过了才加的不算。"""
+    nowl = now.replace(tzinfo=None)
+    sent, failed = state.get("sent", {}), state.get("failed", {})
+    missed = []
+    try:
+        items = store.for_date(nowl.date())
+    except Exception:  # noqa: BLE001
+        return []
+    for t in items:
+        if t.get("auto") or not t.get("id"):
+            continue
+        done_at = str((t.get("record") or {}).get("at") or "")
+        for what, start, end, _body in reminder_plan(t, lead):
+            if t.get("status") in ("done", "skipped") and done_at and done_at[:16] <= start.isoformat()[:16]:
+                continue                                   # 没到点就做完了：本来就不用提醒
+            key = f"{what}:{t['id']}:{t['date']}:{t['when']}"
+            made = _created_local(t, tz)
+            if what in ("pre", "due") and end <= nowl and (key not in sent or key in failed) \
+                    and made is not None and made < start:
+                missed.append({"todo": t["id"], "title": t.get("title"), "what": what, "at": start.isoformat()[11:16]})
+    return missed
+
+
 # ---------------------------------------------------------------- 巡一次 / 后台线程
 BRIEF_EVERY_S = 600
+SELF_CHECK_S = 3600
 
 
 def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
@@ -302,6 +432,20 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
             out += todos(state, lambda *_a: {"ok": False, "skipped": "first_run"}, TodoStore(cfg), now, lead_minutes(cfg))
         else:
             out += todos(state, send, TodoStore(cfg), now, lead_minutes(cfg))
+            out += reminders(state, send, cfg, now)
+        # 每小时自检（build 53）：数据连接（服务器拒收、WHOOP 一直失败）、漏推的提醒——记进 dev_alerts.jsonl
+        last_check = state.get("self_check")
+        if not first and (not last_check or (now - datetime.fromisoformat(last_check)).total_seconds() >= SELF_CHECK_S):
+            state["self_check"] = now.isoformat()
+            try:
+                from . import datastatus
+                datastatus.self_check(cfg)
+                missed = audit(state, TodoStore(cfg), now, lead_minutes(cfg), cfg.timezone)
+                for m in missed:
+                    datastatus._alert(cfg, f"reminder_missed:{m['todo']}:{m['what']}",
+                                      f"{m['at']} {m['title']} 的 {m['what']} 提醒没推出去", now)
+            except Exception as exc:  # noqa: BLE001
+                state["self_check_error"] = str(exc)[:200]
         # 全盘简报（build 52）：每 10 分钟看一次，数据变了才重写 CLAUDE.local.md（DSH 会补进每个对话）
         last = state.get("brief_check")
         if not last or (now - datetime.fromisoformat(last)).total_seconds() >= BRIEF_EVERY_S:
@@ -312,6 +456,7 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
             except Exception as exc:  # noqa: BLE001  简报出错不能拖垮推送
                 state["brief_error"] = str(exc)[:200]
         state["sent"] = _prune(state.get("sent", {}), now)
+        state["failed"] = _prune(state.get("failed", {}), now)
         state["at"] = now.isoformat()
         _save(path, state)
         return {"ran": True, "first": first, "sent": out}

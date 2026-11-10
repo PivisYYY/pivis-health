@@ -24,6 +24,19 @@ enum E {
     static func medium(_ size: CGFloat = 15) -> Font { .system(size: size, weight: .medium) }
     static let gutter: CGFloat = 24
 
+    // MARK: 对话页的版式：所有块贴同一组左右边，不再各算各的内边距
+    /// 对话（抽屉）里唯一的左右边：消息、带进来的习惯卡 / 待办卡、顶上那一行、输入栏、「关于」标签都贴这条线。
+    /// 比页面的 gutter 窄：抽屉半高时自己已经离屏幕边 8
+    static let chatGutter: CGFloat = 16
+    /// P-Health 的头像；它的字、卡、工具图标从头像右边 8 开始（chatTextInset），一条竖线对齐
+    static let avatarSize: CGFloat = 28
+    static let chatTextInset: CGFloat = 36
+    /// 细线框卡片：圆角、内边距（对话里的卡、带进来的习惯卡 / 待办卡、交互卡同一套）
+    static let cardRadius: CGFloat = 16
+    static let cardPad: CGFloat = 16
+    /// 视频、照片框的圆角
+    static let mediaRadius: CGFloat = 14
+
     /// 「时间 · 标题」一行：待办行、画布 timeline、对话里的方案卡同一套
     static let timeColumn: CGFloat = 52
     static let timeGap: CGFloat = 18
@@ -171,6 +184,34 @@ struct BoardGlyph: View {
         .foregroundStyle(E.text)
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+/// 项目图标：项目自己带了图标（SF Symbol 名）就画它，和板块图标同一个圆形细线框；
+/// 没带、或者这台手机上没有这个符号，就画板块图标
+struct ProjectGlyph: View {
+    let icon: String?
+    let board: String
+    var size: CGFloat = 28
+
+    private var symbol: String? {
+        guard let name = icon?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty,
+              UIImage(systemName: name) != nil else { return nil }
+        return name
+    }
+
+    var body: some View {
+        if let symbol {
+            ZStack {
+                Circle().strokeBorder(E.text, lineWidth: 1)
+                Image(systemName: symbol).font(.system(size: size * 0.42, weight: .light))
+            }
+            .foregroundStyle(E.text)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+        } else {
+            BoardGlyph(board: board, size: size)
+        }
     }
 }
 

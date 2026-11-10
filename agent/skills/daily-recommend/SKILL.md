@@ -55,6 +55,7 @@ AGENTS.local.md 里的「老大定下的偏好」和「你已经了解到的老�
   - 昨晚睡不到 6 小时（facts）：看 `remind-stats` 和「你已经了解到的老大」里的 `learn.remind.*` / `learn.pattern.*`，有「睡不够的第二天容易落下」这类规律的项目，今天换它的最低版或短版（按 daily-reminders「排提醒前先看执行情况」），回复里一句话说明。
   - 昨天做了、还没打分的练习视频（不在项目里的）：按 relaxation-media 第 7 步加一张打分卡。
   - 今天是训练日：按 training-coach 第 1 步判断，「收」档就把训练卡改轻。
+  - 有伤病档案（`injury-list` 不为空）：跑 `rehab-status`。红灯：今天的康复卡改轻（按 rehab-coach 的退一步），今天的训练卡避开那个部位；可以进阶：周日复盘时按 rehab-coach 出提议，平时不自己改阶段。今日判断里只提一句最重要的。
   - 压力信号：按 stress-recovery 第 1 步读，有明确信号才加。
   - 了解期（`profile.intake` 没问完）：按 phealth-role「首周了解」加一张「了解你」卡。
 - **周日**：按消息里的周复盘要求，给每个进行中的项目出一张「本周复盘」提议卡（AGENTS 第 7 节、habit-coach 第 4 步）。

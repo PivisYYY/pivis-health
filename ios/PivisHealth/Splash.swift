@@ -86,10 +86,8 @@ struct SplashView: View {
             E.bg.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 10) {
-                        MobiusMark(lineWidth: 1, strands: 4).frame(width: 34)
-                        Text("反直觉 · 但是对的").font(E.body(12)).kerning(1.2).foregroundStyle(E.text3)
-                    }
+                    // build 53：不再有「反直觉 · 但是对的」那行标签，只留标记和这句话本身
+                    MobiusMark(lineWidth: 1, strands: 4).frame(width: 34)
                     .opacity(markShown ? 1 : 0)
                     .padding(.top, expanded ? 24 : 140)
                     VStack(alignment: .leading, spacing: 4) {

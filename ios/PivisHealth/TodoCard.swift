@@ -63,12 +63,13 @@ struct TodoCardView: View {
     // 时间 + 标题这一块是一个按钮（点了展开 / 收起，读屏读出展开状态）；行尾的图标和主动作各是各的按钮
     private var header: some View {
         HStack(alignment: .center, spacing: 0) {
+            // P-Health 拟的时间（等老大确认）：时间单独是一个按钮，点了弹时间轮；行的其余部分照常展开 / 收起
+            if isDraftTime {
+                draftTimeButton.padding(.trailing, E.timeGap)
+            }
             Button { if !settled { onExpand() } } label: {
                 HStack(alignment: .center, spacing: E.timeGap) {
-                    // 每条都有时间（老大 11-08）：没定时间的占位「—」，不空着
-                    Text(todo.when.isEmpty ? "—" : todo.when)
-                        .font(E.timeFont).monospacedDigit().frame(width: E.timeColumn, alignment: .leading)
-                        .foregroundStyle(settled || todo.when.isEmpty ? E.text3 : E.text)
+                    if !isDraftTime { timeColumn }
                     VStack(alignment: .leading, spacing: 1) {
                         Text(todo.title).font(E.body(15)).foregroundStyle(settled ? E.text2 : E.text)
                             .lineLimit(expanded ? 3 : 1)
@@ -89,22 +90,76 @@ struct TodoCardView: View {
         }
     }
 
-    /// 读屏读的：时间、副标题、P-Health 有话问、展开 / 收起
+    // MARK: 时间列：时间 + 右上角一个很小的铃铛（会提醒 = bell，P-Health 关了提醒 = bell.slash），不写字
+    private var isDraftTime: Bool { todo.timeDraft == true && !todo.when.isEmpty && !settled }
+
+    private var timeColumn: some View {
+        // 每条都有时间（老大 11-08）：没定时间的占位「—」，不空着
+        Text(todo.when.isEmpty ? "—" : todo.when)
+            .font(E.timeFont).monospacedDigit().frame(width: E.timeColumn, alignment: .leading)
+            .foregroundStyle(settled || todo.when.isEmpty ? E.text3 : E.text)
+            .overlay(alignment: .topTrailing) { bellGlyph }
+    }
+
+    @ViewBuilder
+    private var bellGlyph: some View {
+        if !settled && !todo.when.isEmpty && (todo.reminds || todo.remind?.off == true) {
+            Image(systemName: todo.reminds ? "bell" : "bell.slash")
+                .font(.system(size: 8, weight: .light))
+                .foregroundStyle(E.text3)
+                .offset(x: 10, y: 3)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// 拟的时间：灰一点、下面一条虚线；点了弹时间轮（「好」/「改成这个时间」）
+    private var draftTimeButton: some View {
+        Button {
+            NotificationCenter.default.post(name: .pivisAskTime, object: TimeAsk(todo))
+        } label: {
+            Text(todo.when)
+                .font(E.timeFont).monospacedDigit()
+                .foregroundStyle(E.text2)
+                .overlay(alignment: .bottom) {
+                    DashRule().stroke(E.text2, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                        .frame(height: 1)
+                        .offset(y: 2)
+                }
+                .frame(width: E.timeColumn, alignment: .leading)
+                .overlay(alignment: .topTrailing) { bellGlyph }
+                .frame(minHeight: 56)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(EPress())
+        .accessibilityLabel("P-Health 拟的时间 \(todo.when)")
+        .accessibilityHint("点一下确认，或者换个时间")
+        .accessibilityIdentifier("todo-time-draft")
+    }
+
+    /// 读屏读的：时间、提醒、副标题、等网络、P-Health 有话问、展开 / 收起
     private var rowValue: String {
         var parts: [String] = []
-        if !todo.when.isEmpty { parts.append(todo.when) }
+        if !todo.when.isEmpty {
+            parts.append(isDraftTime ? "拟的时间 \(todo.when)，等你确认" : todo.when)
+            if todo.reminds { parts.append("会提醒") } else if todo.remind?.off == true { parts.append("不提醒") }
+        }
         if todo.kind == "timer", todo.status == "in_progress" {
             parts.append("还剩 " + TimerText.remaining(startedAt: todo.record?.startedAt, minutes: todo.durationMin ?? 0, at: Date()))
         } else if !fullSubText.isEmpty {
             parts.append(fullSubText)
         }
+        if TodoOutbox.shared.waiting(todo.id) { parts.append(Self.waitingText) }
         if asks { parts.append("P-Health 有话问你") }
+        if processing { parts.append("P-Health 在处理") }      // 画面上是卡片一圈流光，读屏读这句（build 53 起页面顶上不再写字）
         parts.append(expanded ? "已展开" : "已收起")
         return parts.joined(separator: "，")
     }
 
-    /// 收起时只留时间 + 标题（老大 11-10：字太多显得臃肿）；只有「等网络」「计数进度」这种正在变的状态还写一行。
-    /// 板块名、备注、时长这些点开才显示
+    /// 断网时的说明：画面上只是一个小图标，读屏读这句
+    static let waitingText = "等网络：还没连上服务器，已经记在手机上，连上后自动发"
+
+    /// 收起时只留时间 + 标题（老大 11-10：字太多显得臃肿）；只有「计数进度」这种正在变的数还写一行，
+    /// 「等网络」只是一个小图标（build 53）。板块名、备注、时长这些点开才显示
     private var subText: String { expanded ? fullSubText : liveHint }
 
     private var fullSubText: String {
@@ -112,22 +167,32 @@ struct TodoCardView: View {
     }
 
     private var liveHint: String {
-        if TodoOutbox.shared.waiting(todo.id) { return "等网络 · 连上自动发" }
         if todo.kind == "counter" { return "\(count) / \(todo.target ?? 1) \(todo.unit ?? "")" }
         return ""
     }
 
     @ViewBuilder
     private var subLine: some View {
+        let waiting = TodoOutbox.shared.waiting(todo.id)
         if todo.kind == "timer", todo.status == "in_progress" {
             HStack(spacing: 0) {
                 Text("还剩 ").font(E.body(12)).foregroundStyle(E.text3)
                 TimerText(startedAt: todo.record?.startedAt, minutes: todo.durationMin ?? 0, size: 12)
                     .foregroundStyle(E.text3)
             }
-        } else if !subText.isEmpty {
-            Text(subText).font(E.body(12)).foregroundStyle(E.text3).lineLimit(expanded ? 3 : 1)
-                .multilineTextAlignment(.leading)
+        } else if waiting || !subText.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                // 还没送到服务器：一个小图标（读屏读整句，见 rowValue）
+                if waiting {
+                    Image(systemName: "icloud.slash").font(.system(size: 10, weight: .light)).foregroundStyle(E.text3)
+                        .accessibilityLabel(Self.waitingText)
+                        .accessibilityIdentifier("todo-waiting")
+                }
+                if !subText.isEmpty {
+                    Text(subText).font(E.body(12)).foregroundStyle(E.text3).lineLimit(expanded ? 3 : 1)
+                        .multilineTextAlignment(.leading)
+                }
+            }
         }
     }
 
@@ -287,11 +352,9 @@ struct TodoCardView: View {
                     .padding(.top, 4)
                 }
             }
+            // 「还没连上服务器…」不再写在这里：标题下那行的小图标就是（build 53）
             if let errorText {
                 Text(errorText).font(E.body(12)).foregroundStyle(E.text2).padding(.top, 8)
-            } else if TodoOutbox.shared.waiting(todo.id) {
-                Text("还没连上服务器，已经记在手机上，连上后自动发").font(E.body(12)).foregroundStyle(E.text3).padding(.top, 8)
-                    .accessibilityIdentifier("todo-waiting")
             }
         }
         .padding(.leading, E.timeColumn + E.timeGap)
@@ -398,7 +461,6 @@ struct TodoCardView: View {
     // MARK: 文案
     /// 副标题：P-Health 写的备注；练习卡没备注时放时长；计数放进度。不写操作说明。
     private var hint: String {
-        if TodoOutbox.shared.waiting(todo.id) { return "等网络 · 连上自动发" }
         if todo.kind == "counter" { return "\(count) / \(todo.target ?? 1) \(todo.unit ?? "")" }
         if todo.kind == "done", todo.auto != nil, todo.note.isEmpty { return "设备会自动记" }
         if todo.kind == "number", let last = todo.last, !last.summary.isEmpty, todo.note.isEmpty { return "上次 \(last.summary)" }
@@ -508,6 +570,16 @@ struct TodoCardView: View {
     private func settleNow() {
         withAnimation(.easeOut(duration: 0.2)) { settled = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { settled = false }
+    }
+}
+
+/// 一条横线（虚线下划线用）
+private struct DashRule: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.midY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        return p
     }
 }
 

@@ -48,10 +48,24 @@ struct NativeChatView: View {
     @State private var wasInBackground = false
     @State private var launchConsumed = false    // 待发送 / 草稿 / 照片：每次打开对话只用一次
     @State private var lastStreamEvent = Date()  // 实时流最后一次有动静的时间（看门狗用）
-    /// 带进来的习惯 / 待办：顶部那张卡（发了消息或往上翻就收成一行），输入框上方「关于：X」（点 × 这条起不带）
+    /// 带进来的习惯 / 待办：对话里的一张卡（放在这次对话开始的位置，打开时顶在屏幕上方，跟着对话滚走；
+    /// 划出屏幕后顶上出一行，点了滚回来），输入框上方「关于：X」（点 × 这条起不带）
     let about: ChatAbout?
     @State private var aboutActive: ChatAbout?
     @State private var aboutExpanded = true
+    /// 卡在屏幕上；划走了顶上出那一行
+    @State private var aboutOnScreen = true
+    /// 卡在屏幕上方（那一行的箭头朝上）
+    @State private var aboutAbove = true
+    @State private var aboutY: CGFloat = 0
+    /// 这次对话开始时已经有的行：卡排在它们后面，之后的新消息在卡下面（nil = 还没定，卡先排在最后）
+    @State private var aboutBefore: Set<String>?
+    @State private var aboutScroll = 0
+    /// 打开后、老大还没滑动也没发话：排版怎么变，卡都顶在上方
+    @State private var holdAboutTop = false
+    private static let aboutRowId = "about-card"
+    /// 顶上那一行占的高度：上下各 8 + 胶囊 48
+    private static let aboutBand: CGFloat = 64
     @State private var habitDoc: V3HabitDoc?
     /// 顶部习惯卡 / 待办卡里的视频：播放器由对话页拿着，卡收成一行时正在放的不断。
     /// 用 @State 只是拿着、不观察：播放进度每半秒一变，不能让整个对话页跟着重算
@@ -113,49 +127,53 @@ struct NativeChatView: View {
         self.about = about
         self.openInsight = openInsight
         _aboutActive = State(initialValue: about)
+        // 带着卡进来：卡顶在屏幕上方（和刚发出的消息一样「钉住」，下面留白），以前的聊天在它上面
+        if about != nil {
+            _pinnedKey = State(initialValue: Self.aboutRowId)
+            _holdAboutTop = State(initialValue: true)
+        }
+    }
+
+    /// 卡的图标在习惯取回来之前按对话所在的板块画
+    private var aboutBoard: String { ["休息": "sleep", "运动": "sport", "压力": "stress"][context] ?? "" }
+
+    /// 卡排在第几行后面：这次对话开始时已有的行在上面，之后来的在下面
+    private func aboutSplit(_ all: [ChatRowItem]) -> Int {
+        guard about != nil, let before = aboutBefore else { return all.count }
+        return all.firstIndex { !before.contains($0.id) } ?? all.count
+    }
+
+    /// 定下卡的位置（打开后第一次拉完消息、或者在那之前就发了话）
+    private func freezeAboutPosition() {
+        guard about != nil, aboutBefore == nil else { return }
+        aboutBefore = Set(rows.map(\.id))
     }
 
     var body: some View {
         GeometryReader { geo in
-            let bubbleMax = geo.size.width * 0.78
+            // P-Health 那一栏（字、卡）从头像右边到右边线；我的气泡也不超过这么宽
+            let column = max(120, geo.size.width - 2 * E.chatGutter - E.chatTextInset)
             let answers = answerMap()
             let liveKey = streamAttempt.map { "stream-\($0)" }
+            let all = rows
+            let split = aboutSplit(all)
             NavigationStack {
                 ScrollViewReader { proxy in
                     ScrollView {
                         // 消息最多保留 120 条，用普通 VStack：高度都是真实测量的，拖动抽屉改变尺寸时不会因估算高度跳屏
                         VStack(alignment: .leading, spacing: 10) {
-                            ForEach(rows) { row in
-                                let msg = row.msg
-                                ChatRow(msg: msg, maxWidth: bubbleMax,
-                                        avatarActive: awaitingReply && msg.key == messages.last?.key && !msg.isMe
-                                            && msg.key != turnFloorKey,
-                                        answers: msg.isMe ? nil : answers[msg.key],
-                                        streaming: msg.key == liveKey,
-                                        quiet: row.quiet,
-                                        rateContext: context,
-                                        rateable: row.rateable,
-                                        onAction: sendAction,
-                                        onDislike: openFeedback)
-                                    // 行的输入没变就不重算（流式每批字、打字每个键都会刷新整个页面）
-                                    .equatable()
-                                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("chatContent")).minY } action: { y in
-                                        if row.id == pinnedKey, abs(y - pinnedY) > 0.5 { pinnedY = y }
-                                    }
-                                    .id(row.id)
-                            }
+                            ForEach(all[..<split]) { row in chatRow(row, column: column, answers: answers, liveKey: liveKey) }
+                            if let about { aboutCard(about) }
+                            ForEach(all[split...]) { row in chatRow(row, column: column, answers: answers, liveKey: liveKey) }
                             ForEach(interactions) { req in
                                 InteractionCardView(request: req) { value in
                                     answerInteraction(req, value: value)
                                 }
                                 .id("interaction-\(req.eventId)")
-                                .frame(maxWidth: bubbleMax, alignment: .leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.leading, E.chatTextInset)
                             }
-                            ForEach(activities) { item in
-                                ActivityRow(item: item)
-                                    .id("activity-\(item.id)")
-                                    .frame(maxWidth: bubbleMax, alignment: .leading)
-                            }
+                            // 正在做什么不写字：头像在动 + 一个细线小图标（查资料 / 看数据 / 写卡…）+ 一条走动的细线
                             if awaitingReply {
                                 TypingRow(tool: toolHint, responding: streamAttempt != nil)
                                     .id("typing")
@@ -169,7 +187,7 @@ struct NativeChatView: View {
                                 .id("bottom")
                         }
                         .coordinateSpace(.named("chatContent"))
-                        .padding(.horizontal, 18)
+                        .padding(.horizontal, E.chatGutter)
                         .padding(.top, 12)
                         .padding(.bottom, 24)
                     }
@@ -177,8 +195,39 @@ struct NativeChatView: View {
                     // 回复一长过屏幕就把屏幕往下拽（抢屏幕）
                     .defaultScrollAnchor(.bottom, for: .initialOffset)
                     .scrollDismissesKeyboard(.interactively)
+                    // 带着卡的对话：顶上留出那一行的位置（一直留，不随那一行出现 / 消失变）。
+                    // 刚发的消息、滚回的卡都停在它下面，不会被那一行盖住
+                    .contentMargins(.top, about != nil ? Self.aboutBand : 0, for: .scrollContent)
                     .opacity(revealed ? 1 : 0)
                     .overlay { if !revealed && messages.isEmpty { WorkingLine().frame(width: 90) } }
+                    // 卡划出屏幕：顶上一行（和收起的卡一个样子），点了滚回卡。浮在留出的那一条上、不挤动排版；
+                    // 底下一层黑 + 一小段渐隐，滚过去的字不会从它两边露出来。卡在屏幕上时那一条只是渐隐，上面的旧消息淡出去
+                    .overlay(alignment: .top) {
+                        if about != nil, revealed, aboutOnScreen {
+                            LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+                                .frame(height: Self.aboutBand)
+                                .allowsHitTesting(false)
+                                .transition(.opacity)
+                        }
+                    }
+                    .overlay(alignment: .top) {
+                        if let about, revealed, !aboutOnScreen {
+                            VStack(spacing: 0) {
+                                ChatAboutCapsule(about: about, habit: habitDoc, board: aboutBoard, working: awaitingReply,
+                                                 cardAbove: aboutAbove, player: aboutPlayer) {
+                                    withAnimation(.easeOut(duration: 0.25)) { aboutExpanded = true }
+                                    aboutScroll += 1
+                                }
+                                .padding(.horizontal, E.chatGutter)
+                                .padding(.vertical, 8)
+                                .background(Color.black)
+                                LinearGradient(colors: [.black, .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+                                    .frame(height: 16)
+                                    .allowsHitTesting(false)
+                            }
+                            .transition(.opacity)
+                        }
+                    }
                     // 「哪里不好？」开着：对话变暗（还看得见被评的那条），点暗处 = 不评了
                     .overlay {
                         if feedbackFor != nil {
@@ -190,22 +239,29 @@ struct NativeChatView: View {
                         }
                     }
                     .background(Color.black)
-                    // 带进来的习惯 / 待办：钉在对话顶部
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        if let about {
-                            ChatAboutHeader(about: about, habit: habitDoc, expanded: $aboutExpanded,
-                                            maxHeight: geo.size.height * 0.6, player: aboutPlayer)
-                        }
-                    }
                     // 高度一变（卡片后加载完、新消息、键盘、抽屉）就在这一帧里处理，不再延迟 0.05 秒再滚（那样会一顿一顿）：
                     // 停在底部且不是刚发完消息的这一轮 → 立刻贴住底部；正在往上翻、正在拖动、刚发完消息 → 不动
                     .onScrollGeometryChange(for: ChatGeo.self) { g in
-                        ChatGeo(contentH: g.contentSize.height, visibleMaxY: g.visibleRect.maxY, containerH: g.containerSize.height)
+                        ChatGeo(contentH: g.contentSize.height, visibleMinY: g.visibleRect.minY, visibleMaxY: g.visibleRect.maxY,
+                                containerH: g.containerSize.height)
                     } action: { old, new in
                         let near = new.visibleMaxY >= new.contentH - 120
                         if near != atBottom { atBottom = near }
                         if abs(new.containerH - viewportH) > 0.5 { viewportH = new.containerH }
+                        if about != nil {
+                            // 卡不在屏幕上时要么整个在上面、要么整个在下面：拿它的顶和屏幕中线比就知道是哪边
+                            let above = aboutY < (new.visibleMinY + new.visibleMaxY) / 2
+                            if above != aboutAbove { aboutAbove = above }
+                        }
                         let resized = abs(new.contentH - old.contentH) > 0.5 || abs(new.containerH - old.containerH) > 0.5
+                        // 带着卡刚打开、老大还没动过：上面的旧消息（卡片、图）后排好、网络补来的记录插在卡上面，
+                        // 每次高度一变都重新落到卡上，卡一直顶在上方（以前只落一次，旧消息长高后卡被挤到了输入框后面）。
+                        // 还没淡入的话排版停了再淡入
+                        if resized, holdAboutTop, pinnedKey == Self.aboutRowId, !userScrolling {
+                            proxy.scrollTo(Self.aboutRowId, anchor: .top)
+                            if !revealed { noteLayoutChange() }
+                            return
+                        }
                         guard resized, pinnedKey == nil, !userScrolling else { return }
                         if !revealed || old.visibleMaxY >= old.contentH - 80 {
                             proxy.scrollTo("bottom", anchor: .bottom)
@@ -214,18 +270,30 @@ struct NativeChatView: View {
                     }
                     .onScrollPhaseChange { _, phase in
                         userScrolling = phase == .tracking || phase == .interacting || phase == .decelerating
-                        // 往上翻聊天记录：顶部的习惯卡 / 待办卡收成一行
-                        if (phase == .tracking || phase == .interacting), about != nil, aboutExpanded {
-                            withAnimation(.easeOut(duration: 0.25)) { aboutExpanded = false }
-                        }
+                        // 老大自己滑了：卡不再替他顶在上方
+                        if holdAboutTop, phase == .tracking || phase == .interacting { holdAboutTop = false }
                         // 回复已经长过一屏、老大自己动手滑了：不再钉住刚发的那条，之后停到底部就跟着新内容走
                         if userScrolling, pinnedKey != nil, tailSpace <= 1 { pinnedKey = nil }
                     }
-                    .onChange(of: scrollReset) { _, _ in atBottom = true; proxy.scrollTo("bottom", anchor: .bottom) }
+                    .onChange(of: scrollReset) { _, _ in
+                        atBottom = true
+                        // 带着卡刚打开：落在卡上（卡比屏幕高时也是卡头在上面），不是落在最底下
+                        if pinnedKey == Self.aboutRowId {
+                            proxy.scrollTo(Self.aboutRowId, anchor: .top)
+                        } else {
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
+                    }
                     .onChange(of: pinRequest) { _, _ in
                         guard let k = pinnedKey else { return }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                             withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(k, anchor: .top) }
+                        }
+                    }
+                    // 点顶上那一行：滚回卡（先展开，排好再滚）
+                    .onChange(of: aboutScroll) { _, _ in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(Self.aboutRowId, anchor: .top) }
                         }
                     }
                 }
@@ -284,6 +352,44 @@ struct NativeChatView: View {
         .captureSheet(isPresented: $showCapture) { img in sendPhoto(PendingPhoto(image: img)) }
     }
 
+
+    /// 一条消息
+    private func chatRow(_ row: ChatRowItem, column: CGFloat, answers: [String: [String: String]], liveKey: String?) -> some View {
+        let msg = row.msg
+        return ChatRow(msg: msg, maxWidth: column,
+                       avatarActive: awaitingReply && msg.key == messages.last?.key && !msg.isMe
+                           && msg.key != turnFloorKey,
+                       answers: msg.isMe ? nil : answers[msg.key],
+                       streaming: msg.key == liveKey,
+                       quiet: row.quiet,
+                       rateContext: context,
+                       rateable: row.rateable,
+                       onAction: sendAction,
+                       onDislike: openFeedback)
+            // 行的输入没变就不重算（流式每批字、打字每个键都会刷新整个页面）
+            .equatable()
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("chatContent")).minY } action: { y in
+                if row.id == pinnedKey, abs(y - pinnedY) > 0.5 { pinnedY = y }
+            }
+            .id(row.id)
+    }
+
+    /// 带进来的卡：对话内容里的一项，和消息贴同一组左右边
+    private func aboutCard(_ about: ChatAbout) -> some View {
+        ChatAboutCard(about: about, habit: habitDoc, board: aboutBoard, expanded: $aboutExpanded,
+                      working: awaitingReply, player: aboutPlayer)
+            .padding(.bottom, 8)
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("chatContent")).minY } action: { y in
+                if abs(y - aboutY) > 0.5 { aboutY = y }
+                if pinnedKey == Self.aboutRowId, abs(y - pinnedY) > 0.5 { pinnedY = y }
+            }
+            // 卡几乎看不见了（划到上面或者往上翻到了以前的记录）：顶上出那一行
+            .onScrollVisibilityChange(threshold: 0.12) { visible in
+                guard visible != aboutOnScreen else { return }
+                withAnimation(.easeOut(duration: 0.2)) { aboutOnScreen = visible }
+            }
+            .id(Self.aboutRowId)
+    }
 
     /// 底部留白：只在刚发过消息的这一轮需要，让那条能顶到屏幕上方
     private var tailSpace: CGFloat {
@@ -381,7 +487,7 @@ struct NativeChatView: View {
             .opacity(input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1)
         }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, E.chatGutter)
         .padding(.top, 10)
         .padding(.bottom, 8)
         // 黑底一直铺到屏幕底边：列表停在中间时，内容不会从 Home 条那一窄条里露出来
@@ -418,6 +524,7 @@ struct NativeChatView: View {
             toolHint = result.busy ? result.lastTool : nil
             DshAPI.dbg("chat restored busy=\(result.busy) tool=\(result.lastTool ?? "nil") msgs=\(self.messages.count) last=\(self.messages.last?.text.prefix(30) ?? "nil")")
             trimMessages()
+            freezeAboutPosition()    // 以前的聊天都到齐了：带进来的卡排在它们后面
             saveCache()
             if result.busy { startReplyMonitor(showPendingHint: false) }
             // 布局稳定后确保落在最新消息（缓存+网络合并后内容高度才确定）；还没显示的话这时才淡入
@@ -886,11 +993,11 @@ struct NativeChatView: View {
         input = ""
         inputClearSignal += 1
         activities = []   // 新的用户回合开始，清空上一轮工具行
+        freezeAboutPosition()
         let carry = aboutActive
         let mine = ChatMsg(role: "me", text: text, time: "", about: carry?.name)
         appendMessage(mine)
-        pin(mine.key)     // 自己发的消息：顶到屏幕上方，回复在下面流
-        if about != nil, aboutExpanded { withAnimation(.easeOut(duration: 0.25)) { aboutExpanded = false } }
+        pin(mine.key)     // 自己发的消息：顶到屏幕上方，回复在下面流；带进来的卡跟着往上滚走（视频不停）
         // 带着习惯 / 待办：正文前加一行标记，P-Health 先看那个项目 / 那张卡再答
         let wire = carry.map { $0.marker + "\n" + text } ?? text
         Task {
@@ -922,6 +1029,7 @@ struct NativeChatView: View {
             return PhotoMarker.tag(name) + (caption.isEmpty ? "" : "\n" + caption)
         }
         activities = []
+        freezeAboutPosition()
         atBottom = true
         sending = true
         Task {
@@ -1022,6 +1130,7 @@ struct NativeChatView: View {
         }
         FeedbackStore.shared.mark(.down, context: context, time: msg.time)
         activities = []
+        freezeAboutPosition()
         pinnedKey = nil                 // 回复接在最底下，屏幕跟着走
         scrollReset += 1
         turnFloorKey = messages.last?.key
@@ -1286,8 +1395,9 @@ struct ChatRow: View, Equatable {
         } else {
             // P-Health：解析 ```phealth-ui 块，失败回退纯文本
             let segs = GenParser.parse(msg.text)
-            HStack(alignment: .top, spacing: 8) {
-                EAvatar(active: avatarActive)
+            // 头像贴左边线，字、卡从 chatTextInset 开始，一直到右边线（卡的右边和我的气泡、带进来的卡、输入栏对齐）
+            HStack(alignment: .top, spacing: E.chatTextInset - E.avatarSize) {
+                EAvatar(active: avatarActive, size: E.avatarSize)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(segs.enumerated()), id: \.offset) { _, seg in
@@ -1307,7 +1417,8 @@ struct ChatRow: View, Equatable {
                         ReplyThumbs(context: ctx, msg: msg, always: rateable, onDown: onDislike)
                     }
                 }
-                Spacer(minLength: 8)
+                // 不用 Spacer 撑：HStack 的间距也会加在 Spacer 前面，卡的右边就差 8 够不到右边线
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 2)
         }
@@ -1316,6 +1427,7 @@ struct ChatRow: View, Equatable {
 
 struct ChatGeo: Equatable {
     var contentH: CGFloat
+    var visibleMinY: CGFloat
     var visibleMaxY: CGFloat
     var containerH: CGFloat
 }
@@ -1380,23 +1492,23 @@ struct ActivityRowItem: Identifiable {
     var done: Bool
 }
 
-struct ActivityRow: View {
-    let item: ActivityRowItem
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: item.done ? "checkmark" : "circle.dotted")
-                .font(.system(size: 11, weight: .light))
-                .foregroundStyle(E.text3)
-            Text(item.label + (item.done ? "" : "…"))
-                .font(E.body(12))
-                .foregroundStyle(E.text3)
-                .lineLimit(1)
-            Spacer(minLength: 8)
-        }
-        .padding(.leading, 32)
-        .padding(.vertical, 3)
-        .accessibilityIdentifier(item.done ? "activity-done" : "activity-running")
+/// 正在做的事 → 一个细线小图标（不写字；字只留给读屏）。
+/// 认的是 actionLabel / commandLabel 给出的话，P-Health 自己写的中文说明按关键字归类，都不认识就是「…」
+func toolGlyph(_ label: String) -> String {
+    let t = label
+    func has(_ words: String...) -> Bool { words.contains { t.contains($0) } }
+    if has("等待") { return "hand.raised" }
+    if has("照片", "图片") { return "photo" }
+    if has("提醒") { return "bell" }
+    if has("视频", "跟练", "素材", "出片", "剪") { return "film" }
+    if has("查资料", "搜", "网上", "文献") { return "magnifyingglass" }
+    if has("翻") { return "doc.text" }      // 翻记录、翻记忆、翻做法说明：是在读
+    if has("记", "写", "加", "改", "删", "排", "定", "同步", "卡") { return "square.and.pencil" }
+    if has("数据", "睡眠", "图表", "基线", "常态", "对比", "异常", "晨报", "周报", "情况", "心率", "恢复", "步数", "全不全") {
+        return "chart.xyaxis.line"
     }
+    if has("看") { return "doc.text" }
+    return "ellipsis"
 }
 
 /// 工具调用换成给老大看的话。P-Health 给 bash 写了中文说明（description）就直接用；
@@ -1450,29 +1562,39 @@ func commandLabel(_ cmd: String) -> String {
     return "处理中"
 }
 
-// MARK: - 输入中指示
+// MARK: - 输入中指示：不写字。头像上的点在走 + 一个细线小图标（在做什么）+ 一条走动的细线；字只给读屏
 struct TypingRow: View {
     var tool: String? = nil
     var responding = false
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            EAvatar(active: true)
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .center, spacing: E.chatTextInset - E.avatarSize) {
+            EAvatar(active: true, size: E.avatarSize)
+            Group {
                 if let tool, !tool.isEmpty {
-                    Text(tool.hasPrefix("等待") ? tool : tool + "…")
-                        .font(E.body(12)).foregroundStyle(E.text3)
+                    phaseGlyph(toolGlyph(tool))
+                        .accessibilityLabel(tool.hasPrefix("等待") ? tool : "正在" + tool)
                         .accessibilityIdentifier("chat-tool")
                 } else {
-                    Text(responding ? "正在回复…" : "正在思考…")
-                        .font(E.body(12)).foregroundStyle(E.text3)
+                    // 想 = 三个点；开始写回复 = 带点的气泡
+                    phaseGlyph(responding ? "ellipsis.bubble" : "ellipsis")
+                        .accessibilityLabel(responding ? "正在回复" : "正在思考")
                         .accessibilityIdentifier("chat-phase")
                 }
-                WorkingLine().frame(width: 90)
             }
-            Spacer()
+            WorkingLine().frame(width: 72)
+            Spacer(minLength: 0)
         }
         .padding(.vertical, 4)
         .accessibilityIdentifier("chat-activity")
+    }
+
+    private func phaseGlyph(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .light))
+            .foregroundStyle(E.text2)
+            .contentTransition(.symbolEffect(.replace))     // 换一件事：图标原地换，不跳
+            .frame(width: 20, height: 20)
+            .animation(.easeOut(duration: 0.25), value: symbol)
     }
 }
 
@@ -1489,6 +1611,22 @@ struct EAvatar: View {
         .frame(width: size, height: size)
         .animation(.easeOut(duration: 0.3), value: active)
         .accessibilityHidden(true)
+    }
+}
+
+/// 卡片答过了：一个细线对勾 + 答的内容（不再写「已回答：」「你选了：」「已提交」）
+struct AnsweredMark: View {
+    var answer: String? = nil
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "checkmark").font(.system(size: 11, weight: .light))
+            if let a = answer, !a.isEmpty, a != "已回答" {
+                Text(a).font(E.body(12)).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .foregroundStyle(E.text3)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(answer.map { $0 == "已回答" ? "已回答" : "已回答：\($0)" } ?? "已提交")
     }
 }
 
@@ -1524,8 +1662,9 @@ private struct ApprovalCard: View {
                 QuietButton(title: "取消") { onAnswer("cancelled") }
             }
         }
-        .padding(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(E.stroke, lineWidth: 1).allowsHitTesting(false))
+        .padding(E.cardPad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(RoundedRectangle(cornerRadius: E.cardRadius).strokeBorder(E.stroke, lineWidth: 1).allowsHitTesting(false))
     }
 }
 
@@ -1554,11 +1693,12 @@ private struct QuestionsCard: View {
                 OutlinePill(title: "提交", width: 112) { submit() }
                     .disabled(!canSubmit).opacity(canSubmit ? 1 : 0.4)
             } else {
-                Text("已提交").font(E.body(12)).foregroundStyle(E.text3)
+                AnsweredMark()
             }
         }
-        .padding(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(E.stroke, lineWidth: 1).allowsHitTesting(false))
+        .padding(E.cardPad)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(RoundedRectangle(cornerRadius: E.cardRadius).strokeBorder(E.stroke, lineWidth: 1).allowsHitTesting(false))
         .disabled(sent)
     }
 
@@ -1817,9 +1957,9 @@ struct GenCardView: View {
             content
         }
         .padding(.vertical, 14)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, E.cardPad)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(type == "receipt" ? E.stroke : E.line, lineWidth: 1).allowsHitTesting(false))
+        .overlay(RoundedRectangle(cornerRadius: E.cardRadius).strokeBorder(type == "receipt" ? E.stroke : E.line, lineWidth: 1).allowsHitTesting(false))
         .accessibilityIdentifier("gen-\(type)")
     }
 
@@ -1882,7 +2022,7 @@ struct GenCardView: View {
                     .accessibilityIdentifier("gen-question-submit")
             }
             if let submitted = done {
-                Text("已回答：\(submitted)").font(E.body(12)).foregroundStyle(E.text3)
+                AnsweredMark(answer: submitted)
             }
         }
         .disabled(done != nil)
@@ -1943,7 +2083,7 @@ struct GenCardView: View {
     @ViewBuilder
     private func actionRow(_ actions: [String]) -> some View {
         if let submitted = done {
-            Text("你选了：\(submitted)").font(E.body(12)).foregroundStyle(E.text3)
+            AnsweredMark(answer: submitted)
         } else {
             HStack(spacing: 4) {
                 ForEach(Array(actions.enumerated()), id: \.offset) { i, a in
@@ -2081,8 +2221,8 @@ struct GenMediaView: View {
                         }
                     }
                     .frame(height: kind == "audio" ? 130 : 215)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: E.mediaRadius, style: .continuous))
+                    .background(Color.black, in: RoundedRectangle(cornerRadius: E.mediaRadius, style: .continuous))
                     Link("在浏览器中打开 ↗", destination: url)
                         .font(E.body(12)).foregroundStyle(E.text2)
                 }
@@ -2250,14 +2390,14 @@ struct ChatBubble: View {
                 .font(E.body(15))
                 .lineSpacing(5)
                 .foregroundStyle(msg.role == "error" ? E.text2 : E.text)
-                .padding(.horizontal, msg.isMe ? 14 : 0)
-                .padding(.vertical, msg.isMe ? 10 : 2)
+                .padding(.horizontal, msg.isMe ? 14 : (msg.role == "error" ? 12 : 0))
+                .padding(.vertical, msg.isMe ? 10 : (msg.role == "error" ? 8 : 2))
                 .background {
                     if msg.isMe {
                         RoundedRectangle(cornerRadius: 18, style: .continuous).fill(E.grey1E)
                     } else if msg.role == "error" {
+                        // 虚线框贴左边线（以前往外扩 8，伸出了对话的边）
                         RoundedRectangle(cornerRadius: 12).strokeBorder(E.stroke, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                            .padding(-8)
                     }
                 }
                 .frame(maxWidth: maxWidth, alignment: msg.isMe ? .trailing : .leading)

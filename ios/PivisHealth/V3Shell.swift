@@ -18,6 +18,8 @@ struct V3Root: View {
     @State private var selected = V3Root.initialBoard()
     @State private var chatTarget: ChatTarget? = V3Root.initialChat()
     @State private var execTodo: V3Todo?
+    /// P-Health 拟的时间：时间轮（卡上点虚线时间、或者通知上点「换个时间」）
+    @State private var timeAsk: TimeAsk?
     @State private var splash: Truth? = V3Root.initialSplash()
     /// 键盘弹起时把底栏和底部遮罩藏起来：ignoresSafeArea(.keyboard) 在 iOS 26 上留不住，底栏会浮到键盘上面盖住卡片按钮
     @State private var keyboardUp = false
@@ -144,6 +146,15 @@ struct V3Root: View {
         }) { todo in
             ExecView(todo: todo)
         }
+        .sheet(item: $timeAsk) { ask in
+            TimeAskSheet(ask: ask)
+                .presentationDetents([.height(ask.title.isEmpty ? 330 : 370)])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.black)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .pivisAskTime)) { note in
+            if let a = note.object as? TimeAsk { timeAsk = a }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .pivisOpenChat)) { note in
             let info = note.userInfo ?? [:]
             chatTarget = ChatTarget(context: info["context"] as? String ?? "",
@@ -170,6 +181,21 @@ struct V3Root: View {
                 // P-Health 回了新消息：点开直接进那个对话
                 splash = nil
                 chatTarget = ChatTarget(context: ctx, pendingText: nil)
+            } else if let todoId = info["todo"] as? String, info["timeSheet"] as? Bool == true {
+                // 拟的时间：通知上点「换个时间」（或点通知本身）→ 展开这张卡 + 弹出时间轮（练习卡也不直接播）
+                splash = nil
+                chatTarget = nil
+                let pushedWhen = info["when"] as? String ?? ""
+                Task {
+                    let t = try? await V3API.todo(todoId)
+                    try? await Task.sleep(for: .milliseconds(400))
+                    await MainActor.run {
+                        NotificationCenter.default.post(name: .pivisExpandTodo, object: todoId)
+                        let ask = t.map { TimeAsk($0) } ?? TimeAsk(id: todoId, when: pushedWhen)
+                        guard !ask.when.isEmpty else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { timeAsk = ask }
+                    }
+                }
             } else if let todoId = info["todo"] as? String {
                 splash = nil
                 Task {
@@ -251,6 +277,13 @@ struct V3Root: View {
     /// 中间圆钮的点：主对话有没看过的回复，或者有一条洞察等着点开（点开 / 划掉后服务器状态里就没了）
     private var mainChatDot: Bool { sync.unread.contains("") || sync.insight != nil }
 
+    private var mainChatLabel: String {
+        var s = sync.unread.contains("") ? "打开 P-Health 主对话，有新回复"
+            : (sync.insight != nil ? "打开 P-Health 主对话，P-Health 有事想聊" : "打开 P-Health 主对话")
+        if sync.agentBusy { s += "，P-Health 在处理" }
+        return s
+    }
+
     private var tabBar: some View {
         // 方案 3：底部一条细线贯穿；此刻、休息在左，运动、压力在右；当前页文字变白、下面一个小点（滑过去）；
         // 正中间浮起一个细线圆圈里的莫比乌斯，点它进主对话；P-Health 在处理时环上有白点在走
@@ -264,6 +297,8 @@ struct V3Root: View {
                 tabItem(V3_BOARDS[3])
             }
             .padding(.top, 14)
+            // 「P-Health 在处理」只靠圆钮里的莫比乌斯在走（页面上不再写一行字）：容器在处理时标成 agent-busy，测试和读屏都认它
+            ZStack {
             Button {
                 chatTarget = ChatTarget(context: "", pendingText: nil)
             } label: {
@@ -287,9 +322,12 @@ struct V3Root: View {
             }
             .buttonStyle(EPress())
             .offset(y: -23)
-            .accessibilityLabel(sync.unread.contains("") ? "打开 P-Health 主对话，有新回复"
-                                : (sync.insight != nil ? "打开 P-Health 主对话，P-Health 有事想聊" : "打开 P-Health 主对话"))
+            .accessibilityLabel(mainChatLabel)
             .accessibilityIdentifier("open-main-chat")
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(sync.agentBusy ? "P-Health 在处理" : "")
+            .accessibilityIdentifier(sync.agentBusy ? "agent-busy" : "main-chat-mark")
         }
         .frame(height: 64, alignment: .top)
         .padding(.horizontal, 8)

@@ -106,6 +106,29 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("goal-set", help="记 / 改一个目标（metric: weight / sleep_h / steps / project:<id> / none）")
     sp.add_argument("--json", required=True, help='{"id":"weight","title":"减到 70 kg","metric":"weight","target":70,"deadline":"2027-03-01"}')
     sub.add_parser("goal-list", help="老大的目标和进度")
+    sub.add_parser("nutrition-targets", help="营养目标：基础代谢、热量范围、蛋白质、膳食纤维、水、手掌份量（按 profile.body + 体重 + 活动 + 目标算）")
+    sp = sub.add_parser("meal-log", help="记一餐：P-Health 只写手掌份量，服务器换成蛋白质 / 热量的范围")
+    sp.add_argument("--json", required=True, help='{"date":"2026-11-10","meal":"dinner","at":"19:30","dishes":["米饭","清蒸鱼","青菜"],"portions":{"protein_palms":1.5,"carb_hands":1,"veg_fists":1,"fat_thumbs":1},"confidence":"mid"}')
+    sp = sub.add_parser("meal-list", help="某天记了哪些饭")
+    sp.add_argument("--date", default=None)
+    sp = sub.add_parser("nutrition-day", help="某天吃的和目标比：蛋白质、热量范围、蔬菜、最后一餐离上床多久")
+    sp.add_argument("--date", default=None)
+    sub.add_parser("nutrition-week", help="近 7 天：记了几天、蛋白质平均和达标天数、晚饭太晚的天数")
+    sp = sub.add_parser("injury-set", help="新建或改伤病档案（同 id 即修改）")
+    sp.add_argument("--json", required=True, help='{"id":"knee-r","area":"knee","side":"right","name":"右膝半月板损伤","onset":"2026-11-01","phase":"load","limits":["不深蹲到底"],"goal":"回去打网球"}')
+    sp = sub.add_parser("injury-list", help="伤病档案")
+    sp.add_argument("--all", action="store_true", help="包括已经好了的")
+    sp = sub.add_parser("pain-log", help="记一次疼痛（0–10）：rest 休息时、activity 练的时候或之后、morning_after 第二天早上")
+    sp.add_argument("--json", required=True, help='{"injury":"knee-r","rest":1,"activity":3,"morning_after":2}')
+    sp = sub.add_parser("rehab-status", help="每个伤病：阶段、近 7 天疼痛、红黄绿灯、趋势、能不能进阶 / 要不要退一步")
+    sp.add_argument("--id", default=None)
+    sp = sub.add_parser("remind-add", help="单独排一条到点推送（不是待办卡）：服务器到点一定推")
+    sp.add_argument("--at", required=True, help="HH:MM（00:00–05:59 算当晚）")
+    sp.add_argument("--title", required=True, help="锁屏上的标题，最多 20 字")
+    sp.add_argument("--body", default="", help="一句话正文，最多 80 字")
+    sp.add_argument("--date", default=None, help="哪天（默认今天，按 06:00 翻页）")
+    sp.add_argument("--board", default=None, choices=["now", "sleep", "sport", "stress"], help="点开切到哪页")
+    sub.add_parser("data-status", help="WHOOP / Apple 健康连接状态（按原因分：要老大动手的、服务器的、手机没开 App）")
     sp = sub.add_parser("review-cycle", help="每周对话复盘（周一早上由 insight-cycle.sh 调）")
     sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--force", action="store_true")
     sp = sub.add_parser("review-decide", help="老大对复盘里某一条改法的决定（同意 / 不对）")
@@ -439,7 +462,7 @@ def main(argv: list[str] | None = None) -> int:
                 # 凌晨 0–6 点还算前一天；这时加的「08:00 吃药」指的是今早（日历上的今天），不是已经过去的昨早
                 if "date" not in body and n.hour < 6 and str(body.get("when") or "") >= "06:00":
                     body["date"] = n.date().isoformat()
-                t = store.add(body, today)
+                t = store.add(body, today, n)
                 journal.action(tools.cfg, "suggest" if t.get("kind") in journal.SUGGEST_KINDS else "plan",
                                board=t.get("board"), project=t.get("project"), ref=t["id"], detail=t.get("title"),
                                day=t.get("date"))
@@ -495,6 +518,43 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "goal-set":
             from . import goals as goals_mod
             _json(goals_mod.set_goal(tools.cfg, json.loads(args.json), _day_of(tools._now())))
+        elif args.cmd == "remind-add":
+            from . import notify
+            day = args.date or _day_of(tools._now()).isoformat()
+            _json(notify.add_reminder(tools.cfg, day, args.at, args.title, args.body, args.board))
+        elif args.cmd == "data-status":
+            from . import datastatus
+            _json({**datastatus.status(tools.cfg), "alerts_7d": datastatus.read_alerts(tools.cfg)})
+        elif args.cmd in ("nutrition-targets", "meal-log", "meal-list", "nutrition-day", "nutrition-week"):
+            from . import nutrition
+            today = _day_of(tools._now())
+            if args.cmd == "nutrition-targets":
+                _json(nutrition.targets(tools, today))
+            elif args.cmd == "meal-log":
+                body = json.loads(args.json)
+                body.setdefault("date", today.isoformat())
+                row = nutrition.log(tools.cfg, body)
+                _json({"logged": row, "day": nutrition.day_summary(tools, date.fromisoformat(row["date"]))})
+            elif args.cmd == "meal-list":
+                _json(nutrition.entries(tools.cfg, args.date or today.isoformat()))
+            elif args.cmd == "nutrition-day":
+                _json(nutrition.day_summary(tools, date.fromisoformat(args.date) if args.date else today))
+            else:
+                _json(nutrition.week_summary(tools, today))
+        elif args.cmd in ("injury-set", "injury-list", "pain-log", "rehab-status"):
+            from . import rehab
+            today = _day_of(tools._now())
+            if args.cmd == "injury-set":
+                _json(rehab.injury_set(tools.cfg, json.loads(args.json)))
+            elif args.cmd == "injury-list":
+                _json(rehab.injuries(tools.cfg, include_resolved=args.all))
+            elif args.cmd == "pain-log":
+                body = json.loads(args.json)
+                body.setdefault("at", tools._now().strftime("%H:%M"))
+                row = rehab.pain_log(tools.cfg, body, today)
+                _json({"logged": row, "status": rehab.status(tools.cfg, row["injury"], today)})
+            else:
+                _json(rehab.status(tools.cfg, args.id, today))
         elif args.cmd == "goal-list":
             from . import brief as brief_mod
             from . import goals as goals_mod

@@ -57,16 +57,20 @@ def test_model_outage_notices_hidden_server_ones_shown(tools_env, monkeypatch):
     assert texts == ["WHOOP 授权掉了", "周末别熬夜"]
 
 
-def test_apple_health_notice_only_when_phone_is_online(tools_env, monkeypatch):
+def test_apple_health_notice_only_when_permission_confirmed(tools_env, monkeypatch):
+    """build 53：只有 App 在前台查 HealthKit 查到 0 条、一天多没收到过样本，才提示开权限；服务器拒收不提示老大。"""
+    from datetime import datetime, timezone
+    from pivis_health import ingest
     tools = tools_env
     day = date(2026, 11, 9)
-    monkeypatch.setattr(type(tools), "series", lambda self, *a, **k: {"values": [{"date": "2026-11-07", "value": 2590}]})
-    monkeypatch.setattr(v3, "_recent_location", lambda cfg, hours=24: False)
-    assert not [n for n in v3.data_notices(tools, "now", day) if "Apple" in n["text"]]
-    monkeypatch.setattr(v3, "_recent_location", lambda cfg, hours=24: True)
+    d = tools.cfg.data_dir
+    assert not [n for n in v3.data_notices(tools, "now", day) if "Apple" in n["text"]]          # 什么都没记：手机没开 App
+    ingest.note_result(d, 3, {"accepted": 0, "rejected": 3, "reject_reasons": [{"reason": "bad_timestamp"}]})
+    assert not [n for n in v3.data_notices(tools, "now", day) if "Apple" in n["text"]]          # 服务器拒收：是我们的 bug
+    (d / ingest.STATE_FILE).unlink()
+    ingest.note_result(d, 0, {"accepted": 0, "rejected": 0}, {"foreground": True, "samples": 0})
     assert [n for n in v3.data_notices(tools, "now", day) if "Apple 健康" in n["text"]]
-    assert not [n for n in v3.data_notices(tools, "stress", day) if "Apple" in n["text"]]
-    monkeypatch.setattr(type(tools), "series", lambda self, *a, **k: {"values": [{"date": "2026-11-08", "value": 9000}]})
+    ingest.note_result(d, 5, {"accepted": 5, "rejected": 0}, {"foreground": True, "samples": 5})
     assert not [n for n in v3.data_notices(tools, "now", day) if "Apple" in n["text"]]
 
 

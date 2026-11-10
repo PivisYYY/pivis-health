@@ -37,6 +37,12 @@ enum PTime {
     private static let compact = formatter("yyyyMMdd")
     private static let isoSeconds = iso([.withInternetDateTime])
     private static let isoFraction = iso([.withInternetDateTime, .withFractionalSeconds])
+    private static let isoZulu: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
 
     /// 21:45
     static func hhmm(_ d: Date) -> String { hm.string(from: d) }
@@ -47,6 +53,8 @@ enum PTime {
     /// 2026-11-07T21:45:12+08:00（发给服务器的时间）
     static func iso(_ d: Date) -> String { isoSeconds.string(from: d) }
     static func isoFractional(_ d: Date) -> String { isoFraction.string(from: d) }
+    /// 2026-11-07T13:45:12Z（健康样本的起止时间：一律 UTC，build 43–52 发 +08:00 被服务器整批拒收过）
+    static func isoUTC(_ d: Date) -> String { isoZulu.string(from: d) }
 
     /// 服务器的各种时间写法：完整 ISO（带不带毫秒）、只到分钟（带不带时区）
     static func parse(_ s: String) -> Date? {

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -255,8 +256,21 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 self._json(fn(tools, parts[3]))
                 return
             if u.path == "/api/v3/sync-health":
-                # 下拉刷新：拉一次 WHOOP（Apple 健康由 App 自己同时上传）
+                # 下拉刷新：马上回数据有多新，需要时后台补拉 WHOOP（Apple 健康由 App 自己同时上传）
                 self._json(v3mod.sync_health(tools))
+                return
+            if u.path in ("/api/v3/whoop/login", "/api/v3/whoop/login/finish"):
+                # WHOOP 登录真失效时，在手机上重新登录（build 53）
+                from . import whoop_sync
+                try:
+                    if u.path.endswith("/finish"):
+                        out = whoop_sync.phone_login_finish(tools.cfg, str(body.get("callback") or ""))
+                        threading.Thread(target=v3mod._whoop_bg, args=(tools.cfg,), daemon=True).start()
+                    else:
+                        out = whoop_sync.phone_login_start(tools.cfg)
+                    self._json(out)
+                except whoop_sync.WhoopError as exc:
+                    self._json({"ok": False, "error": str(exc)}, 400)
                 return
             if u.path.startswith("/api/v3/todo/"):
                 self._json(v3mod.submit(tools, u.path.rsplit("/", 1)[-1], body))
@@ -405,9 +419,10 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                     data = self._read_body_json()
                     from . import ingest
                     device_id = str(data.get("device_id") or "iphone-native")[:64]
-                    result = ingest.ingest_samples(Path(tools.cfg.vault_db),
-                                                   list(data.get("samples") or []),
-                                                   device_id)
+                    samples = list(data.get("samples") or [])
+                    result = ingest.ingest_samples(Path(tools.cfg.vault_db), samples, device_id)
+                    ingest.note_result(Path(tools.cfg.data_dir), len(samples), result,
+                                       data.get("health") if isinstance(data.get("health"), dict) else None)
                     for obs in list(data.get("observations") or [])[:50]:
                         kind = str(obs.get("kind") or "unknown")[:32]
                         payload = obs.get("data") if isinstance(obs.get("data"), dict) else {}
@@ -417,7 +432,8 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                             event_id=(str(obs.get("event_id"))[:128] if obs.get("event_id") else None),
                             occurred_at=(str(obs.get("occurred_at") or obs.get("ts"))[:80]
                                          if obs.get("occurred_at") or obs.get("ts") else None))
-                    self._json(result)
+                    # 发了样本却一条没收下：回 422，App 别再当成「已同步」
+                    self._json(result, 422 if samples and not result.get("accepted") and result.get("rejected") else 200)
                 elif u.path == "/api/chat/send":
                     data = self._read_body_json()
                     text = str(data.get("text") or "")

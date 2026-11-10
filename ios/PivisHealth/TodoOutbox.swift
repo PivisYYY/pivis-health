@@ -32,7 +32,8 @@ final class TodoOutbox {
     /// 最近一次可能做完一张卡的时间：送到后页面晚一点再刷新，让「记好了」播完
     private(set) var lastFinishAt = Date.distantPast
 
-    private var flushing = false
+    /// 正在发的那一轮（同一时间只有一轮；通知按钮在后台点的要等它发完）
+    private var flushTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
     private let storeKey = "todo_outbox_v1"
 
@@ -94,12 +95,21 @@ final class TodoOutbox {
     }
 
     // MARK: 发送
-    func flush() {
-        guard !flushing, !pending.isEmpty else { return }
-        flushing = true
+    func flush() { startFlush() }
+
+    /// 发一轮并等它结束：送完、被拒、或者断网（断网的留在队列里，回到前台 / 隔一会儿再补发）。
+    /// 通知上的「好」在后台点的：系统只给一小会儿，要在告诉系统「处理完了」之前真的发出去
+    func flushAndWait() async {
+        await startFlush()?.value
+    }
+
+    @discardableResult
+    private func startFlush() -> Task<Void, Never>? {
+        if let t = flushTask { return t }       // 正在发：新排进来的这条也会在这一轮里发
+        guard !pending.isEmpty else { return nil }
         retryTask?.cancel()
-        Task { @MainActor in
-            defer { flushing = false }
+        let task = Task { @MainActor in
+            defer { flushTask = nil }
             while let op = pending.first {
                 do {
                     let t = try await V3API.submit(op.todoId, action: op.action, values: Self.dict(op.values),
@@ -129,6 +139,8 @@ final class TodoOutbox {
                 }
             }
         }
+        flushTask = task
+        return task
     }
 
     private func save() {
@@ -198,6 +210,11 @@ final class TodoOutbox {
             t.status = t.kind == "proposal" ? "proposed" : "scheduled"
         case "agent":
             t.status = "processing"
+        case "confirm_time":
+            // 拟的时间：「好」不带 when（照原样），换了时间带 when；卡上马上变成普通时间
+            if let w = v["when"] as? String, !w.isEmpty { t.when = w }
+            t.timeDraft = false
+            t.draftWhy = nil
         default:
             break
         }

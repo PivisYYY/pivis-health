@@ -644,6 +644,45 @@ def authorise(cfg, *, client_id: str | None = None, client_secret: str | None = 
 
 
 # ---------------------------------------------------------------------------
+# 手机上重新登录（build 53）：App 用网页打开授权地址，跳回本机回调地址（127.0.0.1）时把完整地址交回服务器换令牌。
+# 不用改 WHOOP 开发者后台的回调地址，也不用去电脑上跑 whoop-auth。
+# ---------------------------------------------------------------------------
+PHONE_LOGIN = "phone_login.json"
+PHONE_LOGIN_TTL_S = 15 * 60
+
+
+def phone_login_start(cfg, endpoints: Endpoints = Endpoints()) -> dict:
+    auth_dir = _private_dir(Path(cfg.whoop_auth_dir))
+    client = _read_json(_client_path(auth_dir)) or {}
+    if not client.get("client_id") or not client.get("client_secret"):
+        raise NotAuthorised("服务器上还没有 WHOOP 应用信息：第一次要在电脑上跑 whoop-auth")
+    redirect = client.get("redirect_uri") or DEFAULT_REDIRECT
+    state = _make_state()
+    write_private_json(auth_dir / PHONE_LOGIN, {"state": state, "at": _time.time()})
+    return {"url": build_auth_url(endpoints, client["client_id"], redirect, state), "redirect": redirect}
+
+
+def phone_login_finish(cfg, callback: str, endpoints: Endpoints = Endpoints()) -> dict:
+    auth_dir = _private_dir(Path(cfg.whoop_auth_dir))
+    pending = _read_json(auth_dir / PHONE_LOGIN) or {}
+    if not pending.get("state") or _time.time() - float(pending.get("at") or 0) > PHONE_LOGIN_TTL_S:
+        raise NotAuthorised("这次登录超时了，再点一次「重新登录 WHOOP」")
+    params = _parse_callback(callback)
+    if params.get("error"):
+        raise NotAuthorised(f"WHOOP 返回授权错误：{params.get('error')}")
+    if params.get("state") != pending["state"]:
+        raise NotAuthorised("state 不匹配，已拒绝")
+    if not params.get("code"):
+        raise NotAuthorised("回调里没有授权码")
+    client = _read_json(_client_path(auth_dir)) or {}
+    with _locked(auth_dir):
+        WhoopClient(auth_dir, endpoints).exchange_code(params["code"], client.get("redirect_uri") or DEFAULT_REDIRECT)
+    with contextlib.suppress(OSError):
+        (auth_dir / PHONE_LOGIN).unlink()
+    return {"ok": True, "authorised": True}
+
+
+# ---------------------------------------------------------------------------
 # CLI 入口
 # ---------------------------------------------------------------------------
 

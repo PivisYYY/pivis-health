@@ -14,6 +14,7 @@ import re
 import time
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from . import journal
@@ -35,6 +36,7 @@ INPUT_TYPES = ("options", "multi", "scale", "number", "text", "time", "photo")
 SUBMIT_MODES = ("local", "agent", "chat")
 MEDIA_KINDS = ("audio", "video", "embed")
 _HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+UNTIMED_KINDS = ("options", "proposal", "scale")    # 问老大的卡不需要时间；其他 P-Health 加的卡都要有时间（build 53）
 
 
 # 待办的 13 种形式（todo-cards skill 和 `./pivis-health todo-forms` 都从这里读，别在提示词里抄一份）
@@ -217,6 +219,44 @@ def check_practice(t: dict, cfg: Config | None = None) -> None:
             raise TodoError(f"这个视频还不在素材库里：{url}。先用 follow 出片，用它给的地址（follow session list 能查已出的片）")
 
 
+REMIND_KEYS = ("off", "lead_min", "extra", "nudge")
+
+
+def _norm_remind(r) -> dict | None:
+    """这张卡怎么提醒（build 53，P-Health 可以改）：
+    off 不提醒；lead_min 提前几分钟（0 = 只在到点提醒，最多 120）；extra 另加的钟点（最多 3 个）；nudge 过点没做要不要再催。
+    不写就是默认：提前（老大的 pref.remind.lead_min，默认 10 分钟）+ 到点，练习 / 打勾过点 15 分钟再催。"""
+    if not r:
+        return None
+    if not isinstance(r, dict) or set(r) - set(REMIND_KEYS):
+        raise TodoError(f"remind 只能写 {REMIND_KEYS}，比如 {{\"lead_min\": 30}} 或 {{\"off\": true}}")
+    out: dict = {}
+    if r.get("off"):
+        out["off"] = True
+    if r.get("lead_min") is not None:
+        lead = int(r["lead_min"])
+        if not 0 <= lead <= 120:
+            raise TodoError("remind.lead_min 要在 0–120 之间")
+        out["lead_min"] = lead
+    extra = [str(x) for x in (r.get("extra") or [])]
+    if len(extra) > 3 or any(not _HHMM.match(x) for x in extra):
+        raise TodoError("remind.extra 最多 3 个 HH:MM")
+    if extra:
+        out["extra"] = sorted(set(extra))
+    if r.get("nudge") is not None:
+        out["nudge"] = bool(r["nudge"])
+    return out or None
+
+
+def _norm_log(spec) -> dict | None:
+    """提交时服务器顺手记到哪（build 53）：{"type":"pain","injury":"knee-r"} → 疼痛打卡写进 rehab 的疼痛记录。"""
+    if not spec:
+        return None
+    if not isinstance(spec, dict) or spec.get("type") != "pain" or not spec.get("injury"):
+        raise TodoError('log 只能写 {"type":"pain","injury":"<伤病 id>"}（疼痛打卡，inputs 用 rest / activity / morning_after 三个 0–10 的 scale）')
+    return {"type": "pain", "injury": str(spec["injury"])}
+
+
 _TITLE_TIME = re.compile(r"(?<![\d:])([01]?\d|2[0-3])[:：]([0-5]\d)(?![\d])")
 
 
@@ -236,7 +276,7 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
         raise TodoError("when 必须是 HH:MM")
     if not when:
         # 每条待办都该有时间（老大 11-08：不统一很乱）：标题里写了钟点（「23:15 前洗完澡」）就拿它当时间
-        m = _TITLE_TIME.search(str(base.get("title") or ""))
+        m = _TITLE_TIME.search(str(base.get("title") or "")) or _TITLE_TIME.search(str(base.get("note") or ""))
         if m:
             when = f"{int(m.group(1)):02d}:{m.group(2)}"
     status = base.get("status") or ("proposed" if kind == "proposal" else "scheduled")
@@ -275,6 +315,9 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
         "template_rev": base.get("template_rev"),
         "ops": list(base.get("ops") or [])[-30:],
         "edited": bool(base.get("edited")),
+        "remind": _norm_remind(base.get("remind")),
+        "log": _norm_log(base.get("log")),
+        "time_draft": bool(base.get("time_draft")) and bool(when),
         "created_at": base.get("created_at") or _now_iso(),
         "updated_at": _now_iso(),
     }
@@ -406,7 +449,8 @@ class TodoStore:
         return self._read()
 
     # ---- 待办 ----
-    def add(self, todo: dict, today: date) -> dict:
+    def add(self, todo: dict, today: date, now: datetime | None = None) -> dict:
+        """now：老大那边的「现在」（模拟回放时是假的），拟时间用；不给就按配置的时区取。"""
         todo = dict(todo)
         todo.setdefault("date", today.isoformat())
         check_lengths(todo)
@@ -414,6 +458,19 @@ class TodoStore:
         with self._locked() as data:
             t = normalize(todo)
             check_practice(t, self.cfg)
+            n = 1
+            while t["id"] in data["todos"] and not todo.get("id"):   # 同一毫秒连加两张：自动生成的 id 加后缀
+                t["id"] = f"{t['id'].split('-')[0]}-{n}"
+                n += 1
+            if not t["when"] and t["kind"] not in UNTIMED_KINDS and t.get("source") == "agent":
+                # 不留空时间：按今晚时间线拟一个，标成待确认，通知线程推一条请老大确认
+                from . import timedraft
+                from .clock import day_of
+                now = now or datetime.now(ZoneInfo(self.cfg.timezone)).replace(tzinfo=None)
+                day_todos = [x for x in data["todos"].values() if x.get("date") == t["date"]]
+                t["when"], why = timedraft.pick(self.cfg, t, day_todos, now, day_of(now))
+                t["time_draft"] = True
+                t["draft_why"] = why
             if t["id"] in data["todos"]:
                 raise TodoError(f"id 已存在: {t['id']}")
             data["todos"][t["id"]] = t
@@ -436,6 +493,10 @@ class TodoStore:
             if by == "agent":
                 check_lengths(patch, tuple(k for k in ("title", "note") if k in patch))
             t = normalize(patch, cur)
+            if "when" in patch:
+                t["time_draft"] = False           # 改过时间就是定了
+            elif cur.get("time_draft"):
+                t["draft_why"] = cur.get("draft_why")
             if by == "agent" and any(k in patch for k in ("when", "title", "note", "duration_min")) \
                     and t.get("status") in ("scheduled", "proposed", "processing"):
                 _check_plan(self.cfg, t)
@@ -507,6 +568,9 @@ class TodoStore:
                 check_project_name(project["name"])
             if merged.get("board") not in BOARDS:
                 raise TodoError(f"project.board 只能是 {BOARDS}")
+            if "icon" in project:
+                from . import icons
+                icons.check(project.get("icon"))
             if merged.get("status") not in (None, "active", "paused", "done"):
                 raise TodoError("project.status 只能是 active / paused / done")
             merged.setdefault("start", today.isoformat())
@@ -701,6 +765,14 @@ class TodoStore:
                 subs.append({"values": values, "text": text or "", "at": now.isoformat(timespec="seconds")})
                 rec.update({"values": values, "text": text or "", "at": now.isoformat(timespec="seconds"), "submitted": subs})
                 t["record"] = rec
+            elif action == "confirm_time":
+                # 拟的时间：老大点「好」（不带 when）或在时间轮上换了一个（带 when）
+                when = str(values.get("when") or t.get("when") or "")
+                if not _HHMM.match(when):
+                    raise TodoError("when 必须是 HH:MM")
+                t["when"] = when
+                t["time_draft"] = False
+                t.pop("draft_why", None)
             elif action == "correct":
                 t["record"] = {**(t.get("record") or {}), "corrected": values, "text": text or ""}
                 t["summary"] = summary or t["summary"]

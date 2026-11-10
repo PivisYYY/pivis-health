@@ -13,11 +13,23 @@ final class Reminders {
     private var authorized = false
 
     func requestAuthorization() {
+        registerCategories()
         if ProcessInfo.processInfo.arguments.contains("-uiTestDisableDeviceData") { return }   // 模拟器验收：不弹通知授权
         center.requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in self.authorized = ok }
-        // build 43 起没有「晚 10 分钟」：点开就进 App（练习直接全屏播），要改时间在对话里说
-        center.setNotificationCategories([UNNotificationCategory(identifier: "TODO", actions: [],
-                                                                 intentIdentifiers: [], options: [])])
+    }
+
+    /// 通知上的按钮。启动时就登记（App 被通知按钮在后台叫醒时也要认得这些类别）。
+    /// TODO：build 43 起没有「晚 10 分钟」，点开就进 App（练习直接全屏播），要改时间在对话里说。
+    /// TODO_TIME（build 53）：P-Health 拟的时间 —「好」在后台直接确认；「换个时间」打开 App、展开这张卡、弹出时间轮
+    func registerCategories() {
+        let ok = UNNotificationAction(identifier: "ok", title: "好", options: [],
+                                      icon: UNNotificationActionIcon(systemImageName: "checkmark"))
+        let change = UNNotificationAction(identifier: "change", title: "换个时间", options: [.foreground],
+                                          icon: UNNotificationActionIcon(systemImageName: "clock"))
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: "TODO", actions: [], intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: "TODO_TIME", actions: [ok, change], intentIdentifiers: [], options: []),
+        ])
     }
 
     /// build 46 起，待办的到点提醒都由服务器推（到点前 10 分钟、到点、练习过点没做；App 没开也收得到，

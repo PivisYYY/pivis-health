@@ -39,6 +39,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        Reminders.shared.registerCategories()     // 通知按钮在后台把 App 叫醒时，类别要已经登记好
         purgeLegacyDebugData()
         WidgetBridge.shareConfig()
         if Profile.uploadsDeviceData {
@@ -91,13 +92,25 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
             await MainActor.run { PushTaps.report(pushId: pushId, action: action, at: at) }
         }
         if let todoId = info["todo"] as? String {
+            let draftTime = response.notification.request.content.categoryIdentifier == "TODO_TIME"
+                || (info["why"] as? String) == "draft"
             switch response.actionIdentifier {
             case "TODO_LATER":
                 // 进发送队列：断网也先记在手机上，连上自动补发
                 await MainActor.run { TodoOutbox.shared.enqueue(todoId, action: "later", values: ["minutes": 10]) }
                 return
+            case "ok" where draftTime:
+                // 拟的时间点「好」：App 不打开，在后台确认；等这一轮真的发完再告诉系统（断网就留在队列里，下次打开补发）
+                await MainActor.run { TodoOutbox.shared.enqueue(todoId, action: "confirm_time", values: [:]) }
+                await TodoOutbox.shared.flushAndWait()
+                let left = await MainActor.run { TodoOutbox.shared.pending.filter { $0.todoId == todoId }.count }
+                DshAPI.dbg("通知「好」→ confirm_time \(todoId)：\(left == 0 ? "已送到（或被拒）" : "还在队列里，等网络")")
+                return
+            case "change" where draftTime:
+                info["timeSheet"] = true       // 打开 App → 展开这张卡 → 弹出时间轮
             case "TODO_START", UNNotificationDefaultActionIdentifier:
-                if (info["kind"] as? String) == "follow" { info["action"] = "start" }
+                if draftTime { info["timeSheet"] = true }      // 点「行吗？」这条通知本身：也是问时间，直接给时间轮
+                else if (info["kind"] as? String) == "follow" { info["action"] = "start" }
             default: break
             }
         }
@@ -158,13 +171,41 @@ final class DeviceDataReporter: NSObject {
     private var btDevices: [[String: Any]] = []
     private var pendingObservations: [[String: Any]] = []
     private var hasBootstrapped = false
+    /// 后台推送（HKObserverQuery + enableBackgroundDelivery）只注册一次：授权回调每次启动都会走
+    private var observersRegistered = false
+    /// 正在查 + 传的那一轮：启动、下拉、两个观察者回调同时来时合成一轮，不并发查 HealthKit
+    private var uploadTask: Task<Bool, Never>?
+    private var uploadStartedAt = Date.distantPast
+    private var uploadAgain = false
 
 
-    /// 下拉刷新时调：马上把近 7 天的 Apple 健康数据再传一次。返回是否传成功（没授权、测试模式算没传）
+    /// 下拉刷新时调：马上把近 7 天的 Apple 健康数据再传一次。返回是否传成功（没授权、测试模式、服务器一条没收都算没传）
     @discardableResult
     func syncNow() async -> Bool {
         guard hasBootstrapped, HKHealthStore.isHealthDataAvailable() else { return false }
-        return await collectHealthAndUpload()
+        return await uploadHealth()
+    }
+
+    /// 查 HealthKit + 上传，同一时间只跑一轮：已经在跑就等它；开跑 3 秒后才来的（新数据可能没查到）跑完再补一轮
+    @discardableResult
+    private func uploadHealth() async -> Bool {
+        if let t = uploadTask {
+            if Date().timeIntervalSince(uploadStartedAt) > 3 { uploadAgain = true }
+            return await t.value
+        }
+        uploadStartedAt = Date()
+        let t = Task { @MainActor () -> Bool in
+            var ok = await self.collectHealthAndUpload()
+            while self.uploadAgain {
+                self.uploadAgain = false
+                self.uploadStartedAt = Date()
+                ok = await self.collectHealthAndUpload()
+            }
+            self.uploadTask = nil
+            return ok
+        }
+        uploadTask = t
+        return await t.value
     }
 
     /// 启动时调用一次：申请三类授权 → 采集近 7 天健康聚合 + 单次定位 + 5 秒蓝牙扫描 → 上报
@@ -200,9 +241,53 @@ final class DeviceDataReporter: NSObject {
         for s in specs {
             if let t = HKObjectType.quantityType(forIdentifier: s) { read.insert(t) }
         }
-        health.requestAuthorization(toShare: [], read: read) { _, _ in
-            Task { @MainActor in await DeviceDataReporter.shared.collectHealthAndUpload() }
+        // 系统只在第一次弹授权页（之后每次启动直接回调）；回调里注册后台推送，再传一次
+        health.requestAuthorization(toShare: [], read: read) { _, error in
+            if let error { DshAPI.dbg("HealthKit 授权出错: \(error.localizedDescription)") }
+            Task { @MainActor in
+                let me = DeviceDataReporter.shared
+                me.registerBackgroundDelivery()
+                await me.uploadHealth()
+            }
         }
+    }
+
+    /// 步数、睡眠有新数据时系统在后台叫醒 App（最多每小时一次），查一遍传上去再告诉系统做完了。
+    /// 要在每次启动时注册（后台被叫醒时也是走 didFinishLaunching → bootstrap → 这里）；同一进程只注册一次。
+    private func registerBackgroundDelivery() {
+        guard !observersRegistered else { return }
+        observersRegistered = true
+        let types: [HKSampleType] = [HKObjectType.quantityType(forIdentifier: .stepCount),
+                                     HKObjectType.categoryType(forIdentifier: .sleepAnalysis)].compactMap { $0 }
+        for type in types {
+            let q = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
+                if let error {
+                    DshAPI.dbg("HealthKit 观察 \(type.identifier) 出错: \(error.localizedDescription)")
+                    completion()
+                    return
+                }
+                Task { @MainActor in
+                    await DeviceDataReporter.shared.uploadFromObserver()
+                    completion()
+                }
+            }
+            health.execute(q)
+            health.enableBackgroundDelivery(for: type, frequency: .hourly) { ok, error in
+                if !ok { DshAPI.dbg("后台推送 \(type.identifier) 没开成: \(error?.localizedDescription ?? "")") }
+            }
+        }
+    }
+
+    /// 观察者回调：在后台的话多要一点时间，传完（或者时间到）再结束
+    private func uploadFromObserver() async {
+        let app = UIApplication.shared
+        var bg = UIBackgroundTaskIdentifier.invalid
+        bg = app.beginBackgroundTask(withName: "healthkit-upload") {
+            if bg != .invalid { app.endBackgroundTask(bg); bg = .invalid }
+        }
+        let ok = await uploadHealth()
+        DshAPI.dbg("HealthKit 后台推送触发上传 ok=\(ok) state=\(app.applicationState.rawValue)")
+        if bg != .invalid { app.endBackgroundTask(bg); bg = .invalid }
     }
 
     @discardableResult
@@ -210,14 +295,19 @@ final class DeviceDataReporter: NSObject {
         let cal = PTime.calendar
         let now = Date()
         guard let start = cal.date(byAdding: .day, value: -7, to: cal.startOfDay(for: now)) else { return false }
+        // 告诉服务器这次是在前台还是后台查的、查到几条、有没有报错：前台查到 0 条才可能是权限关了
+        let foreground = UIApplication.shared.applicationState == .active
         var samples: [[String: Any]] = []
+        var queryError: String?
 
         if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
-            for (cat, s, e, id) in await querySleepSegments(type: sleepType, start: start, end: now) {
+            let (segments, err) = await querySleepSegments(type: sleepType, start: start, end: now)
+            if let err, queryError == nil { queryError = "sleep_analysis: \(err)" }
+            for (cat, s, e, id) in segments {
                 samples.append([
                     "sample_id": "hkslp-\(id.uuidString)",
                     "type": "sleep_analysis",
-                    "start_at": PTime.iso(s), "end_at": PTime.iso(e),
+                    "start_at": PTime.isoUTC(s), "end_at": PTime.isoUTC(e),
                     "unit": "category", "category_value": cat,
                 ])
             }
@@ -235,19 +325,24 @@ final class DeviceDataReporter: NSObject {
         ]
         for (typeName, ident, unit, options) in daily {
             guard let qt = HKObjectType.quantityType(forIdentifier: ident) else { continue }
-            for (dayStart, value) in await queryDailyStats(type: qt, start: start, options: options, unit: unit) {
+            let (days, err) = await queryDailyStats(type: qt, start: start, options: options, unit: unit)
+            if let err, queryError == nil { queryError = "\(typeName): \(err)" }
+            for (dayStart, value) in days {
                 guard let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) else { continue }
                 samples.append([
                     "sample_id": "hkagg-\(typeName)-\(PTime.compactDay(dayStart))",
                     "type": typeName,
-                    "start_at": PTime.iso(dayStart), "end_at": PTime.iso(dayEnd),
+                    "start_at": PTime.isoUTC(dayStart), "end_at": PTime.isoUTC(dayEnd),
                     "unit": unitString(typeName), "numeric_value": value,
                 ])
             }
         }
         let obs = pendingObservations
         pendingObservations.removeAll()
-        return await upload(samples: samples, observations: obs)
+        let health: [String: Any] = ["foreground": foreground, "samples": samples.count,
+                                     "error": queryError.map { $0 as Any } ?? NSNull()]
+        let ok = await upload(samples: samples, observations: obs, health: health)
+        return ok && !samples.isEmpty      // 一条都没查到（权限关了 / 新手机）不算「传上去了」
     }
 
     private func unitString(_ type: String) -> String {
@@ -257,12 +352,13 @@ final class DeviceDataReporter: NSObject {
          "active_energy_burned": "kcal", "body_mass": "kg"][type] ?? ""
     }
 
-    private func querySleepSegments(type: HKCategoryType, start: Date, end: Date) async -> [(String, Date, Date, UUID)] {
+    /// 返回睡眠分段和查询出错时的错误描述（以前把错误丢掉了，服务器分不清「没数据」和「查不了」）
+    private func querySleepSegments(type: HKCategoryType, start: Date, end: Date) async -> ([(String, Date, Date, UUID)], String?) {
         let health = self.health
         return await withCheckedContinuation { cont in
             let q = HKSampleQuery(sampleType: type,
                                   predicate: HKQuery.predicateForSamples(withStart: start, end: end),
-                                  limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, results, _ in
+                                  limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, results, error in
                 var out: [(String, Date, Date, UUID)] = []
                 for s in (results as? [HKCategorySample]) ?? [] {
                     let cat: String
@@ -277,28 +373,29 @@ final class DeviceDataReporter: NSObject {
                     }
                     out.append((cat, s.startDate, s.endDate, s.uuid))
                 }
-                cont.resume(returning: out)
+                cont.resume(returning: (out, error?.localizedDescription))
             }
             health.execute(q)
         }
     }
 
     private func queryDailyStats(type: HKQuantityType, start: Date,
-                                 options: HKStatisticsOptions, unit: HKUnit) async -> [(Date, Double)] {
+                                 options: HKStatisticsOptions, unit: HKUnit) async -> ([(Date, Double)], String?) {
         let health = self.health
         return await withCheckedContinuation { cont in
             let anchor = PTime.calendar.startOfDay(for: start)
             let q = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: nil,
+                                                options: options,
                                                 anchorDate: anchor,
                                                 intervalComponents: DateComponents(day: 1))
-            q.initialResultsHandler = { _, results, _ in
+            q.initialResultsHandler = { _, results, error in
                 var out: [(Date, Double)] = []
                 results?.enumerateStatistics(from: anchor, to: Date()) { stat, _ in
                     if let v = stat.sumQuantity() ?? stat.averageQuantity() {
                         out.append((stat.startDate, v.doubleValue(for: unit)))
                     }
                 }
-                cont.resume(returning: out)
+                cont.resume(returning: (out, error?.localizedDescription))
             }
             health.execute(q)
         }
@@ -335,13 +432,25 @@ final class DeviceDataReporter: NSObject {
     }
 
     // MARK: 上报
+    /// health：这次查 HealthKit 的情况（只有健康上报带；位置 / 蓝牙这类只带观察的不带，免得服务器以为「前台查到 0 条」）。
+    /// 服务器回 {accepted, rejected, reject_reasons}；发了样本却一条没收（HTTP 422）、或者别的非 2xx，都算没传成
     @discardableResult
-    private func upload(samples: [[String: Any]], observations: [[String: Any]]) async -> Bool {
-        let body: [String: Any] = ["device_id": deviceId, "samples": samples, "observations": observations]
+    private func upload(samples: [[String: Any]], observations: [[String: Any]],
+                        health: [String: Any]? = nil) async -> Bool {
+        var body: [String: Any] = ["device_id": deviceId, "samples": samples, "observations": observations]
+        if let health { body["health"] = health }
         let req = PivisAPI.request("api/v2/device-data", method: "POST", json: body, timeout: 30)
         do {
-            let (_, resp) = try await PivisAPI.send(req)
-            DshAPI.dbg("device-data uploaded status=\(resp.statusCode) samples=\(samples.count) observations=\(observations.count)")
+            let (data, resp) = try await PivisAPI.send(req, checkStatus: false)
+            let obj = PivisAPI.object(data) ?? [:]
+            let accepted = (obj["accepted"] as? Int) ?? 0
+            let reasons = ((obj["reject_reasons"] as? [[String: Any]]) ?? []).compactMap { $0["reason"] as? String }
+            let reasonText = Array(Set(reasons)).sorted().joined(separator: ",")
+            DshAPI.dbg("device-data status=\(resp.statusCode) samples=\(samples.count) accepted=\(accepted) "
+                       + "rejected=\((obj["rejected"] as? Int) ?? 0) observations=\(observations.count)"
+                       + (reasonText.isEmpty ? "" : " reasons=\(reasonText)"))
+            guard (200..<300).contains(resp.statusCode) else { return false }
+            if !samples.isEmpty && accepted == 0 { return false }
             return true
         } catch {
             DshAPI.dbg("device-data 上报失败: \(error.localizedDescription)")
