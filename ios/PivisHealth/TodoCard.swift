@@ -90,7 +90,7 @@ struct TodoCardView: View {
         }
     }
 
-    // MARK: 时间列：时间 + 右上角一个很小的铃铛（会提醒 = bell，P-Health 关了提醒 = bell.slash），不写字
+    // MARK: 时间列（build 54 起不画提醒铃铛：有没有通知对老大是无感的）
     private var isDraftTime: Bool { todo.timeDraft == true && !todo.when.isEmpty && !settled }
 
     private var timeColumn: some View {
@@ -101,16 +101,8 @@ struct TodoCardView: View {
             .overlay(alignment: .topTrailing) { bellGlyph }
     }
 
-    @ViewBuilder
-    private var bellGlyph: some View {
-        if !settled && !todo.when.isEmpty && (todo.reminds || todo.remind?.off == true) {
-            Image(systemName: todo.reminds ? "bell" : "bell.slash")
-                .font(.system(size: 8, weight: .light))
-                .foregroundStyle(E.text3)
-                .offset(x: 10, y: 3)
-                .accessibilityHidden(true)
-        }
-    }
+    /// 有没有提醒对老大是无感的（11-11：铃铛难看，不用告诉他哪条有通知）——卡上不画
+    private var bellGlyph: some View { EmptyView() }
 
     /// 拟的时间：灰一点、下面一条虚线；点了弹时间轮（「好」/「改成这个时间」）
     private var draftTimeButton: some View {
@@ -141,7 +133,6 @@ struct TodoCardView: View {
         var parts: [String] = []
         if !todo.when.isEmpty {
             parts.append(isDraftTime ? "拟的时间 \(todo.when)，等你确认" : todo.when)
-            if todo.reminds { parts.append("会提醒") } else if todo.remind?.off == true { parts.append("不提醒") }
         }
         if todo.kind == "timer", todo.status == "in_progress" {
             parts.append("还剩 " + TimerText.remaining(startedAt: todo.record?.startedAt, minutes: todo.durationMin ?? 0, at: Date()))

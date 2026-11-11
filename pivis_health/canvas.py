@@ -453,7 +453,7 @@ def _dots(tools, b: str, days: int, day: date, now: datetime, vz) -> dict:
         nights = (v.get("nights") or [])[-days:]
         items = [{"on": bool(n["ok"]), "label": n["night_of"][5:]} for n in nights]
         short = sum(1 for i in items if not i["on"])
-        return {"items": items, "caption": f"近 {len(items)} 晚 · {short} 晚没睡够" if short else f"近 {len(items)} 晚都睡够了"}
+        return {"items": items, "caption": f"{short} 晚没睡够" if short else "都睡够了"}
     if b == "steps.week":
         goal = (vz("steps").get("goal")) or vizmod.STEPS_GOAL
         series = tools.daily_series("steps", day, days)
@@ -463,7 +463,7 @@ def _dots(tools, b: str, days: int, day: date, now: datetime, vz) -> dict:
             val = series.get(d)
             items.append({"on": bool(val is not None and val >= goal), "now": d == day, "label": f"{d.month}/{d.day}"})
         hit = sum(1 for i in items if i["on"])
-        return {"items": items, "caption": f"近 {days} 天 {hit} 天走够 {int(goal):,} 步"}
+        return {"items": items, "caption": f"{hit} 天走够 {int(goal):,} 步"}
     if b.startswith("project:"):
         from .todos import TodoStore
         store = TodoStore(tools.cfg)
@@ -529,7 +529,7 @@ def _columns(metric: str, days: int, day: date, vz) -> dict:
         short = sum(1 for i in items if not i["on"])
         need = nights[-1].get("need")
         ref_label = f"需要 {vizmod._text(need, 1)}" if need else None
-        caption = f"近 {len(items)} 晚 · {short} 晚没睡够" if short else f"近 {len(items)} 晚都睡够了"
+        caption = f"{short} 晚没睡够" if short else "都睡够了"          # 「近 N 晚」横轴已经看得出，不再写（老大 11-11：少写字）
     else:
         # 超过 14 晚的睡眠也走走势这条路（「需要多少」只有近 14 晚）；viz 的天数只有 7 / 14 / 30 / 90 几档，取够用的那档再截
         v = vz(metric, "trend", next(x for x in vizmod.DAYS["trend"] if x >= days))
@@ -554,11 +554,11 @@ def _columns(metric: str, days: int, day: date, vz) -> dict:
             hit = sum(1 for i in items if i["on"])
             last = items[-1]
             if last.get("now") and not last["on"]:      # 今天还没走完，不算没走够
-                caption = f"前 {len(items) - 1} 天 {hit} 天走够 · 今天还在走"
+                caption = f"前 {len(items) - 1} 天 {hit} 天走够"
             else:
-                caption = f"近 {len(items)} 天 {hit} 天走够"
+                caption = f"{hit} 天走够"
         else:
-            caption = f"近 {len(items)} 天 · {m['label']}"
+            caption = ""                       # 指标名主卡上方已经写了
     top = max([i["value"] for i in items] + [i.get("ref") or 0 for i in items] + [ref or 0])
     return {"items": items, "ref": ref, "ref_label": ref_label, "unit": m["unit"], "max": top,
             "caption": caption}

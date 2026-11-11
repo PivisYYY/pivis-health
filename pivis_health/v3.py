@@ -788,6 +788,44 @@ def data_notices(tools, page: str, day: date) -> list[dict]:
         return []
 
 
+def _norm_text(t) -> str:
+    return re.sub(r"\s+", "", str(t or ""))
+
+
+def _drop_dup_title(layout: dict, label: str | None) -> dict:
+    """主卡上方已经写了指标名（hero.label），画布里再写一遍同样的标题就删掉（老大 11-11：「近 7 晚睡了多久」出现了两次）。
+    只看最外层和第一层容器里的 text 零件。"""
+    want = _norm_text(label)
+    if not want:
+        return layout
+
+    def keep(node) -> bool:
+        return not (isinstance(node, dict) and node.get("t") == "text" and _norm_text(node.get("text")) == want)
+
+    kids = layout.get("children")
+    if not isinstance(kids, list):
+        return layout
+    out = []
+    for k in kids:
+        if not keep(k):
+            continue
+        if isinstance(k, dict) and isinstance(k.get("children"), list):
+            k = {**k, "children": [c for c in k["children"] if keep(c)]}
+        out.append(k)
+    return {**layout, "children": out}
+
+
+def _one_title(hero: dict) -> dict:
+    """主卡只留一个标题：画布第一格是标题（role=title 的 text），就把它提到上方当指标名、画布里删掉；
+    否则只删掉和指标名一样的那行。（老大 11-11：同一张卡上两个标题，字多还重复）"""
+    lay = hero["layout"]
+    kids = lay.get("children") if isinstance(lay.get("children"), list) else []
+    first = kids[0] if kids else None
+    if isinstance(first, dict) and first.get("t") == "text" and first.get("role") == "title" and str(first.get("text") or "").strip():
+        return {**hero, "label": str(first["text"]).strip(), "layout": {**lay, "children": kids[1:]}}
+    return {**hero, "layout": _drop_dup_title(lay, hero.get("label"))}
+
+
 def _pub_day(pub: dict) -> date:
     """页面是老大哪一天编排的（凌晨 0–6 点编排的算前一天）。读不出就当很久以前。"""
     try:
@@ -852,16 +890,19 @@ def page_doc(tools, page: str) -> dict:
             hero = {**hero, "layout": {"t": "v", "gap": 12, "align": "leading", "children": [
                 {"t": "text", "text": "数据暂时读不到，P-Health 会自动恢复；先按昨天的安排来", "role": "body", "tone": 2}]}}
     board = hero.get("board") or (page if page in BOARDS else None)
+    if isinstance(hero.get("layout"), dict):
+        hero = _one_title(hero)
     return {
         "page": page, "now": now.isoformat(timespec="minutes"), "date": day.isoformat(),
-        "headline": (pub or {}).get("headline") or {"text": ""},
+        # 老大 11-11：主板块不要那句解释的话、少出现文字——结论句不再显示（编排时照样写，只是不给 App）
+        "headline": {"text": ""},
         "hero": {**hero, "level_label": LEVEL_LABEL.get(hero.get("level"), ""), "board_label": BOARD_LABEL.get(board, "")},
         # 主卡下面每个习惯一行（此刻页 = 所有板块）：点进去是这个板块的对话，顶部是习惯卡（GET /api/v3/habit/<id>）
         "habits": habit_rows(store, page, day),
         "todos": pending, "more": more, "done": done, "hidden": hidden,
         "details": (pub or {}).get("details") or [],
-        "notices": (data_notices(tools, page, day)
-                    + [n for n in (pub or {}).get("notices") or [] if not _is_outage_text(str(n.get("text") or ""))])[:2],
+        # 只放要老大动手的提示（服务器算的）；编排时写的提示是解释性文字，不显示（老大 11-11）
+        "notices": data_notices(tools, page, day)[:2],
         "projects": [{"id": p["id"], "name": p["name"], "board": p["board"], "rules": p.get("rules"),
                       "start": p["start"], "days": p["days"], "reviews": p.get("reviews")}
                      for p in store.projects(active_only=True) if page == "now" or p["board"] == page],

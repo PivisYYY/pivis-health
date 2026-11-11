@@ -374,7 +374,7 @@ def build(tools, now: datetime | None = None) -> dict:
         "head": f"【全盘 · {now.strftime('%m-%d')} 周{WD[now.weekday()]} {now.strftime('%H:%M')}】服务器算好的，数字直接用；"
                 f"「常态」是老大自己近 30 天的均值±标准差，不是医学标准",
         "today": ["今天：" + " · ".join(state_parts)] if state_parts else ["今天：恢复 / HRV 还没出来"],
-        "sleep": sleep_lines,
+        "sleep": sleep_lines + _safe(lambda: __import__("pivis_health.sleepwakes", fromlist=["x"]).brief_line(tools, day)),
         "train": train_lines + weight_lines,
         "habits": habit_lines,
         "todos": _todos_left(tools, day),

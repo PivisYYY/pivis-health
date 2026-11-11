@@ -106,6 +106,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("goal-set", help="记 / 改一个目标（metric: weight / sleep_h / steps / project:<id> / none）")
     sp.add_argument("--json", required=True, help='{"id":"weight","title":"减到 70 kg","metric":"weight","target":70,"deadline":"2027-03-01"}')
     sub.add_parser("goal-list", help="老大的目标和进度")
+    sp = sub.add_parser("sleep-wakes", help="夜里醒：每晚醒着 ≥ N 分钟的时刻和时长（Apple 健康睡眠分段），清晨 5–8:30 醒了几晚、多在几点。老大说「每天几点醒」「夜里老醒」时先对照")
+    sp.add_argument("--days", type=int, default=14)
+    sp.add_argument("--min", type=int, default=5, help="只算醒着至少几分钟的")
     sub.add_parser("nutrition-targets", help="营养目标：基础代谢、热量范围、蛋白质、膳食纤维、水、手掌份量（按 profile.body + 体重 + 活动 + 目标算）")
     sp = sub.add_parser("meal-log", help="记一餐：P-Health 只写手掌份量，服务器换成蛋白质 / 热量的范围")
     sp.add_argument("--json", required=True, help='{"date":"2026-11-10","meal":"dinner","at":"19:30","dishes":["米饭","清蒸鱼","青菜"],"portions":{"protein_palms":1.5,"carb_hands":1,"veg_fists":1,"fat_thumbs":1},"confidence":"mid"}')
@@ -525,6 +528,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "data-status":
             from . import datastatus
             _json({**datastatus.status(tools.cfg), "alerts_7d": datastatus.read_alerts(tools.cfg)})
+        elif args.cmd == "sleep-wakes":
+            from . import sleepwakes
+            _json(sleepwakes.nights(tools, max(1, min(args.days, 60)), max(1, args.min), _day_of(tools._now())))
         elif args.cmd in ("nutrition-targets", "meal-log", "meal-list", "nutrition-day", "nutrition-week"):
             from . import nutrition
             today = _day_of(tools._now())

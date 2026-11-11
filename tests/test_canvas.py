@@ -81,7 +81,7 @@ def test_resolve_falls_back_per_part(monkeypatch):
     assert kids[0]["text"] == "6.7" and kids[0]["unit"] == "小时"
     assert kids[1]["t"] == "text" and "算不出来" in kids[1]["text"]          # HRV 断了只影响这一格
     assert kids[2]["left"] == "睡了 6.7 小时" and kids[2]["fraction"] == round(6.7 / 9.4, 3)
-    assert kids[3]["caption"] == "近 1 晚 · 1 晚没睡够"
+    assert kids[3]["caption"] == "1 晚没睡够"
 
 
 def test_columns_validates_metric_days_and_height():
@@ -103,10 +103,10 @@ def test_columns_resolve_sleep_marks_need_and_steps_goal():
     from datetime import date
     s = canvas._columns("sleep", 7, date(2026, 11, 5), vz)
     assert [(i["text"], i["ref"], i["on"]) for i in s["items"]] == [("7.9", 8.0, True), ("6.7", 9.4, False)]
-    assert s["ref_label"] == "需要 9.4" and s["max"] == 9.4 and s["caption"] == "近 2 晚 · 1 晚没睡够"
+    assert s["ref_label"] == "需要 9.4" and s["max"] == 9.4 and s["caption"] == "1 晚没睡够"
     st = canvas._columns("steps", 7, date(2026, 11, 5), vz)
     assert st["ref"] == 8000 and [i["on"] for i in st["items"]] == [True, False]
-    assert st["caption"] == "前 1 天 1 天走够 · 今天还在走"
+    assert st["caption"] == "前 1 天 1 天走够"
 
 
 def test_resolve_survives_unexpected_errors(monkeypatch):

@@ -149,16 +149,11 @@ struct LevelTag: View {
         if level == "nodata" || label.isEmpty {
             EmptyView()   // 不再给老大看「数据不足」档位
         } else {
-            // 档位 = 一个会动的点 + 字：需处理外扩光圈，留意缓慢呼吸，平稳不动
-            HStack(spacing: 6) {
-                LevelDot(level: level, size: 8)
-                    .frame(width: 14, height: 14)
-                Text(label)
-                    .font(E.body(12))
-                    .foregroundStyle(level == "steady" ? E.text2 : E.text)
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("档位：\(label)")
+            // 档位只用一个会动的点表达（build 54，老大 11-11：少出现文字）：需处理外扩光圈，留意缓慢呼吸，平稳不动；字只给读屏
+            LevelDot(level: level, size: 8)
+                .frame(width: 14, height: 14)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("档位：\(label)")
         }
     }
 }

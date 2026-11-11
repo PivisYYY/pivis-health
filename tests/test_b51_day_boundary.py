@@ -53,8 +53,10 @@ def test_model_outage_notices_hidden_server_ones_shown(tools_env, monkeypatch):
                                                     "unit": "", "note": "", "others": []},
         "details": [], "notices": [{"text": "睡眠数据已经停了两晚"}, {"text": "周末别熬夜"}], "published_at": "2026-11-10T08:00:00+08:00"})
     monkeypatch.setattr(v3, "data_notices", lambda tools, page, day: [{"text": "WHOOP 授权掉了", "source": "server"}])
-    texts = [n["text"] for n in v3.page_doc(tools, "now")["notices"]]
-    assert texts == ["WHOOP 授权掉了", "周末别熬夜"]
+    doc = v3.page_doc(tools, "now")
+    # build 54（老大 11-11 少写字）：编排时写的提示和结论句都不显示，只留服务器的「要你动手」
+    assert [n["text"] for n in doc["notices"]] == ["WHOOP 授权掉了"]
+    assert doc["headline"]["text"] == ""
 
 
 def test_apple_health_notice_only_when_permission_confirmed(tools_env, monkeypatch):
@@ -92,3 +94,22 @@ def test_length_limits_on_agent_writes(tools_env):
     st.project_set({"id": "cbt", "name": "CBT-I · 42 天", "board": "sleep"}, day)   # 天数后缀不算字数
     assert clean_project_name("腰背放松（每周三次）") == "腰背放松"
     assert clean_project_name("CBT-I 一个月") == "CBT-I"
+
+
+def test_hero_title_same_as_label_is_dropped():
+    """build 54：主卡上方写了指标名，画布里同样的标题删掉（老大 11-11：「近 7 晚睡了多久」出现两次）。"""
+    lay = {"t": "v", "children": [{"t": "text", "text": "近 7 晚睡了多久", "role": "title"},
+                                  {"t": "h", "children": [{"t": "text", "text": "近 7 晚 睡了多久"}, {"t": "stat", "label": "x"}]},
+                                  {"t": "columns", "items": []}]}
+    out = v3._drop_dup_title(lay, "近 7 晚睡了多久")
+    assert [k["t"] for k in out["children"]] == ["h", "columns"] and out["children"][0]["children"] == [{"t": "stat", "label": "x"}]
+    assert v3._drop_dup_title(lay, "") is lay
+
+
+def test_hero_keeps_one_title():
+    hero = {"label": "睡眠", "layout": {"t": "v", "children": [{"t": "text", "text": "近 7 晚睡了多久", "role": "title"},
+                                                             {"t": "columns", "items": []}]}}
+    out = v3._one_title(hero)
+    assert out["label"] == "近 7 晚睡了多久" and [k["t"] for k in out["layout"]["children"]] == ["columns"]
+    plain = {"label": "HRV", "layout": {"t": "v", "children": [{"t": "value", "value": "54"}]}}
+    assert v3._one_title(plain)["label"] == "HRV"

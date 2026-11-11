@@ -200,12 +200,13 @@ private struct AboutGlyph: View {
     }
 }
 
-/// P-Health 在忙：名字下面一条细线在走（不占位置，出现、消失时卡不跳）
+/// P-Health 在忙时对话里的卡不动（老大 11-11：同时动的东西太多了，对话里的待办单可以不动）。
+/// 忙不忙只看头像那一行；这里只留给读屏一句话。
 private struct AboutWorking: View {
     let on: Bool
     var body: some View {
         if on {
-            WorkingLine().frame(width: 48).transition(.opacity).accessibilityHidden(true)
+            Color.clear.frame(width: 1, height: 1).accessibilityLabel("P-Health 在处理")
         }
     }
 }
