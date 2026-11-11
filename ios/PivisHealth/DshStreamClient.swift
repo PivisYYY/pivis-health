@@ -13,12 +13,18 @@ final class DshSocket {
 
     init(name: String) { self.name = name }
 
-    /// DSH 的多路复用通道地址
+    /// DSH 的多路复用通道地址：和 DshAPI.base 同一个地址、同一个路径前缀（经服务器转发时是 /dshp/api/remote.mux）
     private static var url: URL? {
-        let base = DshAPI.base
-        guard let scheme = base.scheme, let host = base.host else { return nil }
+        guard var c = URLComponents(url: DshAPI.base, resolvingAgainstBaseURL: false), let scheme = c.scheme else { return nil }
         let secure = scheme == "https"
-        return URL(string: "\(secure ? "wss" : "ws")://\(host):\(base.port ?? (secure ? 443 : 80))/api/remote.mux")
+        c.scheme = secure ? "wss" : "ws"
+        if c.port == nil { c.port = secure ? 443 : 80 }
+        var path = c.path
+        while path.hasSuffix("/") { path.removeLast() }
+        c.path = path + "/api/remote.mux"
+        c.query = nil
+        c.fragment = nil
+        return c.url
     }
 
     func start(open frame: [String: Any], loginFailed: String, badAddress: String) async {
@@ -33,7 +39,7 @@ final class DshSocket {
         stopped = false
         var request = URLRequest(url: socketURL)
         request.setValue(cookie, forHTTPHeaderField: "Cookie")
-        PivisAPI.authorize(&request)      // 握手发往 P-Health 服务器时带设备密钥；发往 DSH 不带
+        PivisAPI.authorize(&request)      // 握手经 P-Health 服务器转发（/dshp）时带设备密钥；直连 DSH 不带
         let session = URLSession(configuration: .ephemeral)
         let task = session.webSocketTask(with: request)
         self.session = session

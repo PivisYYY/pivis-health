@@ -27,11 +27,13 @@
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>P-Health 通过蓝牙发现附近的健康设备（如心率带），用于扩展数据来源</string>
 	<key>NSCameraUsageDescription</key>
-	<string>拍下饭和试纸，P-Health 帮你记下来。</string>
+	<string>扫电脑上的配对二维码；拍下饭和试纸，P-Health 帮你记下来。</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>P-Health 读取你的睡眠、心率、HRV、步数等健康数据，用于生成恢复与压力判断</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>P-Health 只读取健康数据，不会写入；这一项是接入 Apple 健康的必填说明</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>P-Health 在同一个 Wi-Fi 下连接你自己电脑上运行的 P-Health，读写你的页面和对话。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>P-Health 在使用期间获取位置，用于记录户外光照与活动上下文，辅助压力与恢复分析</string>
 	<key>NSPhotoLibraryUsageDescription</key>

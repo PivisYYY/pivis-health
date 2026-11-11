@@ -147,7 +147,15 @@ final class TodoOutbox {
         if let d = try? JSONEncoder().encode(pending) { store.set(d, forKey: storeKey) }
     }
 
-    private static func dict(_ data: Data) -> [String: Any] {
+    /// 换了一台电脑 / 断开：上一台的待办动作发不到新电脑上，丢掉
+    func clearAll() {
+        retryTask?.cancel()
+        pending = []
+        confirmed = [:]
+        save()
+    }
+
+    nonisolated private static func dict(_ data: Data) -> [String: Any] {
         (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
     }
 
@@ -176,7 +184,7 @@ final class TodoOutbox {
         }
     }
 
-    static func apply(_ op: Op, to todo: V3Todo) -> V3Todo {
+    nonisolated static func apply(_ op: Op, to todo: V3Todo) -> V3Todo {
         var t = todo
         let v = dict(op.values)
         var rec = t.record ?? V3Record()
@@ -222,7 +230,7 @@ final class TodoOutbox {
     }
 
     /// 和服务器同一个算法：max(原定时间, 现在) + N 分钟（北京时间）
-    static func laterTime(_ when: String, minutes: Int, from: Date) -> String {
+    nonisolated static func laterTime(_ when: String, minutes: Int, from: Date) -> String {
         let cal = PTime.calendar
         let nowM = cal.component(.hour, from: from) * 60 + cal.component(.minute, from: from)
         var base = nowM

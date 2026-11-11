@@ -96,6 +96,7 @@ struct NativeChatView: View {
     private var sessionKey: String { "chat_session_\(Profile.isSim ? "sim-" : "")\(context.isEmpty ? "main" : context)" }
 
     private func loadCache() {
+        guard !ServerConfig.isDemo else { return }        // 演示：不碰真对话的缓存
         guard UserDefaults.standard.string(forKey: sessionKey) != nil else { DshAPI.dbg("loadCache: no known session"); return }
         guard let data = try? Data(contentsOf: cacheFile) else { DshAPI.dbg("loadCache: no file"); return }
         guard let arr = try? JSONDecoder().decode([CachedMsg].self, from: data) else { DshAPI.dbg("loadCache: decode failed"); return }
@@ -107,6 +108,7 @@ struct NativeChatView: View {
     }
 
     private func saveCache() {
+        guard !ServerConfig.isDemo else { return }        // 演示：空的对话不能把真缓存盖掉
         let arr = messages.filter { !($0.stableId ?? "").hasPrefix("pending-photo-") }   // 还没传完的照片不进缓存
             .map { CachedMsg(role: $0.role, text: $0.text, time: $0.time, stableId: $0.stableId, about: $0.about) }
         guard let data = try? JSONEncoder().encode(arr) else { return }
@@ -320,8 +322,16 @@ struct NativeChatView: View {
                             .transition(.move(edge: .bottom))
                         } else {
                             // 洞察浮条：输入框正上方，左右各留 12、离输入框 12
-                            if hostsInsight { InsightBar(onOpen: startInsight) }
-                            inputBar
+                            if ServerConfig.isDemo {
+                                // 演示：对话要连上自己的电脑；点了收起抽屉、回到引导页
+                                DemoChatNote {
+                                    dismiss()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { ServerLink.shared.exitDemo() }
+                                }
+                            } else {
+                                if hostsInsight { InsightBar(onOpen: startInsight) }
+                                inputBar
+                            }
                         }
                     }
                 }
@@ -499,6 +509,11 @@ struct NativeChatView: View {
         DshAPI.dbg("chat bootstrap context=[\(context)]")
         if let a = about, a.kind == .habit, habitDoc == nil {
             Task { if let h = try? await V3API.habit(a.id) { await MainActor.run { habitDoc = h } } }
+        }
+        // 演示：没有服务器，不拉消息、不开实时通道（带进来的习惯卡照样从样例里拿）
+        if ServerConfig.isDemo {
+            await MainActor.run { withAnimation(.easeOut(duration: 0.25)) { revealed = true } }
+            return
         }
         // 1) 缓存先上屏：退出再进时旧消息立刻在（服务器读取可能滞后，特别是刚发完就退出）；排好、停到底再淡入
         await MainActor.run {
@@ -808,6 +823,7 @@ struct NativeChatView: View {
 
     /// 从后台回来：流状态清掉、重连实时通道、立刻拉一次最新消息（P-Health 在后台时可能已经回完了）
     private func resumeFromBackground() {
+        guard !ServerConfig.isDemo else { return }
         DshAPI.dbg("chat resume from background")
         finalizeStaleStream()
         startLiveStream()

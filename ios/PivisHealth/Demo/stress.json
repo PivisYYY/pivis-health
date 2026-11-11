@@ -1,0 +1,203 @@
+{
+ "page": "stress",
+ "now": "2026-11-05T21:10+08:00",
+ "date": "2026-11-05",
+ "headline": {
+  "text": ""
+ },
+ "hero": {
+  "level": "act",
+  "board": "stress",
+  "label": "HRV",
+  "value": "44.5",
+  "unit": "ms",
+  "note": "11-04 的数据",
+  "fields": [],
+  "table": null,
+  "viz": {
+   "metric": "hrv",
+   "kind": "trend",
+   "label": "HRV",
+   "unit": "ms",
+   "direction": "low_bad",
+   "nd": 1,
+   "show": [
+    "band",
+    "warn"
+   ],
+   "value": 44.5,
+   "asof": "2026-11-05",
+   "days": 14,
+   "series": [
+    {
+     "date": "2026-10-23",
+     "value": 56.0
+    },
+    {
+     "date": "2026-10-24",
+     "value": 55.2
+    },
+    {
+     "date": "2026-10-25",
+     "value": 53.5
+    },
+    {
+     "date": "2026-10-26",
+     "value": 51.3
+    },
+    {
+     "date": "2026-10-27",
+     "value": 49.3
+    },
+    {
+     "date": "2026-10-28",
+     "value": 48.2
+    },
+    {
+     "date": "2026-10-29",
+     "value": 48.1
+    },
+    {
+     "date": "2026-10-30",
+     "value": 49.3
+    },
+    {
+     "date": "2026-10-31",
+     "value": 49.6
+    },
+    {
+     "date": "2026-11-01",
+     "value": 50.2
+    },
+    {
+     "date": "2026-11-02",
+     "value": 50.4
+    },
+    {
+     "date": "2026-11-03",
+     "value": 49.6
+    },
+    {
+     "date": "2026-11-04",
+     "value": 47.6
+    },
+    {
+     "date": "2026-11-05",
+     "value": 44.5
+    }
+   ],
+   "band": [
+    48.1,
+    53.2
+   ],
+   "warn": 46.8,
+   "zone": "act",
+   "aside": {
+    "text": "↘ 7%",
+    "sub": "近 3 天"
+   },
+   "value_text": "44.5"
+  },
+  "layout": null,
+  "others": [],
+  "level_label": "需要处理",
+  "board_label": "压力"
+ },
+ "habits": [
+  {
+   "id": "stress30",
+   "name": "减压",
+   "board": "stress",
+   "board_label": "压力",
+   "icon": "lungs",
+   "day": 0,
+   "days": 30,
+   "state": "not_started",
+   "label": "减压",
+   "today": "11-06 开始"
+  }
+ ],
+ "todos": [
+  {
+   "id": "t1793896356984",
+   "board": "stress",
+   "project": null,
+   "date": "2026-11-05",
+   "when": "21:45",
+   "title": "慢呼吸 5 分钟",
+   "note": "不屏气，呼气比吸气长",
+   "kind": "follow",
+   "status": "scheduled",
+   "verbs": [
+    "start",
+    "later",
+    "skip"
+   ],
+   "inputs": [],
+   "media": null,
+   "steps": [
+    {
+     "title": "坐好，肩膀放松",
+     "note": "",
+     "duration_min": 0.5,
+     "media": null
+    },
+    {
+     "title": "鼻子吸气，嘴巴慢慢呼出",
+     "note": "呼气拉到吸气的两倍长",
+     "duration_min": 4.0,
+     "media": null
+    },
+    {
+     "title": "恢复自然呼吸，感受一下",
+     "note": "",
+     "duration_min": 0.5,
+     "media": null
+    }
+   ],
+   "duration_min": 5.0,
+   "alarm": null,
+   "until": null,
+   "auto": null,
+   "submit_label": "",
+   "record": null,
+   "summary": "",
+   "escalate": null,
+   "request": null,
+   "source": "agent",
+   "template_rev": null,
+   "created_at": "2026-11-05T08:32:36",
+   "updated_at": "2026-11-05T09:28:56"
+  }
+ ],
+ "more": [],
+ "done": [],
+ "hidden": 0,
+ "details": [],
+ "notices": [],
+ "projects": [
+  {
+   "id": "stress30",
+   "name": "减压 30 天",
+   "board": "stress",
+   "rules": [
+    "呼吸全程不屏气（胸闷这段时间）",
+    "必须加班时只在 20:00 前回一次紧急消息，不刷群",
+    "断一天不补，第二天接上"
+   ],
+   "start": "2026-11-06",
+   "days": 30,
+   "reviews": [
+    {
+     "date": "2026-11-15",
+     "title": "两周复盘：按 HRV 和静息心率看要不要加第二次呼吸"
+    }
+   ]
+  }
+ ],
+ "publication": {
+  "published_at": "2026-11-06T18:00:00+08:00",
+  "producer": "P-Health Agent"
+ },
+ "stale": false
+}

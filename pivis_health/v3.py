@@ -1232,8 +1232,11 @@ def sync_status(tools) -> dict:
             break
     # 每个对话 P-Health 最后一次回话的时刻：App 拿它和「上次看到哪」比，有新回复就在入口亮个点
     replies = {(ctx or "main"): t for ctx in REPLY_CONTEXTS if (t := _last_reply(ctx))}
+    from .notify import enabled as _push_enabled
     out = {"rev": hashlib.sha1(sig.encode()).hexdigest()[:12], "agent": agent, "updating": updating,
-           "replies": replies, "now": tools._now().isoformat(timespec="seconds")}
+           "replies": replies, "now": tools._now().isoformat(timespec="seconds"),
+           # 这台电脑能不能发锁屏推送（build 55）：别人装的 P-Health 没有 APNs 密钥，App 改用手机本地提醒
+           "push": "apns" if getattr(cfg, "apns", None) and _push_enabled(cfg) else "local"}
     # 洞察：有待发的一期时带上（App 在主对话输入框上方浮一条、中间圆钮亮点）
     from . import insight
     pending = insight.pending_status(cfg)

@@ -1,0 +1,105 @@
+{
+ "id": "stress30",
+ "name": "减压",
+ "board": "stress",
+ "board_label": "压力",
+ "icon": "lungs",
+ "state": "not_started",
+ "day": 0,
+ "days": 30,
+ "start": "2026-11-06",
+ "status": "active",
+ "week": [
+  {
+   "date": "2026-11-02",
+   "wd": "一",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-03",
+   "wd": "二",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-04",
+   "wd": "三",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-05",
+   "wd": "四",
+   "state": "rest",
+   "label": "",
+   "today": true
+  },
+  {
+   "date": "2026-11-06",
+   "wd": "五",
+   "state": "plan",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-07",
+   "wd": "六",
+   "state": "plan",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-08",
+   "wd": "日",
+   "state": "plan",
+   "label": "",
+   "today": false
+  }
+ ],
+ "sessions": [
+  {
+   "key": "breath",
+   "title": "慢呼吸 5 分钟",
+   "kind": "follow",
+   "weekdays": null,
+   "when": "15:30",
+   "next": "明天 15:30",
+   "today": false,
+   "duration_min": 5,
+   "meta": "明天 15:30 · 5 分钟",
+   "video": null
+  },
+  {
+   "key": "offwork",
+   "title": "收工，关工作消息",
+   "kind": "done",
+   "weekdays": null,
+   "when": "19:00",
+   "next": "明天 19:00",
+   "today": false,
+   "duration_min": null,
+   "meta": "明天 19:00",
+   "video": null
+  },
+  {
+   "key": "review",
+   "title": "本周减压复盘",
+   "kind": "proposal",
+   "weekdays": [
+    7
+   ],
+   "when": "21:30",
+   "next": "周日 21:30",
+   "today": false,
+   "duration_min": null,
+   "meta": "周日 21:30",
+   "video": null
+  }
+ ],
+ "summary": "11-06 开始",
+ "label": "减压"
+}

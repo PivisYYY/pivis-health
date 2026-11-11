@@ -35,6 +35,8 @@ final class PageSync: ObservableObject {
         let updating: [String]
         let replies: [String: String]?
         let insight: PendingInsight?
+        /// build 55：服务器怎么提醒（apns = 它自己推；local = 推不了，手机排本地提醒）。老服务器没有这一项
+        let push: String?
         struct Agent: Decodable { let busy: Bool; let tool: String?; let args: String? }
     }
 
@@ -65,11 +67,29 @@ final class PageSync: ObservableObject {
 
     func isUpdating(_ page: String) -> Bool { updating.contains(page) }
 
+    /// 换了一台电脑（配对、断开、进出演示）：上一台的状态全不算，马上对一次
+    func reset() {
+        rev = nil
+        lastReply = [:]
+        serverInsight = nil
+        if agentBusy { agentBusy = false }
+        if agentLabel != nil { agentLabel = nil }
+        if !updating.isEmpty { updating = [] }
+        if !unread.isEmpty { unread = [] }
+        if insight != nil { insight = nil }
+        poke()
+    }
+
     @discardableResult
     func poll() async -> Bool {
-        guard let s = try? await PivisAPI.fetch(Status.self, PivisAPI.request("api/v3/status", timeout: 8)) else { return false }
+        guard !ServerConfig.isDemo,
+              let s = try? await PivisAPI.fetch(Status.self, PivisAPI.request("api/v3/status", timeout: 8)) else { return false }
         let changed = rev != nil && rev != s.rev
         rev = s.rev
+        // 提醒方式变了（比如电脑上刚配好推送）：页面重拉一次，本地提醒跟着排或撤
+        if let p = s.push.flatMap(PushMode.init(rawValue:)), ServerConfig.setPush(p), !changed {
+            NotificationCenter.default.post(name: .pivisPagesDirty, object: nil)
+        }
         let label = s.agent.busy ? actionLabel(s.agent.tool ?? "", s.agent.args) : nil
         // 动作名直接换（不做淡入淡出，免得两段字叠在一起）；出现 / 消失和加载态才带动画
         if agentLabel != label { agentLabel = label }

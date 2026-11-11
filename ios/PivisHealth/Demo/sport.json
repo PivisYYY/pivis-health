@@ -1,0 +1,189 @@
+{
+ "page": "sport",
+ "now": "2026-11-05T21:10+08:00",
+ "date": "2026-11-05",
+ "headline": {
+  "text": ""
+ },
+ "hero": {
+  "level": "watch",
+  "board": "sport",
+  "label": "恢复",
+  "value": "53",
+  "unit": "%",
+  "note": "11-04 的数据",
+  "fields": [],
+  "table": null,
+  "viz": {
+   "metric": "recovery",
+   "kind": "gauge",
+   "label": "恢复",
+   "unit": "%",
+   "direction": "low_bad",
+   "nd": 0,
+   "show": [
+    "band",
+    "warn"
+   ],
+   "value": 53,
+   "asof": "2026-11-05",
+   "warn": 33,
+   "mid": 66,
+   "zone": "watch",
+   "prev": 57,
+   "aside": {
+    "text": "前一天 57"
+   },
+   "value_text": "53"
+  },
+  "layout": null,
+  "others": [],
+  "level_label": "留意",
+  "board_label": "运动"
+ },
+ "habits": [
+  {
+   "id": "neckstretch",
+   "name": "颈肩拉伸",
+   "board": "sport",
+   "board_label": "运动",
+   "icon": "figure.flexibility",
+   "day": 0,
+   "days": 14,
+   "state": "not_started",
+   "label": "颈肩拉伸",
+   "today": "11-06 开始"
+  },
+  {
+   "id": "tennis8",
+   "name": "网球体能",
+   "board": "sport",
+   "board_label": "运动",
+   "icon": "figure.tennis",
+   "day": 0,
+   "days": 56,
+   "state": "not_started",
+   "label": "网球体能",
+   "today": "11-08 开始"
+  },
+  {
+   "id": "run5k",
+   "name": "跑完 5 公里",
+   "board": "sport",
+   "board_label": "运动",
+   "icon": "figure.run",
+   "day": 0,
+   "days": 84,
+   "state": "not_started",
+   "label": "跑完 5 公里",
+   "today": "11-09 开始"
+  }
+ ],
+ "todos": [],
+ "more": [],
+ "done": [],
+ "hidden": 0,
+ "details": [],
+ "notices": [],
+ "projects": [
+  {
+   "id": "neckstretch",
+   "name": "颈肩拉伸 · 14 天",
+   "board": "sport",
+   "rules": [
+    "每坐 50 分钟起身 2 分钟，做下巴回收 + 耸肩放下",
+    "疼不超过 3/10 才做；手麻、手没劲、夜里也疼就停，去看骨科"
+   ],
+   "start": "2026-11-06",
+   "days": 14,
+   "reviews": []
+  },
+  {
+   "id": "run5k",
+   "name": "跑完 5 公里 · 12 周",
+   "board": "sport",
+   "rules": [
+    "速度标准：能说完整句子，RPE 不超过 6，宁慢不硬顶",
+    "每周总时长最多加 10%；漏一次不补双倍，接上就行",
+    "打球后腿酸的第二天，跑步改成快走 30 分钟",
+    "胸口闷、喘不上气、头晕立刻停，当天不做别的",
+    "第 5 周起周四加力量短版 30 分钟（复盘时加进来）"
+   ],
+   "start": "2026-11-09",
+   "days": 84,
+   "reviews": [
+    {
+     "date": "2026-11-15",
+     "title": "第 1 周复盘：24 分钟跑得下来吗"
+    },
+    {
+     "date": "2026-12-06",
+     "title": "第 4 周复盘：进第二阶段，周四加力量短版"
+    },
+    {
+     "date": "2027-01-03",
+     "title": "第 8 周复盘：跑的比例往上加"
+    },
+    {
+     "date": "2027-01-31",
+     "title": "第 12 周：试连续跑 30 分钟"
+    }
+   ]
+  },
+  {
+   "id": "tennis8",
+   "name": "网球体能 · 8 周",
+   "board": "sport",
+   "rules": [
+    "第 1–2 周 RPE ≤ 6，只练动作；第 3 周起最多 RPE 7；第 5 周减量（组数减半、重量 −10%）；第 6–7 周最多 RPE 8；第 8 周测试",
+    "每组做到次数上限、最后一组还能做 2 个才加重：上肢 +2.5 kg，下肢 +5 kg",
+    "打球前一天不做大重量深蹲、罗马尼亚硬拉",
+    "打完球第二天腿的动作各减一组",
+    "每周至少 2 次肩袖 + 前臂离心（周三那张）",
+    "肩、肘、膝尖锐地疼就停这个动作；第二天还疼去看骨科",
+    "睡不到 6 小时或恢复在红区，当天训练改轻或只做灵活性"
+   ],
+   "start": "2026-11-08",
+   "days": 56,
+   "reviews": [
+    {
+     "date": "2026-11-15",
+     "title": "第 1 周复盘"
+    },
+    {
+     "date": "2026-11-22",
+     "title": "第 2 周复盘"
+    },
+    {
+     "date": "2026-11-29",
+     "title": "第 3 周复盘"
+    },
+    {
+     "date": "2026-12-06",
+     "title": "第 4 周复盘"
+    },
+    {
+     "date": "2026-12-13",
+     "title": "第 5 周复盘：减量周结束"
+    },
+    {
+     "date": "2026-12-20",
+     "title": "第 6 周复盘"
+    },
+    {
+     "date": "2026-12-27",
+     "title": "第 7 周复盘"
+    },
+    {
+     "date": "2027-01-03",
+     "title": "第 8 周复盘：测试"
+    }
+   ]
+  }
+ ],
+ "publication": {
+  "published_at": "2026-11-06T18:00:00+08:00",
+  "producer": "P-Health Agent"
+ },
+ "stale": false
+}

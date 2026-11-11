@@ -14,10 +14,40 @@ mkdir -p "$B"
 TEAM_ID=$(sed -n 's/^DEVELOPMENT_TEAM *= *//p' Signing.xcconfig 2>/dev/null | tr -d ' ')
 [ -n "$TEAM_ID" ] || { echo "Signing.xcconfig 里没有 DEVELOPMENT_TEAM（从 Signing.xcconfig.example 复制）"; exit 1; }
 
-echo "==> 归档（Release / generic iOS）"
+# build 55：TestFlight 包不带本机的服务器地址和设备密钥（别人装了靠扫码配对连自己的电脑）。
+# 归档时把 PivisHealth/LocalConfig.swift 临时换成空白的 LocalConfig.swift.example，不管成功失败都换回来（trap）；
+# 开发包（export-ipa.sh）、模拟器照旧用本机的那份。
+LC=PivisHealth/LocalConfig.swift
+LC_BAK="$B/LocalConfig.swift.dev-backup"
+HAD_LC=0
+restore_lc() {
+  if [ "$HAD_LC" = 1 ] && [ -f "$LC_BAK" ]; then
+    mv -f "$LC_BAK" "$LC" && touch "$LC"      # touch：下次开发构建一定重新编译它
+  elif [ "$HAD_LC" = 0 ]; then
+    rm -f "$LC"
+  fi
+}
+if [ -f "$LC" ]; then cp -p "$LC" "$LC_BAK"; HAD_LC=1; fi
+trap restore_lc EXIT
+trap 'exit 130' INT TERM
+cp LocalConfig.swift.example "$LC"
+for k in serverHost installHost appKey; do
+  grep -Eq "static let $k *= *\"\"" "$LC" || { echo "LocalConfig.swift.example 里的 $k 不是空的，不出 TestFlight 包"; exit 1; }
+done
+
+echo "==> 归档（Release / generic iOS，空白 LocalConfig）"
 xcodebuild -project PivisHealth.xcodeproj -scheme PivisHealth \
   -configuration Release -destination 'generic/platform=iOS' \
   archive -archivePath "$B/PivisHealth-tf.xcarchive" -allowProvisioningUpdates
+
+# 兜底：归档出来的 App 里不能有本机的设备密钥 / 服务器地址（15 字节以内的短串可能被编进指令里，查不到也不算保证）
+APPBIN="$B/PivisHealth-tf.xcarchive/Products/Applications/PivisHealth.app/PivisHealth"
+if [ "$HAD_LC" = 1 ] && [ -f "$APPBIN" ]; then
+  for k in appKey serverHost installHost; do
+    v=$(sed -n "s/.*static let $k *= *\"\(.*\)\".*/\1/p" "$LC_BAK")
+    if [ -n "$v" ] && grep -aqF "$v" "$APPBIN"; then echo "归档里还有本机的 $k，不上传"; exit 1; fi
+  done
+fi
 
 cat > "$B/export-tf.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

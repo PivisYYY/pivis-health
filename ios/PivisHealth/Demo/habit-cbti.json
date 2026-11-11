@@ -1,0 +1,153 @@
+{
+ "id": "cbti",
+ "name": "CBT-I",
+ "board": "sleep",
+ "board_label": "休息",
+ "icon": "moon",
+ "state": "active",
+ "day": 1,
+ "days": 42,
+ "start": "2026-11-05",
+ "status": "active",
+ "week": [
+  {
+   "date": "2026-11-02",
+   "wd": "一",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-03",
+   "wd": "二",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-04",
+   "wd": "三",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-05",
+   "wd": "四",
+   "state": "today",
+   "label": "",
+   "today": true
+  },
+  {
+   "date": "2026-11-06",
+   "wd": "五",
+   "state": "plan",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-07",
+   "wd": "六",
+   "state": "plan",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-08",
+   "wd": "日",
+   "state": "plan",
+   "label": "",
+   "today": false
+  }
+ ],
+ "sessions": [
+  {
+   "key": "diary",
+   "title": "记一下昨晚",
+   "kind": "fields",
+   "weekdays": null,
+   "when": "08:50",
+   "next": "今天 08:50",
+   "today": true,
+   "duration_min": null,
+   "meta": "今天 08:50",
+   "video": null
+  },
+  {
+   "key": "caffeine",
+   "title": "下午那杯喝了什么",
+   "kind": "options",
+   "weekdays": null,
+   "when": "15:10",
+   "next": "今天 15:10",
+   "today": true,
+   "duration_min": null,
+   "meta": "今天 15:10",
+   "video": null
+  },
+  {
+   "key": "worry",
+   "title": "把明天写下来",
+   "kind": "done",
+   "weekdays": null,
+   "when": "21:50",
+   "next": "今天 21:50",
+   "today": true,
+   "duration_min": null,
+   "meta": "今天 21:50",
+   "video": null
+  },
+  {
+   "key": "phone",
+   "title": "放下手机",
+   "kind": "done",
+   "weekdays": null,
+   "when": "23:00",
+   "next": "今天 23:00",
+   "today": true,
+   "duration_min": null,
+   "meta": "今天 23:00",
+   "video": null
+  },
+  {
+   "key": "winddown",
+   "title": "床外身体扫描",
+   "kind": "follow",
+   "weekdays": null,
+   "when": "00:30",
+   "next": "今天 00:30",
+   "today": true,
+   "duration_min": 14,
+   "meta": "今天 00:30 · 14 分钟",
+   "video": null
+  },
+  {
+   "key": "bed",
+   "title": "01:30 后再上床",
+   "kind": "done",
+   "weekdays": null,
+   "when": "01:30",
+   "next": "今天 01:30",
+   "today": true,
+   "duration_min": null,
+   "meta": "今天 01:30",
+   "video": null
+  },
+  {
+   "key": "review",
+   "title": "本周睡眠复盘",
+   "kind": "proposal",
+   "weekdays": [
+    7
+   ],
+   "when": "",
+   "next": "周日",
+   "today": false,
+   "duration_min": null,
+   "meta": "周日",
+   "video": null
+  }
+ ],
+ "summary": "第 1 天 · 下次 今天 08:50 记一下昨晚",
+ "label": "CBT-I · 第 1 天 / 42"
+}

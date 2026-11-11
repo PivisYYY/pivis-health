@@ -1,11 +1,13 @@
 import Foundation
 
-/// 复制到 PivisHealth/LocalConfig.swift 并改成你自己的服务器地址（那个文件不进 git）。
+/// 开发用：复制到 PivisHealth/LocalConfig.swift（那个文件不进 git）。
+/// build 55 起 App 靠扫码配对连电脑，这里全留空就行（TestFlight 包一律用这份空白的）；
+/// 填了 serverHost + appKey 的开发包，没配对时直接连这台（模拟器的 -pivisProfile sim 用 serverHost + 8944）。
 enum LocalConfig {
-    /// P-Health 服务器所在机器的地址（内网 IP 或域名）
-    static let serverHost = "127.0.0.1"
+    /// P-Health 服务器所在机器的地址（内网 IP 或域名）；留空 = 没编进去
+    static let serverHost = ""
     /// 应用内更新：安装页所在的 HTTPS 地址（受信任证书），例如 "your-host.example.com:8443"；留空则不检查更新
     static let installHost = ""
-    /// App 设备密钥：和服务器 ~/.config/pivis-health/app_key 里的一致（换 DSH 令牌时带上）；留空则只有本机服务器能用对话
+    /// App 设备密钥：和服务器 ~/.config/pivis-health/app_key 里的一致；留空 = 没编进去
     static let appKey = ""
 }

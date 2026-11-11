@@ -1,0 +1,168 @@
+{
+ "id": "tennis8",
+ "name": "网球体能",
+ "board": "sport",
+ "board_label": "运动",
+ "icon": "figure.tennis",
+ "state": "not_started",
+ "day": 0,
+ "days": 56,
+ "start": "2026-11-08",
+ "status": "active",
+ "week": [
+  {
+   "date": "2026-11-02",
+   "wd": "一",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-03",
+   "wd": "二",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-04",
+   "wd": "三",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-05",
+   "wd": "四",
+   "state": "rest",
+   "label": "",
+   "today": true
+  },
+  {
+   "date": "2026-11-06",
+   "wd": "五",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-07",
+   "wd": "六",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-08",
+   "wd": "日",
+   "state": "plan",
+   "label": "力",
+   "today": false
+  }
+ ],
+ "sessions": [
+  {
+   "key": "str_b",
+   "title": "力量 B · 40 分钟",
+   "kind": "follow",
+   "weekdays": [
+    7
+   ],
+   "when": "19:00",
+   "next": "周日 19:00",
+   "today": false,
+   "duration_min": 40,
+   "meta": "周日 19:00 · 40 分钟",
+   "video": null
+  },
+  {
+   "key": "review",
+   "title": "本周训练复盘",
+   "kind": "proposal",
+   "weekdays": [
+    7
+   ],
+   "when": "",
+   "next": "周日",
+   "today": false,
+   "duration_min": null,
+   "meta": "周日",
+   "video": null
+  },
+  {
+   "key": "warm",
+   "title": "打球前热身",
+   "kind": "follow",
+   "weekdays": [
+    2,
+    6
+   ],
+   "when": "18:50",
+   "next": "下周二 18:50",
+   "today": false,
+   "duration_min": 9,
+   "meta": "下周二 18:50 · 9 分钟",
+   "video": null
+  },
+  {
+   "key": "cool",
+   "title": "打完放松 8 分钟",
+   "kind": "follow",
+   "weekdays": [
+    2,
+    6
+   ],
+   "when": "",
+   "next": "下周二",
+   "today": false,
+   "duration_min": 8,
+   "meta": "下周二 · 8 分钟",
+   "video": null
+  },
+  {
+   "key": "tennis_log",
+   "title": "打完记一下",
+   "kind": "fields",
+   "weekdays": [
+    2,
+    6
+   ],
+   "when": "",
+   "next": "下周二",
+   "today": false,
+   "duration_min": null,
+   "meta": "下周二",
+   "video": null
+  },
+  {
+   "key": "prehab",
+   "title": "肩肘预防 10 分钟",
+   "kind": "follow",
+   "weekdays": [
+    3
+   ],
+   "when": "",
+   "next": "下周三",
+   "today": false,
+   "duration_min": 10,
+   "meta": "下周三 · 10 分钟",
+   "video": null
+  },
+  {
+   "key": "str_a",
+   "title": "力量 A · 40 分钟",
+   "kind": "follow",
+   "weekdays": [
+    4
+   ],
+   "when": "19:00",
+   "next": "下周四 19:00",
+   "today": false,
+   "duration_min": 40,
+   "meta": "下周四 19:00 · 40 分钟",
+   "video": null
+  }
+ ],
+ "summary": "11-08 开始",
+ "label": "网球体能"
+}

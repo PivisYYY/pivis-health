@@ -56,6 +56,7 @@ P-Health 自己不建定时任务、不自己推送。要到点提醒的事一�
 | 简报与反馈 | `brief.py`、`goals.py`、`plan_lint.py`、`feedback.py`、`review.py` | 简报的数和交叉信号由代码算；计划冲突由代码查；复盘稿过校验才存，改规则、资料要老大同意并先考题 |
 | 通知 | `notify.py`、`apns.py` | 每件事只推一次；每张卡可以改提醒方式（`remind`）；P-Health 没写时间的卡由 `timedraft.py` 拟一个并推送请用户确认；模拟、演示、测试环境不推 |
 | 数据连接状态 | `datastatus.py`、`ingest.py` | 分清原因（要用户动手 / 服务器的问题 / 手机没开 App），只有要用户动手的才提示 |
+| 插件安装 / 配对 | `setup.py`、`pairing.py`、`dsh/cordis.patch.yml`、`bin/phealth` | 一条命令建目录、配置、DSH 专用 profile 和 launchd 任务；配对二维码；服务器 `/dshp` 凭密钥转发 DSH（HTTP + WebSocket） |
 | 康复 / 营养 | `rehab.py`、`nutrition.py` | 伤病档案、疼痛记录和红黄绿灯；营养目标、手掌份量换算成范围、日 / 周汇总 |
 | 跟练 | `follow.py` → pivis-follow | 先读懂视频、方案卡确认后才出片；成片只经自己的服务器给 App |
 | 接口 | `web.py`、`cli.py` | App 走 HTTP（要设备密钥，本机直连除外）；Agent 走 `./pivis-health` 命令 |

@@ -27,7 +27,8 @@ struct PivisHealthApp: App {
 
     var body: some Scene {
         WindowGroup {
-            V3Root()
+            // 没配对：引导页；配对过 / 演示：主界面（换服务器时整个重建）
+            AppGate()
                 .preferredColorScheme(.dark)
                 .tint(.white)
         }
@@ -42,12 +43,20 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         Reminders.shared.registerCategories()     // 通知按钮在后台把 App 叫醒时，类别要已经登记好
         purgeLegacyDebugData()
         WidgetBridge.shareConfig()
-        if Profile.uploadsDeviceData {
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
-            application.registerForRemoteNotifications()
-            DeviceDataReporter.shared.bootstrap()
-        }
+        Self.startDeviceServices()
         return true
+    }
+
+    /// 通知授权、推送 token、健康 / 位置 / 蓝牙：连上一台电脑以后才开始（引导页、演示里不弹一串授权）。
+    /// 刚配对好也调一次：把推送 token 报给新电脑（registerForRemoteNotifications 每次都会回调 didRegister → 上报），
+    /// 健康数据马上传一次
+    @MainActor
+    static func startDeviceServices(afterPairing: Bool = false) {
+        guard Profile.uploadsDeviceData, ServerConfig.hasServer, !ServerConfig.isDemo else { return }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        UIApplication.shared.registerForRemoteNotifications()
+        DeviceDataReporter.shared.bootstrap()
+        if afterPairing { Task { await DeviceDataReporter.shared.syncNow() } }
     }
 
     func application(_ application: UIApplication,
@@ -532,7 +541,7 @@ extension DeviceDataReporter: CBCentralManagerDelegate {
 }
 
 
-/// 极简钥匙串读写（只存设备 id 这类不敏感但要跨重装保留的值）
+/// 极简钥匙串读写（设备 id 这类要跨重装保留的值；build 55 起还有配对电脑的设备密钥）
 enum Keychain {
     private static let service = "com.pivis.health"
 
@@ -543,6 +552,12 @@ enum Keychain {
         var out: AnyObject?
         guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
         return String(data: d, encoding: .utf8)
+    }
+
+    static func delete(_ key: String) {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                kSecAttrAccount as String: key]
+        SecItemDelete(q as CFDictionary)
     }
 
     static func set(_ key: String, _ value: String) {

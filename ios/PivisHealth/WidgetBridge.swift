@@ -13,11 +13,19 @@ enum SharedStore {
 enum WidgetBridge {
     private static var pending: Task<Void, Never>?
 
-    /// 小组件自己去服务器拿数据、提交打勾时用的地址和设备密钥（模拟回放连 8944，正式连 8943）
+    /// 小组件自己去服务器拿数据、提交打勾时用的地址和设备密钥（配对过的电脑现在连通的地址；模拟回放连 8944）。
+    /// 没配对 / 演示：两样都拿掉，小组件只用缓存
     static func shareConfig() {
         let d = SharedStore.defaults
-        d.set(DshAPI.pivisBase.absoluteString, forKey: "pivis_base")
-        if d.string(forKey: "pivis_app_key") != LocalConfig.appKey { d.set(LocalConfig.appKey, forKey: "pivis_app_key") }
+        guard ServerConfig.hasServer, !ServerConfig.isDemo else {
+            d.removeObject(forKey: "pivis_base")
+            d.removeObject(forKey: "pivis_app_key")
+            return
+        }
+        let base = DshAPI.pivisBase.absoluteString
+        if d.string(forKey: "pivis_base") != base { d.set(base, forKey: "pivis_base") }
+        let key = ServerConfig.appKey
+        if d.string(forKey: "pivis_app_key") != key { d.set(key, forKey: "pivis_app_key") }
     }
 
     /// 合并成一次（短时间里连着变好几次只拿一次）

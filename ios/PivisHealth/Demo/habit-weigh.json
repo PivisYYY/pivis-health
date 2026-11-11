@@ -1,0 +1,79 @@
+{
+ "id": "weigh",
+ "name": "每天称重",
+ "board": "life",
+ "board_label": "日常",
+ "icon": "scalemass",
+ "state": "not_started",
+ "day": 0,
+ "days": 84,
+ "start": "2026-11-06",
+ "status": "active",
+ "week": [
+  {
+   "date": "2026-11-02",
+   "wd": "一",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-03",
+   "wd": "二",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-04",
+   "wd": "三",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-05",
+   "wd": "四",
+   "state": "rest",
+   "label": "",
+   "today": true
+  },
+  {
+   "date": "2026-11-06",
+   "wd": "五",
+   "state": "plan",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-07",
+   "wd": "六",
+   "state": "plan",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-08",
+   "wd": "日",
+   "state": "plan",
+   "label": "",
+   "today": false
+  }
+ ],
+ "sessions": [
+  {
+   "key": "weigh",
+   "title": "早上称一下",
+   "kind": "number",
+   "weekdays": null,
+   "when": "07:40",
+   "next": "明天 07:40",
+   "today": false,
+   "duration_min": null,
+   "meta": "明天 07:40",
+   "video": null
+  }
+ ],
+ "summary": "11-06 开始",
+ "label": "每天称重"
+}

@@ -48,12 +48,14 @@ if DSH_PREFIX:
     SESSION_BY_CONTEXT = {"": SESSION_MAIN, "休息": f"{DSH_PREFIX}r3-sleep", "运动": f"{DSH_PREFIX}r3-sport",
                           "压力": f"{DSH_PREFIX}r3-stress", "组件编排": f"{DSH_PREFIX}composer",
                           "事件处理": f"{DSH_PREFIX}r3-events"}
-SESSIONS_DIR = Path.home() / ".dsh/sessions" / ("-" + DSH_CWD.replace("/", "-") + "--")
+# DSH 的主目录（DSH_HOME，默认 ~/.dsh）：别人装 P-Health 插件时也可能放在别处
+DSH_HOME = Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh")).expanduser()
+SESSIONS_DIR = DSH_HOME / "sessions" / ("-" + DSH_CWD.replace("/", "-") + "--")
 # 页面编排单独一个工作目录 + 轻量预设：不带聊天人设、P-Health 的规则和工具，只按格式出 JSON。
 # 编排会话也因此不再堆在 P-Health 的会话列表里（DeepSeek Harness 客户端里看得到那个列表）
 COMPOSER_CWD = os.environ.get("PIVIS_DSH_COMPOSER_CWD", DSH_CWD.rstrip("/") + "-composer")
 COMPOSER_PRESET = "phealth-composer"
-COMPOSER_SESSIONS_DIR = Path.home() / ".dsh/sessions" / ("-" + COMPOSER_CWD.replace("/", "-") + "--")
+COMPOSER_SESSIONS_DIR = DSH_HOME / "sessions" / ("-" + COMPOSER_CWD.replace("/", "-") + "--")
 COMPOSER_AGENTS_MD = """# 页面编排
 
 你是 P-Health 的页面编排器：根据消息里的证据和格式说明，为一页写主卡和结论。
@@ -70,9 +72,10 @@ def ensure_composer_cwd() -> str:
     if not md.exists() or md.read_text(encoding="utf-8") != COMPOSER_AGENTS_MD:
         md.write_text(COMPOSER_AGENTS_MD, encoding="utf-8")
     return str(d)
-LOG_FILE = Path.home() / ".dsh/bot/workspace/pivis-runtime/dshweb.log"
+# dsh web 启动时把登录 token 打在自己的日志里：插件装的环境由 setup 写 PIVIS_DSH_LOG
+LOG_FILE = Path(os.environ.get("PIVIS_DSH_LOG") or (Path.home() / ".dsh/bot/workspace/pivis-runtime/dshweb.log")).expanduser()
 
-TZ = ZoneInfo("Asia/Shanghai")
+TZ = ZoneInfo(os.environ.get("PIVIS_HEALTH_TZ") or "Asia/Shanghai")
 
 
 # 待办提交时发给 P-Health 的照片引用：「照片 <路径>（用 read_image 看这张图）」，对话里只显示「照片」
@@ -185,6 +188,30 @@ def send_message(text: str, context: str = "") -> dict:
 _EVENTS_CACHE: dict[str, tuple[tuple, list[dict]]] = {}
 
 
+_DSH_NODE = Path("/Applications/DeepSeek Harness.app/Contents/Resources/runtime/primary-runtime/dependencies/node/bin/node")
+_ZSTD_CAT = Path(__file__).resolve().parent.parent / "scripts" / "zstd-cat.mjs"
+
+
+def _decompress(path: Path) -> bytes:
+    """解压会话记录：有 Python zstandard 就用它；没有（插件装的环境用 DSH 自带的 Python，加载不了第三方原生扩展）
+    就交给 DSH 自带的 Node（scripts/zstd-cat.mjs，逐帧解）。"""
+    try:
+        import zstandard
+    except ImportError:
+        zstandard = None
+    if zstandard is not None:
+        import io
+        return zstandard.ZstdDecompressor().stream_reader(io.BytesIO(path.read_bytes())).read()
+    node = Path(os.environ.get("PHEALTH_NODE") or _DSH_NODE)
+    if not node.exists():
+        raise DshChatError("读不了对话记录：没有 zstandard，也找不到 DeepSeek Harness 自带的 Node")
+    import subprocess
+    r = subprocess.run([str(node), str(_ZSTD_CAT), str(path)], capture_output=True, timeout=30)
+    if r.returncode:
+        raise DshChatError("解压对话记录失败：" + r.stderr.decode("utf-8", "replace")[-200:])
+    return r.stdout
+
+
 def _load_events(context: str = "") -> list[dict]:
     """一个会话的全部事件（zstd JSONL）。文件大小和修改时间没变就直接用上次解析的结果
     （以前每次轮询都把整份解压、解析两遍，会话越长越慢）。缺解压库时明确报错，不再当成「没有消息」。"""
@@ -198,13 +225,9 @@ def _load_events(context: str = "") -> list[dict]:
     if hit and hit[0] == sig:
         return hit[1]
     try:
-        import zstandard
-    except ImportError as exc:
-        raise DshChatError("缺少 zstandard，读不了对话记录（/usr/bin/python3 -m pip install zstandard）") from exc
-    import io
-    try:
-        text_data = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(zst_file.read_bytes())).read() \
-            .decode("utf-8", errors="replace")
+        text_data = _decompress(zst_file).decode("utf-8", errors="replace")
+    except DshChatError:
+        raise
     except Exception:  # noqa: BLE001  正在写的半截文件：这次先不更新
         return hit[1] if hit else []
     out = []

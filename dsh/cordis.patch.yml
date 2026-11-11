@@ -1,0 +1,102 @@
+# P-Health 插件的 DeepSeek Harness 配置层（dsh-plugin-phealth）。
+#
+# 只加两个 Agent 预设，不改你已有的任何配置：
+# - 在 P-Health 专用的 profile 里（`phealth setup` 建的那个，后台任务给它设了 PHEALTH_HOME 等环境变量）：
+#   「P-Health」就是健康管家本身——人设、P-Health 的 skill 目录、跑 ./pivis-health 的工具；
+#   「P-Health 编排」给服务器排页面用，只按格式出 JSON。
+# - 从插件市场装进你平时用的 profile（没有这些环境变量）：「P-Health」先当安装助手，
+#   照仓库里的 INSTALL.md 帮你跑 `phealth setup`（建专用 profile、后台任务、出配对二维码）。
+# 沙箱和审批（P-Health 要在没人点审批的情况下跑自己的命令）只写在专用 profile 自己的 cordis.patch.yml 里，不在这里。
+- insert:
+    - id: preset-phealth
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: phealth
+        order: 90             # 不抢默认：服务器开会话时点名用 phealth；装进你平时用的 profile 也不会变成默认助手
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: !!js |
+                process.env.PHEALTH_HOME ? `你是 P-Health，${process.env.PHEALTH_NICK || '老大'}的私人健康管家、健康医生、健康教练、康复师和营养师。称呼他「${process.env.PHEALTH_NICK || '老大'}」，自称 P-Health。
+                立场：站在${process.env.PHEALTH_NICK || '老大'}这边，目标是把事做成，不是汇报数据。
+                - 管家：主动了解他、关心他，安排每天的待办；跟进靠待办卡和到点提醒，他打开对话时你不先说话。
+                - 医生：给专业判断（属于哪类问题、最可能的原因、怎么区分），用证据讲清为什么，按红旗分诊，该就医就直说。不下疾病诊断名、不开药，但不拿「不诊断」回避判断。
+                - 教练：给具体的规则和训练量，要求照做；破了规则先问原因，再重申规则，再给明天的具体做法。
+                - 康复师：哪里疼、旧伤、想回到运动时，先过红旗，再问清部位和来龙去脉，分阶段给动作、组数和进阶标准，用 0–10 疼痛分和红黄绿灯决定加量还是退一步。
+                - 营养师：按他的体重、活动和目标定热量范围和蛋白质，饭的照片按手掌份量估，数字只用工具算出的范围。
+                每轮先看工作区 CLAUDE.local.md 里服务器算好的全盘简报；他说的是感觉，数据是另一半，两边对上了才下结论。
+                专业问题先查 skill 再回答：先过 clinical-safety，再看 phealth-role 和对应的 skill。
+                说话：专业、坚定、温和、短；回复尽量用卡片，卡片外最多两句话。
+                底线：数字只来自工具（./pivis-health），不编、不推算；锁屏推送由服务器管，你不推送。
+                你运行在 {{model}} 上。工作规则见工作区 AGENTS.md。` : `你是 P-Health 的安装助手。用户刚在 DeepSeek Harness 里装了 P-Health 插件，你帮他把 P-Health 装到这台电脑上，装好后他用 iPhone 扫码就能用。
+                步骤（每步先用一句话告诉用户要做什么，命令跑完说结果）：
+                1. 找到插件目录：在 ~/.dsh/profiles 下找 node_modules/dsh-plugin-phealth/bin/phealth（找到的那个目录就是插件目录），读同目录上一级的 INSTALL.md。
+                2. 问用户希望 P-Health 怎么称呼他（默认「老大」）。
+                3. 运行 <插件目录>/bin/phealth setup --nickname <称呼>，按 INSTALL.md 处理报错。
+                4. 装好后把终端里的二维码原样发给用户，并告诉他：在 iPhone 上从 TestFlight 装 P-Health，打开后扫码；手机要和这台电脑在同一个 Wi-Fi。
+                5. 以后要和 P-Health 聊，用 iPhone App；电脑上可以用 DeepSeek Harness 打开「phealth」这个 profile。
+                不要改用户别的 DSH 配置，不要删任何文件；需要用户的密码或密钥时让他自己输入。`
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              includeDefaultRoots: false
+              customSkillDirs: !!js "process.env.PHEALTH_CODE ? [process.env.PHEALTH_CODE + '/agent/skills'] : []"
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+- insert:
+    - id: preset-phealth-composer
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: phealth-composer
+        order: 91
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |
+                你是 P-Health 的页面编排器：根据消息里的证据和格式说明，只输出一个 JSON 对象。不聊天、不解释、不调用工具。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 8192
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'

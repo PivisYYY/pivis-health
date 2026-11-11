@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 // MARK: - 和 P-Health 服务器说话的唯一入口
-// 地址（DshAPI.pivisBase）、设备密钥（X-Pivis-Key）、解码（snake_case）、状态码检查、错误都在这里。
+// 地址（DshAPI.pivisBase → ServerConfig）、设备密钥（X-Pivis-Key，配对时存进钥匙串）、解码（snake_case）、状态码检查、错误都在这里。
 // 服务器只放行带密钥的 /api/*（/install、/media/* 不用）；密钥按地址判断，发给别的服务（DSH）的请求不带。
 enum PivisAPI {
     static var base: URL { DshAPI.pivisBase }
@@ -75,27 +75,41 @@ enum PivisAPI {
         return req
     }
 
-    /// 发往本服务器 /api/ 的请求带上设备密钥（WebSocket 握手也用这个）
+    /// 发往本服务器 /api/ 和 /dshp（服务器转发的 DSH）的请求带上设备密钥（WebSocket 握手也用这个）
     static func authorize(_ req: inout URLRequest) {
-        guard let u = req.url, isPivisAPI(u), !LocalConfig.appKey.isEmpty else { return }
-        req.setValue(LocalConfig.appKey, forHTTPHeaderField: "X-Pivis-Key")
+        let key = ServerConfig.appKey
+        guard let u = req.url, isPivisAPI(u), !key.isEmpty else { return }
+        req.setValue(key, forHTTPHeaderField: "X-Pivis-Key")
     }
 
+    /// 本服务器的接口：/api/…，或者它转发的 DSH（/dshp…，HTTP 和 WebSocket）。
+    /// 模拟回放 / 开发版直连 DSH 的 8960 端口不算（端口不同），照旧不带密钥
     static func isPivisAPI(_ u: URL) -> Bool {
         let b = base
         func port(_ x: URL) -> Int? { x.port ?? (x.scheme == "https" || x.scheme == "wss" ? 443 : 80) }
-        return u.host == b.host && port(u) == port(b) && u.path.hasPrefix("/api/")
+        guard u.host == b.host, port(u) == port(b) else { return false }
+        let p = ServerConfig.dshProxyPath
+        return u.path.hasPrefix("/api/") || u.path == p || u.path.hasPrefix(p + "/")
     }
 
     /// 发请求。checkStatus：非 2xx 抛 .http（带服务器的 message）；发给 DSH 这类自己看状态码的传 false
     @discardableResult
     static func send(_ req: URLRequest, checkStatus: Bool = true) async throws -> (Data, HTTPURLResponse) {
+        // 演示 / 没配对：不连任何服务器
+        if ServerConfig.isDemo || !ServerConfig.hasServer { throw Failure.offline(URLError(.notConnectedToInternet)) }
         var r = req
         authorize(&r)
         let data: Data
         let resp: URLResponse
-        do { (data, resp) = try await URLSession.shared.data(for: r) } catch { throw Failure.offline(error) }
+        do { (data, resp) = try await URLSession.shared.data(for: r) } catch {
+            ServerLink.connectionFailed(error)     // 连不上：隔一会儿把配对链接里的几个地址重新试一遍
+            throw Failure.offline(error)
+        }
         guard let http = resp as? HTTPURLResponse else { throw Failure.http(0, nil) }
+        // 服务器不认这个密钥了（换过密钥 / 重置过）：重新试一遍配对的地址，确认了就提示重新扫码
+        if http.statusCode == 401 || http.statusCode == 403, let u = r.url, isPivisAPI(u) {
+            Task { @MainActor in ServerLink.shared.reprobe() }
+        }
         if checkStatus, !(200..<300).contains(http.statusCode) {
             throw Failure.http(http.statusCode, object(data)?["message"] as? String)
         }

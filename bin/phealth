@@ -1,0 +1,15 @@
+#!/bin/sh
+# P-Health 命令入口（DeepSeek Harness 插件）：phealth setup / phealth pair / phealth doctor …
+# 用 DSH 自带的 Python（不依赖 Xcode 命令行工具），没有再用系统的。
+CODE="$(cd "$(dirname "$0")/.." && pwd)"
+PY=""
+for p in "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/primary-runtime/dependencies/python/bin/python3.12" /usr/bin/python3; do
+  [ -x "$p" ] && { PY="$p"; break; }
+done
+[ -n "$PY" ] || { echo "找不到 Python：先装好 DeepSeek Harness"; exit 1; }
+export PYTHONPATH="$CODE"
+[ -z "$PIVIS_HEALTH_CONFIG" ] && [ -f "${PHEALTH_HOME:-$HOME/PHealth}/config.json" ] && export PIVIS_HEALTH_CONFIG="${PHEALTH_HOME:-$HOME/PHealth}/config.json"
+case "$1" in
+  setup) shift; exec "$PY" -m pivis_health.setup "$@" ;;
+  *) exec "$PY" -m pivis_health.cli "$@" ;;
+esac

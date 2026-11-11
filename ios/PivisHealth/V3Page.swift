@@ -17,6 +17,7 @@ struct BoardPageView: View {
     @State private var syncDotsToken = UUID()
     @State private var showWhoopLogin = false
     @ObservedObject private var sync = PageSync.shared
+    @ObservedObject private var link = ServerLink.shared
     @State private var heroHold = false
 
     init(board: V3Board, visible: Bool) {
@@ -93,7 +94,20 @@ struct BoardPageView: View {
                 } else if loader.failed {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("暂时连不上 P-Health").font(E.body(15)).foregroundStyle(E.text2)
-                        OutlinePill(title: "重试") { Task { await loader.load() } }
+                        if link.keyRejected {
+                            Text("这台电脑不认这个配对了，重新扫码").font(E.body(13)).foregroundStyle(E.text3)
+                        }
+                        HStack(spacing: 4) {
+                            OutlinePill(title: "重试") {
+                                ServerLink.shared.reprobe(force: true)
+                                Task { await loader.load() }
+                            }
+                            // 换了电脑、电脑换了地址：从这里重新扫码 / 断开
+                            if link.mode == .ready {
+                                QuietButton(title: "连接设置") { ServerLink.shared.showConnection() }
+                                    .accessibilityIdentifier("page-connection")
+                            }
+                        }
                     }
                     .padding(.top, 40)
                 } else {
@@ -113,6 +127,8 @@ struct BoardPageView: View {
         }
         .onChange(of: heroKey) { _, _ in heroHold = false }
         .refreshable {
+            // 演示：只重新读一遍样例（不同步健康数据、不出小圆点）
+            if ServerConfig.isDemo { await loader.load(); return }
             // 下拉：Apple 健康由手机直接传、服务器马上回 WHOOP / Apple 的数据有多新（需要时它在后台补拉 WHOOP），
             // 两边同时进行；再拉最新页面。不写字：轻震一下 + 顶上两个小圆点（实心 = 新的），2 秒后淡出。
             // 只有服务器说要老大动手（action）时才写那一句；P-Health 还在改主卡由流光框表示
@@ -331,7 +347,9 @@ struct BoardPageView: View {
             Reminders.shared.sync(todos: shown, nowText: d.now, board: board.id)
         }
         // 今天要练的视频：Wi-Fi 下先下到手机上（出门在外连不上家里的服务器也能放）
-        for t in shown { if let u = PivisAPI.resolve(t.practiceVideo?.url) { VideoCache.shared.prefetch(u) } }
+        if !ServerConfig.isDemo {
+            for t in shown { if let u = PivisAPI.resolve(t.practiceVideo?.url) { VideoCache.shared.prefetch(u) } }
+        }
         // 有待办在处理时，持续刷新，直到 P-Health 改完
         if d.todos.contains(where: { $0.status == "processing" }) { schedulePoll() }
     }

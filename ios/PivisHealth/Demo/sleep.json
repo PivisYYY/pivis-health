@@ -1,0 +1,285 @@
+{
+ "page": "sleep",
+ "now": "2026-11-05T21:10+08:00",
+ "date": "2026-11-05",
+ "headline": {
+  "text": ""
+ },
+ "hero": {
+  "level": "act",
+  "board": "sleep",
+  "label": "睡眠债",
+  "value": "10.0",
+  "unit": "小时",
+  "note": "11-04 的数据，之后两晚没记",
+  "fields": [],
+  "table": null,
+  "viz": {
+   "metric": "sleep_debt",
+   "kind": "stack",
+   "label": "睡眠债",
+   "unit": "小时",
+   "direction": "high_bad",
+   "nd": 1,
+   "show": [
+    "warn"
+   ],
+   "value": 10.0,
+   "asof": "2026-11-04",
+   "blocks": [
+    {
+     "night_of": "2026-10-31",
+     "short": 1.4
+    },
+    {
+     "night_of": "2026-11-01",
+     "short": 1.7
+    },
+    {
+     "night_of": "2026-11-02",
+     "short": 1.9
+    },
+    {
+     "night_of": "2026-11-03",
+     "short": 2.3
+    },
+    {
+     "night_of": "2026-11-04",
+     "short": 2.7
+    }
+   ],
+   "warn": 10.0,
+   "zone": "act",
+   "aside": {
+    "text": "近 5 晚"
+   },
+   "value_text": "10.0"
+  },
+  "layout": null,
+  "others": [],
+  "level_label": "需要处理",
+  "board_label": "休息"
+ },
+ "habits": [
+  {
+   "id": "cbti",
+   "name": "CBT-I",
+   "board": "sleep",
+   "board_label": "休息",
+   "icon": "moon",
+   "day": 1,
+   "days": 42,
+   "state": "active",
+   "label": "CBT-I · 1/42",
+   "today": "21:50"
+  }
+ ],
+ "todos": [
+  {
+   "id": "cbti-2026-11-05-worry",
+   "board": "sleep",
+   "project": "cbti",
+   "date": "2026-11-05",
+   "when": "21:50",
+   "title": "把明天写下来",
+   "note": "3 分钟，写完合上纸",
+   "kind": "done",
+   "status": "scheduled",
+   "verbs": [
+    "done",
+    "later",
+    "skip"
+   ],
+   "inputs": [],
+   "media": null,
+   "steps": [],
+   "duration_min": null,
+   "alarm": null,
+   "until": null,
+   "auto": null,
+   "submit_label": "",
+   "record": null,
+   "summary": "",
+   "escalate": null,
+   "request": null,
+   "source": "project",
+   "template_rev": 5,
+   "created_at": "2026-11-05T09:26:43",
+   "updated_at": "2026-11-05T09:28:58",
+   "last": null
+  },
+  {
+   "id": "cbti-2026-11-05-phone",
+   "board": "sleep",
+   "project": "cbti",
+   "date": "2026-11-05",
+   "when": "23:00",
+   "title": "放下手机",
+   "note": "开勿扰，放远",
+   "kind": "done",
+   "status": "scheduled",
+   "verbs": [
+    "done",
+    "later",
+    "skip"
+   ],
+   "inputs": [],
+   "media": null,
+   "steps": [],
+   "duration_min": null,
+   "alarm": null,
+   "until": null,
+   "auto": null,
+   "submit_label": "",
+   "record": null,
+   "summary": "",
+   "escalate": null,
+   "request": null,
+   "source": "project",
+   "template_rev": 5,
+   "created_at": "2026-11-05T09:26:27",
+   "updated_at": "2026-11-05T09:28:58",
+   "last": null
+  },
+  {
+   "id": "cbti-2026-11-05-winddown",
+   "board": "sleep",
+   "project": "cbti",
+   "date": "2026-11-05",
+   "when": "00:30",
+   "title": "床外身体扫描",
+   "note": "坐着听，手机放远",
+   "kind": "follow",
+   "status": "scheduled",
+   "verbs": [
+    "start",
+    "later",
+    "skip"
+   ],
+   "inputs": [],
+   "media": null,
+   "steps": [
+    {
+     "title": "手机开勿扰、放远",
+     "note": "",
+     "duration_min": 1.0,
+     "media": null
+    },
+    {
+     "title": "坐好，三次深呼吸",
+     "note": "",
+     "duration_min": 1.0,
+     "media": null
+    },
+    {
+     "title": "身体扫描引导",
+     "note": "",
+     "duration_min": null,
+     "media": {
+      "kind": "audio",
+      "url": "/media/sleep-audio/02_%E8%BA%AB%E4%BD%93%E6%89%AB%E6%8F%8F.m4a",
+      "title": "身体扫描",
+      "duration_min": 12.0
+     }
+    }
+   ],
+   "duration_min": 14.0,
+   "alarm": null,
+   "until": null,
+   "auto": null,
+   "submit_label": "",
+   "record": null,
+   "summary": "",
+   "escalate": null,
+   "request": null,
+   "source": "project",
+   "template_rev": 5,
+   "created_at": "2026-11-05T09:26:27",
+   "updated_at": "2026-11-05T09:28:58",
+   "last": null
+  },
+  {
+   "id": "cbti-2026-11-05-bed",
+   "board": "sleep",
+   "project": "cbti",
+   "date": "2026-11-05",
+   "when": "01:30",
+   "title": "01:30 后再上床",
+   "note": "困了再上床，床只用来睡",
+   "kind": "done",
+   "status": "scheduled",
+   "verbs": [
+    "done",
+    "later",
+    "skip"
+   ],
+   "inputs": [],
+   "media": null,
+   "steps": [],
+   "duration_min": null,
+   "alarm": null,
+   "until": null,
+   "auto": "bedtime",
+   "submit_label": "",
+   "record": null,
+   "summary": "",
+   "escalate": null,
+   "request": null,
+   "source": "project",
+   "template_rev": 5,
+   "created_at": "2026-11-05T09:26:27",
+   "updated_at": "2026-11-05T09:28:58",
+   "last": null
+  }
+ ],
+ "more": [],
+ "done": [],
+ "hidden": 0,
+ "details": [],
+ "notices": [],
+ "projects": [
+  {
+   "id": "cbti",
+   "name": "CBT-I",
+   "board": "sleep",
+   "rules": [
+    "每天 08:30 起床，周末也一样",
+    "01:30 前不上床，困了才上床",
+    "醒着超过约 20 分钟就下床，困了再回",
+    "床只用来睡觉",
+    "白天不睡，要睡就 15:00 前、最多 20 分钟",
+    "下午咖啡改麦茶；11-19 前过渡期最多半杯美式、15:00 前；11-19 起下午断咖啡",
+    "睡前 1 小时不看工作消息"
+   ],
+   "start": "2026-11-05",
+   "days": 42,
+   "reviews": [
+    {
+     "date": "2026-11-15",
+     "title": "第 1 次复盘：按睡眠效率调窗口"
+    },
+    {
+     "date": "2026-11-22",
+     "title": "第 2 次复盘"
+    },
+    {
+     "date": "2026-11-29",
+     "title": "第 3 次复盘"
+    },
+    {
+     "date": "2026-12-06",
+     "title": "第 4 次复盘"
+    },
+    {
+     "date": "2026-12-13",
+     "title": "第 5 次复盘：决定维持还是延长"
+    }
+   ]
+  }
+ ],
+ "publication": {
+  "published_at": "2026-11-06T18:00:00+08:00",
+  "producer": "P-Health Agent"
+ },
+ "stale": false
+}

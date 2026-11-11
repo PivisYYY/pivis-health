@@ -1,0 +1,10 @@
+{
+  "name": "dsh-plugin-phealth",
+  "version": "0.55.0",
+  "description": "P-Health：跑在你自己电脑上的私人健康管家（睡眠、训练、康复、营养、减压）。装好后扫码连 iPhone App。",
+  "keywords": ["dsh-plugin", "deepseek-harness", "health", "sleep", "whoop", "apple-health"],
+  "homepage": "https://github.com/PivisYYY/pivis-health",
+  "repository": { "type": "git", "url": "https://github.com/PivisYYY/pivis-health.git" },
+  "license": "MIT",
+  "dsh": { "bundle": { "patch": "./dsh/cordis.patch.yml" } }
+}

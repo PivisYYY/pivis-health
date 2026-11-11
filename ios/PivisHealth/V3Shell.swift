@@ -24,6 +24,7 @@ struct V3Root: View {
     /// 键盘弹起时把底栏和底部遮罩藏起来：ignoresSafeArea(.keyboard) 在 iOS 26 上留不住，底栏会浮到键盘上面盖住卡片按钮
     @State private var keyboardUp = false
     @ObservedObject private var sync = PageSync.shared
+    @ObservedObject private var link = ServerLink.shared
     @Namespace private var tabNS
     @Environment(\.scenePhase) private var scenePhase
 
@@ -31,6 +32,8 @@ struct V3Root: View {
     private static func initialSplash() -> Truth? {
         let a = ProcessInfo.processInfo.arguments
         if a.contains("-noSplash") || a.contains("-canvasGallery") || a.contains("-openChat") { return nil }
+        // 刚配对好 / 进出演示（主界面重建）：不再放一次开屏
+        if MainActor.assumeIsolated({ ServerLink.shared.generation }) > 0 { return nil }
         if a.contains("-uiTestDisableDeviceData") && !a.contains("-showSplash") { return nil }
         return TruthStore.forLaunch()
     }
@@ -122,6 +125,10 @@ struct V3Root: View {
                 .allowsHitTesting(!keyboardUp)
                 .accessibilityHidden(keyboardUp)
         }
+        // 演示：页面顶上居中一个小标记，点了回到引导页（和标题同一高度，标题在左、钟在右）
+        .overlay(alignment: .top) {
+            if link.mode == .demo { DemoBadge().padding(.top, 22) }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.easeOut(duration: 0.15)) { keyboardUp = true }
         }
@@ -165,6 +172,13 @@ struct V3Root: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .pivisStartTodo)) { note in
             if let t = note.object as? V3Todo { execTodo = t }
+        }
+        // 从外面打开了配对链接：收起抽屉、全屏页，让「连接到 X？」出得来
+        .onReceive(NotificationCenter.default.publisher(for: .pivisDismissForPairing)) { _ in
+            splash = nil
+            chatTarget = nil
+            execTodo = nil
+            timeAsk = nil
         }
         .onReceive(NotificationCenter.default.publisher(for: .pivisPushTapped)) { note in
             let info = note.userInfo ?? [:]
@@ -225,6 +239,7 @@ struct V3Root: View {
             // 只有真的进后台才停；系统弹窗、控制中心、多任务界面时是 inactive，页面还在眼前，照常同步
             PageSync.shared.setActive(phase != .background)
             if phase == .active {
+                ServerLink.shared.reprobe()                  // 换了网（回家 / 出门）：配对链接里的几个地址重新试，用现在最好的那个
                 WidgetBridge.clearWidgetDoneReminders()     // 小组件上打过勾的：撤掉还没响的本地提醒
                 NotificationCenter.default.post(name: .pivisPagesDirty, object: nil)
                 AppUpdater.shared.check()
@@ -269,6 +284,8 @@ struct V3Root: View {
                 }
             case "chat":
                 chatTarget = ChatTarget(context: "", pendingText: nil)
+            case "pair":
+                ServerLink.shared.handleOpenURL(url)     // 配对链接：交给根视图那一层（同一条只认一次）
             default: break
             }
         }
@@ -321,6 +338,8 @@ struct V3Root: View {
                     .contentShape(Circle())
             }
             .buttonStyle(EPress())
+            // 长按：现在连的哪台电脑、换一台、断开（演示里：回到配对）
+            .contextMenu { connectionMenu }
             .offset(y: -23)
             .accessibilityLabel(mainChatLabel)
             .accessibilityIdentifier("open-main-chat")
@@ -331,6 +350,21 @@ struct V3Root: View {
         }
         .frame(height: 64, alignment: .top)
         .padding(.horizontal, 8)
+    }
+
+    @ViewBuilder
+    private var connectionMenu: some View {
+        if link.mode == .demo {
+            Button { link.exitDemo() } label: { Label("退出演示，去配对", systemImage: "qrcode.viewfinder") }
+        } else {
+            Section(ServerConfig.resolved?.name ?? "P-Health") {
+                Button { link.startScan() } label: { Label("换一台电脑", systemImage: "qrcode.viewfinder") }
+                Button { link.showConnection() } label: { Label("连接设置", systemImage: "link") }
+                if ConnectionSheet.canUnpair {
+                    Button(role: .destructive) { link.confirmUnpair = true } label: { Label("断开", systemImage: "xmark") }
+                }
+            }
+        }
     }
 
     private func tabItem(_ b: V3Board) -> some View {

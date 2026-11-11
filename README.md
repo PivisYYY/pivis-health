@@ -15,6 +15,16 @@ P-Health 由四部分组成：
 
 App 只负责画出来，内核只负责把数算对；中间所有"说什么、做什么"都交给 Agent。
 
+## 安装（DeepSeek Harness 插件）
+
+P-Health 跑在**你自己的 Mac** 上，数据只在你的电脑里。三步：
+
+1. **在 DeepSeek Harness 里装插件**：新开一个对话，发一句「帮我安装 P-Health：先运行 `dsh plugin --profile phealth add github:PivisYYY/pivis-health`，再运行 `~/.dsh/profiles/phealth/node_modules/dsh-plugin-phealth/bin/phealth setup`，最后把出现的二维码给我」。或者在 DSH 的「插件 › 发现 › 添加索引源」里填 `https://raw.githubusercontent.com/PivisYYY/pivis-health/main/dsh/market-index.json`，装「P-Health 私人健康管家」，再跟「P-Health」助手说「开始安装」。
+2. **装 App**：iPhone 上打开 TestFlight 公开链接（*TestFlight 外部测试审核通过后放在这里*）。
+3. **扫码配对**：打开 App 点「扫码配对」，扫电脑上的二维码。手机和电脑在同一个 Wi-Fi；出门在外用 Tailscale。
+
+装了什么、怎么卸载、出问题怎么办，见 [INSTALL.md](INSTALL.md)。没有电脑也可以在 App 里点「先看看演示」。
+
 ![四个板块：现在 / 休息 / 运动 / 压力](docs/images/pages.png)
 
 > 截图里的数据全部是编出来的演示数据（[`examples/make_demo.py`](examples/make_demo.py) 生成），不来自任何真人。
@@ -257,7 +267,7 @@ python3 -m pivis_health.cli review-cycle --dry-run --force   # 对话复盘试�
 python3 -m pivis_health.cli serve              # 启动服务（默认 127.0.0.1:8943）
 ```
 
-- 运行只需系统自带 Python 3.9+，不依赖第三方库。跑测试要装 pytest：`python3 -m venv .venv && .venv/bin/pip install pytest && .venv/bin/python -m pytest`。
+- 运行只需系统自带 Python 3.9+（插件装的环境用 DeepSeek Harness 自带的 Python 3.12），不依赖第三方库；读 DSH 对话记录要么有 `zstandard`，要么用 DeepSeek Harness 自带的 Node 解压。跑测试要装 pytest：`python3 -m venv .venv && .venv/bin/pip install pytest && .venv/bin/python -m pytest`。
 - 本机路径、地址和凭据都写在 `config.local.json`，这个文件不进仓库。
 - 想看演示环境：`python3 examples/make_demo.py <目录> .`，会生成一整套合成数据和配置。
 - 跟练出片要本机装好 pivis-follow（不在本仓库），并在配置里打开 `follow_enabled`。
@@ -305,6 +315,7 @@ pivis-health/
 
 | 版本 | 内容 |
 |---|---|
+| build 55 | 发布成 DeepSeek Harness 插件：一条命令在自己的 Mac 上装好服务器、DSH 专用配置和后台任务，App 扫码配对；DSH 只听本机、经服务器凭设备密钥转发；没有推送密钥的电脑改用手机本地提醒；App 加了首次引导和演示模式 |
 | build 54 | 页面少写字：去掉每页那句解释和编排时的提示，主卡只留一个标题，图下说明不重复；「需要处理」这类档位只用小圆点；待办不再画铃铛；对话里的卡片不再动；P-Health 先对照数据再下结论（新增夜里醒的时刻），回复多用卡片 |
 | build 53 | 康复师和营养师（伤病档案、疼痛打卡和红黄绿灯；营养目标、饭按手掌份量记）；修好 Apple 健康收数，只在要你动手时才提示数据问题；待办一定有时间，没定的先拟一个请你确认，推送失败重试、有每分钟的兜底；对话页卡片跟着对话走、视频不留黑边、状态用图标表示；项目有自己的图标 |
 | build 52 | 全盘简报（今天状态、作息、训练、习惯、今晚时间线、交叉信号、数据缺口）每轮自动带给 P-Health；从「不诊断」改成「给专业判断」，回答有固定结构，睡眠先分型；计划冲突检查；目标；手机事件先筛再交；回复可以点赞点踩，每周一复盘对话 |

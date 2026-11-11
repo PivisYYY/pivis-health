@@ -1,0 +1,139 @@
+{
+ "id": "run5k",
+ "name": "跑完 5 公里",
+ "board": "sport",
+ "board_label": "运动",
+ "icon": "figure.run",
+ "state": "not_started",
+ "day": 0,
+ "days": 84,
+ "start": "2026-11-09",
+ "status": "active",
+ "week": [
+  {
+   "date": "2026-11-02",
+   "wd": "一",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-03",
+   "wd": "二",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-04",
+   "wd": "三",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-05",
+   "wd": "四",
+   "state": "rest",
+   "label": "",
+   "today": true
+  },
+  {
+   "date": "2026-11-06",
+   "wd": "五",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-07",
+   "wd": "六",
+   "state": "rest",
+   "label": "",
+   "today": false
+  },
+  {
+   "date": "2026-11-08",
+   "wd": "日",
+   "state": "rest",
+   "label": "",
+   "today": false
+  }
+ ],
+ "sessions": [
+  {
+   "key": "run_a",
+   "title": "跑步 · 走跑交替",
+   "kind": "follow",
+   "weekdays": [
+    1
+   ],
+   "when": "19:00",
+   "next": "下周一 19:00",
+   "today": false,
+   "duration_min": 37,
+   "meta": "下周一 19:00 · 37 分钟",
+   "video": null
+  },
+  {
+   "key": "run_log",
+   "title": "跑完记一下",
+   "kind": "fields",
+   "weekdays": [
+    1,
+    3,
+    5
+   ],
+   "when": "",
+   "next": "下周一",
+   "today": false,
+   "duration_min": null,
+   "meta": "下周一",
+   "video": null
+  },
+  {
+   "key": "run_b",
+   "title": "跑步 · 走跑交替",
+   "kind": "follow",
+   "weekdays": [
+    3
+   ],
+   "when": "19:00",
+   "next": "下周三 19:00",
+   "today": false,
+   "duration_min": 37,
+   "meta": "下周三 19:00 · 37 分钟",
+   "video": null
+  },
+  {
+   "key": "run_c",
+   "title": "跑步 · 轻一点",
+   "kind": "follow",
+   "weekdays": [
+    5
+   ],
+   "when": "19:00",
+   "next": "下周五 19:00",
+   "today": false,
+   "duration_min": 31,
+   "meta": "下周五 19:00 · 31 分钟",
+   "video": null
+  },
+  {
+   "key": "review",
+   "title": "本周跑步复盘",
+   "kind": "proposal",
+   "weekdays": [
+    7
+   ],
+   "when": "",
+   "next": "下周日",
+   "today": false,
+   "duration_min": null,
+   "meta": "下周日",
+   "video": null
+  }
+ ],
+ "summary": "11-09 开始",
+ "label": "跑完 5 公里"
+}

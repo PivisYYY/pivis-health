@@ -131,6 +131,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--body", default="", help="一句话正文，最多 80 字")
     sp.add_argument("--date", default=None, help="哪天（默认今天，按 06:00 翻页）")
     sp.add_argument("--board", default=None, choices=["now", "sleep", "sport", "stress"], help="点开切到哪页")
+    sp = sub.add_parser("pair", help="手机配对：打印配对二维码和链接（App 扫码连这台电脑）；--hosts 只看会给手机试哪些地址")
+    sp.add_argument("--hosts", action="store_true")
     sub.add_parser("data-status", help="WHOOP / Apple 健康连接状态（按原因分：要老大动手的、服务器的、手机没开 App）")
     sp = sub.add_parser("review-cycle", help="每周对话复盘（周一早上由 insight-cycle.sh 调）")
     sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--force", action="store_true")
@@ -525,6 +527,17 @@ def main(argv: list[str] | None = None) -> int:
             from . import notify
             day = args.date or _day_of(tools._now()).isoformat()
             _json(notify.add_reminder(tools.cfg, day, args.at, args.title, args.body, args.board))
+        elif args.cmd == "pair":
+            from . import pairing
+            if args.hosts:
+                _json({"name": pairing.computer_name(), "hosts": pairing.hosts(), "api_port": pairing.api_port(tools.cfg),
+                       "dsh_port": pairing.dsh_port(tools.cfg)})
+            else:
+                url = pairing.pair_url(tools.cfg)
+                files = pairing.write_files(tools.cfg)
+                print(pairing.terminal(url))
+                print(f"\n用 iPhone 上的 P-Health（或相机）扫码。也可以在这台电脑打开 http://127.0.0.1:{pairing.api_port(tools.cfg)}/pair")
+                print(f"（{files['html']}）。二维码里有这台电脑的访问密钥，不要发给别人。")
         elif args.cmd == "data-status":
             from . import datastatus
             _json({**datastatus.status(tools.cfg), "alerts_7d": datastatus.read_alerts(tools.cfg)})

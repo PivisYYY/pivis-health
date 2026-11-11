@@ -44,6 +44,11 @@ _LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 OPEN_API = ("/api/v3/app-version",)      # 不带设备密钥也能读：老版本 App 靠它提示更新
 
 
+DSH_PROXY = "/dshp"            # build 55：App 经 P-Health 服务器连 DSH（DSH 只听本机，不对外开端口）
+_HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers",
+        "transfer-encoding", "upgrade", "host", "x-pivis-key", "content-length"}
+
+
 def app_trusted(cfg: Config, client_ip: str, headers) -> bool:
     """能不能把 DSH 令牌给这个请求：本机直连，或带着 App 设备密钥。内网别的设备一律不给。"""
     if client_ip in _LOOPBACK:
@@ -173,6 +178,13 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             if u.path == "/api/v3/status":
                 self._json(v3mod.sync_status(tools))
                 return True
+            if u.path == "/api/v3/hello":
+                # 配对（build 55）：App 扫码后用它试每个地址、确认密钥对不对；也告诉 App 这台电脑能不能推送
+                from . import notify, pairing
+                self._json({"ok": True, "name": pairing.computer_name(), "api": 1,
+                            "push": "apns" if notify.enabled(cfg) else "local",
+                            "dsh_port": pairing.dsh_port(cfg), "dsh": "proxy"})
+                return True
             if u.path == "/api/v3/viz":
                 # 对话里的图表预览：和主卡同一套计算，数字由内核算，P-Health 只给画法
                 from . import viz as vizmod
@@ -295,11 +307,131 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             self._json({"error": "forbidden", "message": "只有 P-Health App 和本机能用"}, 403)
             return True
 
+        def _is_dsh_proxy(self) -> bool:
+            p = urlparse(self.path).path
+            return p == DSH_PROXY or p.startswith(DSH_PROXY + "/")
+
+        def _proxy_dsh(self) -> None:
+            """把 /dshp/... 原样转给本机的 DSH web（HTTP 和 WebSocket 都行）。必须带设备密钥：
+            DSH 能跑命令，所以它自己只听本机；手机只能经这里、凭密钥进来。"""
+            if self._deny_tunnel():
+                return
+            if not app_trusted(cfg, self.client_address[0], self.headers):
+                self._json({"error": "forbidden", "message": "只有 P-Health App 和本机能用"}, 403)
+                return
+            import http.client
+            import re as _re
+            target = urlparse(cfg.dsh_web)
+            host, port = target.hostname or "127.0.0.1", target.port or 8960
+            path = self.path[len(DSH_PROXY):] or "/"
+            if not path.startswith("/"):
+                path = "/" + path
+            origin = f"http://{host}:{port}"
+            if (self.headers.get("Upgrade") or "").lower() == "websocket":
+                self._proxy_ws(host, port, path, origin)
+                return
+            n = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(n) if n else None
+            headers = {k: v for k, v in self.headers.items() if k.lower() not in _HOP}
+            headers["Host"] = f"{host}:{port}"
+            if "Origin" in headers:
+                headers["Origin"] = origin
+            try:
+                conn = http.client.HTTPConnection(host, port, timeout=120)
+                conn.request(self.command, path, body=body, headers=headers)
+                resp = conn.getresponse()
+                data = resp.read()
+            except OSError as exc:
+                self._json({"error": "dsh_unreachable", "message": f"DSH 没在运行：{type(exc).__name__}"}, 502)
+                return
+            self.send_response(resp.status)
+            for k, v in resp.getheaders():
+                kl = k.lower()
+                if kl in ("transfer-encoding", "connection", "content-length", "keep-alive"):
+                    continue
+                if kl == "location" and v.startswith("/"):
+                    v = DSH_PROXY + v
+                if kl == "set-cookie":
+                    v = _re.sub(r";\s*Domain=[^;]*", "", v)
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(data)
+
+        def _proxy_ws(self, host: str, port: int, path: str, origin: str) -> None:
+            import socket
+            try:
+                up = socket.create_connection((host, port), timeout=10)
+            except OSError:
+                self._json({"error": "dsh_unreachable", "message": "DSH 没在运行"}, 502)
+                return
+            lines = [f"GET {path} HTTP/1.1", f"Host: {host}:{port}"]
+            for k, v in self.headers.items():
+                kl = k.lower()
+                if kl in ("host", "x-pivis-key"):
+                    continue
+                lines.append(f"{k}: {origin if kl == 'origin' else v}")
+            up.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+            up.settimeout(None)
+            client = self.connection
+            client.settimeout(None)
+
+            def pump(src, dst):
+                try:
+                    while True:
+                        b = src.recv(65536)
+                        if not b:
+                            break
+                        dst.sendall(b)
+                except OSError:
+                    pass
+                finally:
+                    for x in (src, dst):
+                        try:
+                            x.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            pass
+
+            t = threading.Thread(target=pump, args=(up, client), daemon=True)
+            t.start()
+            pump(client, up)
+            t.join(5)
+            up.close()
+            self.close_connection = True
+
+        def do_PUT(self):
+            if self._is_dsh_proxy():
+                return self._proxy_dsh()
+            self._json({"error": "not_found"}, 404)
+
+        def do_DELETE(self):
+            return self.do_PUT()
+
+        def do_HEAD(self):
+            if self._is_dsh_proxy():
+                return self._proxy_dsh()
+            self.send_response(404)
+            self.end_headers()
+
         def do_GET(self):
+            if self._is_dsh_proxy():
+                return self._proxy_dsh()
             if self._deny_tunnel() or self._deny_untrusted():
                 return
             u = urlparse(self.path)
             q = parse_qs(u.query)
+            if u.path == "/pair":
+                # 配对页（build 55）：二维码里有设备密钥，只给本机打开（隧道、内网别的设备都不给）
+                if self.client_address[0] not in _LOOPBACK or self.headers.get("Cf-Connecting-Ip"):
+                    self._json({"error": "forbidden", "message": "配对页只能在这台电脑上打开"}, 403)
+                    return
+                from . import pairing
+                try:
+                    self._send(200, pairing.page(cfg).encode(), "text/html; charset=utf-8")
+                except ValueError as exc:
+                    self._json({"error": "not_ready", "message": str(exc)}, 409)
+                return
             if u.path.startswith("/api/v3/") or u.path.startswith("/media/"):
                 try:
                     if self._v3_get(u, q):
@@ -381,6 +513,8 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
             return {k: v[0] for k, v in parse_qs(raw).items()}
 
         def do_POST(self):
+            if self._is_dsh_proxy():
+                return self._proxy_dsh()
             if self._deny_tunnel() or self._deny_untrusted():
                 return
             u = urlparse(self.path)

@@ -31,12 +31,12 @@ struct V3Page: Decodable {
     let date: String
     let headline: Headline
     let hero: Hero
-    let todos: [V3Todo]
+    var todos: [V3Todo]
     /// 此刻页只列前 3 张，其余的在这里（「另有 N 件」点开；提醒也照排）
-    let more: [V3Todo]?
+    var more: [V3Todo]?
     /// 主卡下面的「坚持习惯」行（此刻页 = 所有板块）
     let habits: [Habit]?
-    let done: [V3Todo]
+    var done: [V3Todo]
     let hidden: Int?
     let details: [Detail]
     let notices: [Notice]
@@ -341,6 +341,7 @@ struct ChatAbout: Equatable {
 // MARK: - 网络（都走 PivisAPI：带设备密钥、查状态码、同一个解码器）
 enum V3API {
     static func page(_ name: String) async throws -> V3Page {
+        if ServerConfig.isDemo { return try DemoStore.page(name) }
         do { return try await PivisAPI.get(V3Page.self, "api/v3/page/\(name)", timeout: 30) }
         catch PivisAPI.Failure.decoding(let error) { DshAPI.dbg("v3 page decode \(name): \(error)"); throw PivisAPI.Failure.decoding(error) }
     }
@@ -361,6 +362,7 @@ enum V3API {
     }
     static func syncHealth() async -> HealthSync {
         // 服务器马上回，不用等 25 秒；连不上服务器时两个点都是空心，不说「没同步上」（页面自己会显示连不上）
+        if ServerConfig.isDemo { return HealthSync(ok: true, whoop: "fresh", message: nil, apple: "fresh") }
         let req = PivisAPI.request("api/v3/sync-health", method: "POST", timeout: 12)
         do { return try await PivisAPI.fetch(HealthSync.self, req) }
         catch {
@@ -370,11 +372,13 @@ enum V3API {
     }
 
     static func habit(_ id: String) async throws -> V3HabitDoc {
-        try await PivisAPI.get(V3HabitDoc.self, "api/v3/habit/\(id)")
+        if ServerConfig.isDemo { return try DemoStore.habit(id) }
+        return try await PivisAPI.get(V3HabitDoc.self, "api/v3/habit/\(id)")
     }
 
     static func todo(_ id: String) async throws -> V3Todo {
-        try await PivisAPI.get(V3Todo.self, "api/v3/todo/\(id)")
+        if ServerConfig.isDemo { return try DemoStore.todo(id) }
+        return try await PivisAPI.get(V3Todo.self, "api/v3/todo/\(id)")
     }
 
     enum SubmitError: Error {
@@ -390,6 +394,8 @@ enum V3API {
         // UI 测试：模拟断网（待办动作发不出去），验证本地先生效、连上后补发
         if ProcessInfo.processInfo.arguments.contains("-todoOfflineTest") { throw URLError(.notConnectedToInternet) }
         #endif
+        // 演示：只在手机上生效
+        if ServerConfig.isDemo { return try DemoStore.submit(id, action: action, values: values, text: text, summary: summary) }
         var body: [String: Any] = ["action": action, "values": values]
         if let text { body["text"] = text }
         if let summary { body["summary"] = summary }

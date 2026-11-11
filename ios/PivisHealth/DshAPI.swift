@@ -11,7 +11,7 @@ enum DshAPI {
             return url
         }
         #endif
-        return URL(string: "http://\(LocalConfig.serverHost):8960")!
+        return ServerConfig.dshBase      // 配对过的电脑（或开发版的 LocalConfig）上的 DSH 网页端
     }
     static let sessionId = Profile.isSim ? "phealth-sim-r3-main" : "phealth-r3-main"
     /// 板块 → dsh 专项 session 的兜底表（与后端 dsh_chat.SESSION_BY_CONTEXT 一致）。
@@ -29,6 +29,10 @@ enum DshAPI {
     static func rememberSession(_ id: String, for context: String) {
         sessionLock.lock(); serverSessions[context] = id; sessionLock.unlock()
     }
+    /// 换了一台电脑：上一台告诉过我们的会话不再用
+    static func forgetSessions() {
+        sessionLock.lock(); serverSessions.removeAll(); sessionLock.unlock()
+    }
     static func sessionId(for context: String) -> String {
         sessionLock.lock(); defer { sessionLock.unlock() }
         return serverSessions[context] ?? sessionByContext[context] ?? sessionId
@@ -41,7 +45,7 @@ enum DshAPI {
             return url
         }
         #endif
-        return URL(string: "http://\(LocalConfig.serverHost):\(Profile.isSim ? 8944 : 8943)")!
+        return ServerConfig.pivisBase    // 模拟回放 8944，正式 8943 / 配对链接里的端口（见 ServerConfig）
     }
 
     /// 调试日志：os.Logger（值是 private）；DEBUG 版另写 Documents/dsh_debug.log（后台写、有上限、不写令牌 / Cookie）
@@ -68,10 +72,12 @@ enum DshAPI {
             dbg("token ok")
             // 用 token 获取 cookie（302 跳转会被 URLSession 吃掉 Set-Cookie，必须拦截）
             guard let authURL = URL(string: "\(base)/?token=\(token)") else { return false }
+            var authReq = URLRequest(url: authURL, timeoutInterval: 15)
+            PivisAPI.authorize(&authReq)      // 经服务器转发（/dshp）时要带设备密钥；直连 DSH 不带
             let catcher = CookieCatcher()
             let session = URLSession(configuration: .ephemeral, delegate: catcher, delegateQueue: nil)
             defer { session.finishTasksAndInvalidate() }     // 一次性的会话：用完就放掉（不然委托和会话一直留着）
-            let (_, resp) = try await session.data(from: authURL)
+            let (_, resp) = try await session.data(for: authReq)
             let cookie = catcher.setCookie ?? (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Set-Cookie")
             guard let cookie else { dbg("no set-cookie header"); return false }
             // 只取第一段 name=value，属性段（Path/Expires/SameSite 等）不入 Cookie 头
@@ -167,7 +173,7 @@ enum DshAPI {
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         do {
-            // DSH 自己的接口：不带设备密钥（PivisAPI 按地址判断），状态码这里自己看
+            // DSH 的接口：经服务器转发（/dshp）时 PivisAPI 按地址带上设备密钥，直连 DSH 不带；状态码这里自己看
             let (data, http) = try await PivisAPI.send(req, checkStatus: false)
             dbg("resp status=\(http.statusCode)")
             if http.statusCode == 401 {

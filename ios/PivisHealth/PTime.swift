@@ -35,6 +35,7 @@ enum PTime {
     private static let localMinute = formatter("yyyy-MM-dd'T'HH:mm")
     private static let zonedMinute = formatter("yyyy-MM-dd'T'HH:mmXXXXX")
     private static let compact = formatter("yyyyMMdd")
+    private static let compactHM = formatter("yyyyMMddHHmm")
     private static let isoSeconds = iso([.withInternetDateTime])
     private static let isoFraction = iso([.withInternetDateTime, .withFractionalSeconds])
     private static let isoZulu: ISO8601DateFormatter = {
@@ -50,6 +51,8 @@ enum PTime {
     static func dayAndClock(_ d: Date) -> String { dayClock.string(from: d) }
     /// 20261107（健康样本按天的 id）
     static func compactDay(_ d: Date) -> String { compact.string(from: d) }
+    /// 202611072145（本地提醒的标识）
+    static func compactMinute(_ d: Date) -> String { compactHM.string(from: d) }
     /// 2026-11-07T21:45:12+08:00（发给服务器的时间）
     static func iso(_ d: Date) -> String { isoSeconds.string(from: d) }
     static func isoFractional(_ d: Date) -> String { isoFraction.string(from: d) }
