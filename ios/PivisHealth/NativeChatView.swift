@@ -46,6 +46,8 @@ struct NativeChatView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var wasInBackground = false
+    /// 被全屏页盖住过（练习视频、看大图、拍照用的 fullScreenCover 会让这页 onDisappear）：回来时按回到前台的流程重连
+    @State private var wasCovered = false
     @State private var launchConsumed = false    // 待发送 / 草稿 / 照片：每次打开对话只用一次
     @State private var lastStreamEvent = Date()  // 实时流最后一次有动静的时间（看门狗用）
     /// 带进来的习惯 / 待办：对话里的一张卡（放在这次对话开始的位置，打开时顶在屏幕上方，跟着对话滚走；
@@ -342,12 +344,18 @@ struct NativeChatView: View {
             ChatPresence.openContext = context
             if hostsInsight { ChatPresence.insightHost = presenceToken }
             PageSync.shared.markSeen(context)
+            if wasCovered {
+                wasCovered = false
+                resumeFromBackground()      // 盖住期间实时通道停了：重连，并把这段时间的回复拉回来
+            }
         }
         .onDisappear {
             if ChatPresence.openContext == context { ChatPresence.openContext = nil }
             if ChatPresence.insightHost == presenceToken { ChatPresence.insightHost = nil }
             PageSync.shared.markSeen(context)
-            stopAll(); saveCache(); aboutPlayer.stop()
+            stopAll(); saveCache()
+            if !aboutPlayer.fullscreen { aboutPlayer.stop() }      // 习惯卡的视频正在全屏：不是离开对话
+            wasCovered = true                                       // 真关掉了这页就不会再 onAppear，记了也无妨
         }
         // 退到后台：断开实时通道（系统也会把它掐掉，掐掉时不一定通知我们）；回到前台：重连并立刻拉最新消息
         .onChange(of: scenePhase) { old, phase in

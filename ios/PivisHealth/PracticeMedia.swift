@@ -125,7 +125,7 @@ struct PracticeVideoView: View {
         ZStack(alignment: .bottom) {
             if active, let p = player.player {
                 E.surface
-                PlayerLayerView(player: p, gravity: .resizeAspect)
+                PlayerLayerView(player: player.fullscreen ? nil : p, gravity: .resizeAspect)
                     .contentShape(Rectangle())
                     .onTapGesture { player.toggle() }
                     .accessibilityElement()
@@ -204,8 +204,12 @@ enum FullscreenVideo {
         guard var top = (windows.first { $0.isKeyWindow } ?? windows.first)?.rootViewController else { return }
         while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
         let holder = Holder()
+        player.fullscreen = true            // 画面交给全屏这一层，卡里的小窗先放手
         let host = UIHostingController(rootView: PracticeFullscreen(player: player, onClose: { holder.vc?.dismiss(animated: true) }))
         holder.vc = host
+        // .fullScreen 会把下面的对话页从窗口上摘下来、触发它的 onDisappear：以前那里直接把播放器停了，
+        // 全屏只剩黑底和停住的进度条（老大 11-11「全屏黑屏、播不完」）。现在 fullscreen 标记先立起来，
+        // 对话页 / 卡片看到它就不停播放器；实时通道断了的，回来时重连（NativeChatView.wasCovered）
         host.modalPresentationStyle = .fullScreen
         host.view.backgroundColor = .black
         top.present(host, animated: true)
@@ -220,18 +224,14 @@ struct PracticeFullscreen: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
+            // 画面铺满整屏，但自己不接点按：点按区和右上角 × 分开放，想点 × 不会误点成暂停
             if let p = player.player {
                 PlayerLayerView(player: p, gravity: .resizeAspect)
                     .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { player.toggle() }
-                    .accessibilityElement()
-                    .accessibilityLabel(player.playing ? "暂停" : "播放")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction { player.toggle() }
-                if !player.playing { PlayBadge().allowsHitTesting(false) }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
-            VStack {
+            VStack(spacing: 0) {
                 HStack {
                     Spacer()
                     Button { onClose() } label: {
@@ -244,7 +244,17 @@ struct PracticeFullscreen: View {
                     .accessibilityIdentifier("practice-fullscreen-close")
                 }
                 .padding(.horizontal, 16)
-                Spacer()
+                .padding(.bottom, 8)
+                // 中间这块：点一下暂停 / 继续
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { if player.player != nil { player.toggle() } }
+                    .overlay { if player.player != nil && !player.playing { PlayBadge() } }
+                    .accessibilityElement()
+                    .accessibilityLabel(player.playing ? "暂停" : "播放")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { player.toggle() }
+                    .accessibilityIdentifier("practice-fullscreen-player")
                 GeometryReader { g in
                     let frac = player.duration > 0 ? min(1, player.elapsed / player.duration) : 0
                     ZStack(alignment: .leading) {
@@ -254,11 +264,13 @@ struct PracticeFullscreen: View {
                 }
                 .frame(height: 2)
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 12)
                 .allowsHitTesting(false)
             }
         }
         .statusBarHidden()
+        .onDisappear { player.fullscreen = false }      // 关掉全屏：画面还给卡里的小窗，接着放
     }
 }
 
@@ -269,7 +281,7 @@ struct OwnedPracticeVideo: View {
     @StateObject private var player = PracticePlayer()
     var body: some View {
         PracticeVideoView(media: media, player: player, maxHeight: maxHeight)
-            .onDisappear { player.stop() }
+            .onDisappear { if !player.fullscreen { player.stop() } }   // 全屏期间不算离开
     }
 }
 

@@ -119,8 +119,30 @@ def check(card: Any) -> list[str]:
     return probs
 
 
-def check_text(text: str) -> dict:
-    """检查一整条回复里的所有卡片。"""
+OUTSIDE_MAX = 60       # 卡片外最多 60 字（AGENTS 4.6：只说结论和下一步，其余放进卡里）
+# 做 CBT-I 时不说的话：睡眠债一类（CBT-I 没有这个概念，前两周少睡是方案本身）；「不补觉」这种劝阻不算
+_DEBT_WORDS = re.compile(r"睡眠债|欠觉|欠的觉|(?<!不)(?<!别)补觉|需要\s*\d+(?:\.\d+)?\s*(?:个)?(?:小时|h)|"
+                         r"差\s*\d+(?:\.\d+)?\s*(?:个)?(?:小时|h)|比需要的?少|该睡\s*\d")
+
+
+def outside_text(text: str) -> str:
+    """卡片外的文字（去掉卡片代码块和 Markdown 记号）"""
+    t = _BLOCK.sub("", text or "")
+    t = re.sub(r"[*_`#>\-]+", "", t)
+    return re.sub(r"\s+", "", t)
+
+
+def check_text(text: str, cbti_active: bool = False) -> dict:
+    """检查一整条回复：每张卡片 + 卡片外的字数 + 做 CBT-I 时不提睡眠债。"""
+    problems: list[str] = []
+    out_len = len(outside_text(text))
+    if out_len > OUTSIDE_MAX:
+        problems.append(f"卡片外的文字有 {out_len} 字（最多 {OUTSIDE_MAX}）：只留结论和下一步，数字、依据、步骤放进卡里，能画就画")
+    if cbti_active:
+        hit = _DEBT_WORDS.search(text or "")
+        if hit:
+            problems.append(f"在做 CBT-I：不提睡眠债、需要睡多久、差几个小时（这里写了「{hit.group(0)}」）；"
+                            "只看睡眠效率、守窗口、入睡和夜醒")
     cards = []
     for i, m in enumerate(_BLOCK.finditer(text or "")):
         src, closing = m.group(1), m.group(2)
@@ -140,7 +162,8 @@ def check_text(text: str) -> dict:
                 item["fixed"] = fixed
             item.update(ok=not probs, problems=probs)
         cards.append(item)
-    return {"ok": all(c["ok"] for c in cards), "cards": cards, "count": len(cards)}
+    return {"ok": all(c["ok"] for c in cards) and not problems, "cards": cards, "count": len(cards),
+            "problems": problems, "outside_chars": out_len}
 
 
 _logged: set[str] = set()

@@ -138,6 +138,13 @@ def facts(tools, day: date) -> dict:
     except Exception:
         pass
     try:
+        from . import cbti
+        st = cbti.state(tools, day)
+        if st:
+            out["cbti"] = st          # 做 CBT-I 时休息页从这里取数（不用睡眠债）
+    except Exception as exc:  # noqa: BLE001
+        out["cbti_error"] = str(exc)[:80]
+    try:
         w = tools.daily_series("weight", day, 60)   # 只看到今天为止
         if w:
             last = max(w)
@@ -248,7 +255,41 @@ def _check_numbers(pool: list[float], text: str, where: str) -> None:
                              "（钟点、日期、「近 7 晚」这类计数不算）")
 
 
-def validate_page(page: str, doc: Any, evidence: dict) -> dict:
+# 睡眠债一类：「睡了 vs 需要」算出来的画法和 bind。CBT-I 没有这个概念（前两周少睡是方案本身），做 CBT-I 时主卡不用
+_DEBT_BINDS = ("sleep_debt", "sleep.need", "sleep.nights", "sleep.short", "sleep")
+_DEBT_METRICS = ("sleep_debt", "sleep")
+
+
+def _debt_parts(node: Any) -> list[str]:
+    if not isinstance(node, dict):
+        return []
+    out = []
+    b = str(node.get("bind") or "")
+    if b and any(b == x or b.startswith(x + ".") for x in _DEBT_BINDS) and not b.startswith(("sleep.stages", "sleep.efficiency", "sleep.week")):
+        out.append(b)
+    if node.get("metric") in _DEBT_METRICS:
+        out.append(str(node["metric"]))
+    for k in node.get("children") or []:
+        out += _debt_parts(k)
+    return out
+
+
+def _strip_explain(node: Any) -> Any:
+    """主卡不放解释句（老大 11-10：主表只表达最有问题的数据和现状）：去掉 caption / body 文字，标签和标题留着"""
+    if not isinstance(node, dict):
+        return node
+    if node.get("t") == "text" and node.get("role") in ("caption", "body"):
+        return None
+    if node.get("children") is not None:
+        kids = [k for k in (_strip_explain(c) for c in node["children"]) if k is not None]
+        if not kids:
+            return None
+        node = {**node, "children": kids}
+    return node
+
+
+def validate_page(page: str, doc: Any, evidence: dict, strict: bool = True) -> dict:
+    """strict=False 是重试到最后一次：时段这类「挑哪个板块」的规矩放行，免得整页发不出去"""
     if not isinstance(doc, dict):
         raise ValueError("输出必须是 JSON 对象")
     pool = _numbers(evidence)
@@ -267,6 +308,17 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
         raise ValueError(f"hero.board 只能是 {PAGE_BOARDS}")
     if page != "now" and hero["board"] != page:
         raise ValueError(f"{page} 页的主卡 board 必须是 {page}")
+    slot = evidence.get("slot") or {}
+    if page == "now" and strict and hero["board"] == "sleep" and slot and not slot.get("rest_ok"):
+        raise ValueError(f"现在是{slot.get('name')}（{slot.get('range')}），此刻页不放休息：从运动或压力里挑现在最该做的一件事和它的指标"
+                         "（午休和晚上才轮到休息）")
+    if evidence.get("cbti") and hero["board"] == "sleep":
+        bad = ([hero["viz"].get("metric")] if isinstance(hero.get("viz"), dict) and hero["viz"].get("metric") in _DEBT_METRICS
+               else []) + _debt_parts(hero.get("layout"))
+        if bad:
+            raise ValueError(f"在做 CBT-I：主卡不用睡眠债、需要睡多久这一类（{bad[0]}）。从 facts.cbti 里挑："
+                             "效率（cbti.efficiency + sleep_efficiency 图）、守窗口（cbti.kept + sleep_window）、"
+                             "昨晚在床（cbti.lastnight）、疗程（cbti.week + cbti.weeks）、今晚（countdown 到最早上床）")
     if not str(hero.get("label") or "").strip():
         raise ValueError("hero.label 必填")
     value = str(hero.get("value") or "")
@@ -325,6 +377,7 @@ def validate_page(page: str, doc: Any, evidence: dict) -> dict:
             out_layout = canvas.validate(hero["layout"], "hero", pool, _has_number)
         except canvas.CanvasError as exc:
             raise ValueError(f"hero.layout：{exc}") from exc
+        out_layout = _strip_explain(out_layout) or out_layout
         # 「主卡别放 timeline」「结论别重复主卡的数」是写法建议（见 SCHEMA），不再硬拦：
         # 老大明确要过的布局（pref.page）里有 timeline 时，以前三次都被拦，页面一直发不出去
     _check_numbers(pool, str(hero.get("note") or ""), "hero.note")
@@ -434,7 +487,17 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
   · 什么时候用 layout：一个数 + 一张图就够时用 viz；要把两三样拼在一起讲一件事（睡了多久 + 一排每晚点 + 坚持习惯进度；恢复圆环 + HRV/静息心率两个字段；步数进度条 + 今天还差多少 + 接下来去走的那件事）时用 layout。
 - level：act=需要处理；watch=留意；steady=平稳/没问题。客户端按 level 给动效：act 最强、watch 缓慢、steady 静止。
 - headline 说判断和接下来该做什么；数字只放主卡，不要在结论里重复主卡的 value。
-- 此刻页（now）从三个板块里挑当前最需要关注的一项；专项页只挑本板块（hero.board 必须等于页面）。
+- 此刻页（now）：主卡 = 接下来一两个小时里，为了健康最该做的那一件事 + 支撑它的那个指标（label 写指标名，结论写去做什么、为什么是现在）。按 facts.slot（现在的时段）挑板块：
+  · 早上：今天怎么练、怎么动（运动：今早的恢复 + 这周练了几次），或者压力信号明显时先减压（压力：HRV / 静息心率）。
+  · 白天、下午、傍晚：运动（步数节奏、该去的那次训练）或压力（压力信号明显时去走一走、做呼吸）。
+  · 午休：休息（午睡最多 20 分钟、15:00 前；做 CBT-I 时是不午睡）。晚上：休息（睡前流程、离上床还有多久）。
+  · facts.slot.rest_ok=false 时 hero.board 不能是 sleep。now_recent 是此刻页最近几次的主卡：别和上一次一样，除非那个板块现在有 act 级的问题。
+  · other_pages 是各专项页现在的主卡：此刻页不要和它们放同一张卡。同一个板块时换一个角度，讲现在该做的那件事（休息页是守窗口或睡眠效率，此刻晚上就放「今晚」：离最早上床还有多久 + 窗口）。
+- 专项页只挑本板块（hero.board 必须等于页面）。
+- 做 CBT-I 时（facts.cbti 有值）：休息页、此刻页挑到睡眠时，**不用睡眠债、需要睡多久这一类**（hero.viz 不用 sleep_debt / sleep；layout 里不用 sleep_debt、sleep、sleep.need、sleep.nights 的 bind，不用 diverging sleep.need、columns sleep），结论里也不提欠觉、补觉。主卡用 hero.layout 从 facts.cbti 拼，看哪个指标、用什么图由你按状态和阶段定（数字一律 bind，内核现算）：
+  · 按状态挑（从上往下，命中就用）：这周破例 ≥2（facts.cbti.adherence.breaks）→ 守窗口：value bind cbti.kept + sleep_window days 7 + stat cbti.early / cbti.late / cbti.rise_dev；复盘日（facts.cbti.review.today）→ 疗程：segments bind project:<cbti 项目 id>（自己会写第几周）+ table bind cbti.weeks + stat cbti.suggest；晚上（facts.slot 是晚上，facts.cbti.tonight 有值）→ 今晚：countdown to「cbti.bed」（倒数到最早上床）label「离最早上床还有」+ time_range bind project:<id>；早上昨晚的数出来了（facts.cbti.last_night）→ 昨晚在床：value bind cbti.efficiency_last + stack bind cbti.lastnight + stat 上床 / 起床（抄 facts.cbti.last_night 的 bed、rise）；其他时候 → 效率：value bind cbti.efficiency + chart metric sleep_efficiency kind trend days 7 + stat cbti.window / cbti.ge90 / cbti.suggest。
+  · 阶段（facts.cbti.phase）换重点：适应期（头两周，白天会更困）先讲守窗口和起床，效率只当参考；调整期按上面；维持期把按时起床的连续天数（streak bind wake:<facts.cbti.rx.wake>）和效率中位放一起；收尾讲疗程走到哪、之后保留什么。
+  · level 用 facts.cbti.level。label 2–5 个字（睡眠效率 / 守窗口 / 昨晚在床 / CBT-I / 今晚）。主卡里不写解释句，不重复下面待办里的时间。
 - 所有数字只能来自 facts，禁止自己加减乘除推算新数字；fields 和 table 里的每个数也一样。
 - 正在进行的项目由客户端显示在主卡下，不写进 hero；有进行中的项目时结论要体现计划，早上写成对昨晚执行的总结。
 - 压力页（stress）：从 hrv_trend（近 3 天对比之前）、hrv_ms、resting_hr（对比 avg_prev7）、resp_rate、recovery_pct 里挑最能说明当前生理压力信号的一个。HRV 个人范围没学满时就用这些自己和自己比。都在正常波动内就 level=steady，结论写「压力这块没问题」这类，主卡放最能说明没问题的那个数。不诊断、不推测情绪、不说「因为…所以压力大」。
@@ -445,6 +508,42 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
 - sleep_nights 里的 short_h 是「每晚缺觉」，不是睡眠债（睡眠债是 sleep_debt_5n_h 一个数）。
 - 老大对某项图表定过的偏好（pref.viz.<metric>：画法、天数、警戒线、目标）和页面偏好（pref.page.<page>）优先于上面的默认值。
 - shared_context 里是老大定下的偏好，必须遵守。pref.* 是展示和对比偏好（例如图表用折线、跟上一周比）；facts 里有 compare 时，说「比…高/低」一律用 compare 里按老大指定基线算好的数（recent.avg、baseline.avg、change、change_pct），不要再拿别的时间段比。"""
+
+
+NOW_SLOTS = (  # (从几点, 名字, 能不能放休息)：此刻页按时段挑「现在最该做的事」，午休和晚上才轮到休息
+    (5 * 60, "早上", False), (11 * 60, "白天", False), (12 * 60, "午休", True), (14 * 60 + 30, "下午", False),
+    (18 * 60, "傍晚", False), (20 * 60, "晚上", True),
+)
+
+
+def slot_of(now: datetime) -> dict:
+    m = now.hour * 60 + now.minute
+    cur = NOW_SLOTS[-1]
+    for i, sl in enumerate(NOW_SLOTS):
+        if m >= sl[0]:
+            cur = sl
+    if m < NOW_SLOTS[0][0]:
+        cur = NOW_SLOTS[-1]
+    i = NOW_SLOTS.index(cur)
+    end = NOW_SLOTS[(i + 1) % len(NOW_SLOTS)][0]
+    return {"name": cur[1], "range": f"{cur[0] // 60:02d}:{cur[0] % 60:02d}–{end // 60:02d}:{end % 60:02d}",
+            "rest_ok": cur[2]}
+
+
+class NowHistory:
+    """此刻页每次发出去的主卡是哪个板块（最近 6 次），编排时别老守着同一个"""
+    def __init__(self, cfg) -> None:
+        self.path = cfg.data_dir / "now_history.json"
+
+    def recent(self, n: int = 3) -> list[dict]:
+        try:
+            return json.loads(self.path.read_text(encoding="utf-8"))[-n:]
+        except (OSError, ValueError):
+            return []
+
+    def add(self, at: str, board: str, label: str) -> None:
+        items = self.recent(5) + [{"at": at, "board": board, "label": label}]
+        self.path.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
 
 
 def evidence_for(tools, page: str) -> dict:
@@ -485,9 +584,30 @@ def evidence_for(tools, page: str) -> dict:
         fx["viz"] = vizmod.available(tools, day)
     except Exception as exc:
         fx["viz"] = {"error": str(exc)}
-    return {"page": page, "now": now.isoformat(timespec="minutes"), "facts": fx,
-            "projects": projects, "todos_today": todos, "todos_yesterday": yesterday,
-            "shared_context": AgentContextStore(tools.cfg).snapshot()}
+    fx["slot"] = slot_of(now)
+    ev = {"page": page, "now": now.isoformat(timespec="minutes"), "facts": fx,
+          "projects": projects, "todos_today": todos, "todos_yesterday": yesterday,
+          "shared_context": AgentContextStore(tools.cfg).snapshot()}
+    if page == "now":
+        ev["now_recent"] = NowHistory(tools.cfg).recent(3)
+        pages = V3PageStore(tools.cfg).all()
+        ev["other_pages"] = {pg: (pages.get(pg) or {}).get("hero", {}).get("label") for pg in ("sleep", "sport", "stress")
+                             if (pages.get(pg) or {}).get("hero")}
+    return ev
+
+
+CBTI_PAUSED_PREFS = ("pref.page.sleep", "pref.viz.sleep", "pref.viz.sleep_debt")
+
+
+def prefs_for_page(cfg, page: str, facts_: dict) -> tuple[list[str], dict | None, bool]:
+    """编排这一页要遵守的偏好（规则文字、确认过的主卡）。做 CBT-I 时休息页那几条「睡了 vs 该睡」的偏好暂停：
+    CBT-I 没有睡眠债的概念（老大 11-11），结束后自动恢复。返回 (规则, 确认过的主卡, 有没有暂停)"""
+    from . import prefs
+    paused = bool(facts_.get("cbti")) and page in ("sleep", "now")
+    active = [e for e in prefs.active_prefs(cfg) if not (paused and e.get("scope") in CBTI_PAUSED_PREFS)]
+    rules = [str((e.get("payload") or {}).get("rule") or "") for e in active]
+    confirmed = None if (paused and page == "sleep") else page_pref(cfg, page)
+    return [r for r in rules if r], confirmed, paused
 
 
 def publish(tools, page: str, timeout: int = 420) -> dict:
@@ -499,12 +619,12 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
     run_id = f"v3{int(time.time() * 1000)}"
     context = f"组件编排:{page}:{run_id}"
     session = _ensure_composer(page, run_id)
-    from . import prefs
-    active = prefs.active_prefs(tools.cfg)
-    rules = [str((e.get("payload") or {}).get("rule") or "") for e in active]
-    pref_text = ("\n老大定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules if r)) if any(rules) else ""
+    rules, confirmed, paused = prefs_for_page(tools.cfg, page, evidence["facts"])
+    pref_text = ("\n老大定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules)) if rules else ""
+    if paused:
+        pref_text += ("\n做 CBT-I 期间，休息页主卡「睡了多久 vs 该睡多少」的竖柱 / 睡眠债偏好暂停（CBT-I 没有睡眠债的概念），"
+                      "按上面 CBT-I 的规则拼；CBT-I 结束后恢复。")
     # 老大在对话里确认过的主卡样子：照这个零件树排（bind 的数会现算成最新的）；发布前代码还会再核对一遍
-    confirmed = page_pref(tools.cfg, page)
     if confirmed:
         pref_text += ("\n老大确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
                       + json.dumps(confirmed["layout"], ensure_ascii=False))
@@ -523,12 +643,15 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
         if not ended:
             continue
         try:
-            doc = validate_page(page, _parse_json(_new_assistant_text(new)), evidence["facts"])
+            doc = validate_page(page, _parse_json(_new_assistant_text(new)), evidence["facts"], strict=tries < 2)
             doc = enforce_page_pref(page, doc, confirmed, evidence["facts"], final=tries >= 2)
             if not confirmed and tries < 2:
                 _check_live_hero(tools, page, doc)
+                _check_not_same_as_board(tools, page, doc)
             doc.update({"published_at": tools._now().isoformat(timespec="seconds"), "session": session,
                         "producer": "P-Health Agent"})
+            if page == "now":
+                NowHistory(tools.cfg).add(doc["published_at"], doc["hero"]["board"], doc["hero"]["label"])
             return V3PageStore(tools.cfg).save(page, doc)
         except ValueError as exc:
             if tries >= 2:
@@ -537,6 +660,21 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
             before = len(events)
             dsh_chat.send_message(f"上一次输出没通过校验：{exc}。请按同样格式重新输出完整 JSON。", context)
     raise TimeoutError(f"v3 publish timeout {page}")
+
+
+def _check_not_same_as_board(tools, page: str, doc: dict) -> None:
+    """此刻页和专项页别放同一张卡（老大 11-11：晚上此刻和休息一模一样）：板块相同时换个角度"""
+    if page != "now":
+        return
+    hero = doc.get("hero") or {}
+    other = (V3PageStore(tools.cfg).get(hero.get("board")) or {}).get("hero") or {}
+    if not other:
+        return
+    same_viz = hero.get("viz") and other.get("viz") and hero["viz"].get("metric") == other["viz"].get("metric")
+    same_layout = hero.get("layout") and other.get("layout") and _layout_sig(hero["layout"]) == _layout_sig(other["layout"])
+    if same_viz or same_layout or _norm_text(hero.get("label")) == _norm_text(other.get("label")):
+        raise ValueError(f"此刻页和{ {'sleep': '休息', 'sport': '运动', 'stress': '压力'}.get(hero.get('board'), '')}页的主卡一样了"
+                         f"（{other.get('label')}）：换一个角度，讲现在该做的那件事（比如晚上讲今晚离上床还有多久）")
 
 
 def _check_live_hero(tools, page: str, doc: dict) -> None:
@@ -815,6 +953,72 @@ def _drop_dup_title(layout: dict, label: str | None) -> dict:
     return {**layout, "children": out}
 
 
+def _drop_dup_parts(layout: dict, label: str | None) -> dict:
+    """现算后的重复：分段进度自己写着「第 N 周 / M 周」，大数字再写一遍就删大数字；分段进度的小标题和主卡指标名一样就不写"""
+    seg = []
+
+    def find(n):
+        if isinstance(n, dict):
+            if n.get("t") == "segments":
+                seg.append(n)
+            for k in n.get("children") or []:
+                find(k)
+    find(layout)
+    if not seg:
+        return layout
+    texts = {str(s.get("text") or "") for s in seg}
+
+    def clean(n):
+        if not isinstance(n, dict):
+            return n
+        if n.get("t") == "value" and str(n.get("text") or "") in texts:
+            return None
+        if n.get("t") == "segments" and _norm_text(n.get("label")) == _norm_text(label):
+            n = {**n, "label": ""}
+        if isinstance(n.get("children"), list):
+            kids = [k for k in (clean(c) for c in n["children"]) if k is not None]
+            n = {**n, "children": kids}
+        return n
+    return clean(layout)
+
+
+_STATS = ("stat", "stat_spark")
+
+
+def _tidy_layout(node: Any) -> Any:
+    """主卡排版收拾（现算后、给 App 之前）：竖着摞的小数字两三个一排横放；开头、结尾和连着的细线去掉。
+    agent 拼什么零件不管，只管别摆得又长又散（老大 11-11：三个小数字一行一个，占了半屏）"""
+    if not isinstance(node, dict) or not isinstance(node.get("children"), list):
+        return node
+    kids = [_tidy_layout(k) for k in node["children"]]
+    if node.get("t") == "v":
+        grouped, run = [], []
+
+        def flush():
+            for i in range(0, len(run), 3):
+                chunk = run[i:i + 3]
+                grouped.append(chunk[0] if len(chunk) == 1 else
+                               {"t": "h", "gap": 16, "align": "baseline", "justify": "between", "children": chunk})
+            run.clear()
+        for k in kids:
+            if isinstance(k, dict) and k.get("t") in _STATS:
+                run.append(k)
+            else:
+                flush()
+                grouped.append(k)
+        flush()
+        kids = []
+        for k in grouped:
+            if isinstance(k, dict) and k.get("t") == "rule" and (not kids or (isinstance(kids[-1], dict) and kids[-1].get("t") == "rule")):
+                continue
+            kids.append(k)
+        while kids and isinstance(kids[-1], dict) and kids[-1].get("t") == "rule":
+            kids.pop()
+    elif node.get("t") == "h" and all(isinstance(k, dict) and k.get("t") in _STATS for k in kids):
+        node = {**node, "justify": "between", "align": "baseline"}
+    return {**node, "children": kids}
+
+
 def _one_title(hero: dict) -> dict:
     """主卡只留一个标题：画布第一格是标题（role=title 的 text），就把它提到上方当指标名、画布里删掉；
     否则只删掉和指标名一样的那行。（老大 11-11：同一张卡上两个标题，字多还重复）"""
@@ -892,6 +1096,7 @@ def page_doc(tools, page: str) -> dict:
     board = hero.get("board") or (page if page in BOARDS else None)
     if isinstance(hero.get("layout"), dict):
         hero = _one_title(hero)
+        hero = {**hero, "layout": _tidy_layout(_drop_dup_parts(hero["layout"], hero.get("label")))}
     return {
         "page": page, "now": now.isoformat(timespec="minutes"), "date": day.isoformat(),
         # 老大 11-11：主板块不要那句解释的话、少出现文字——结论句不再显示（编排时照样写，只是不给 App）

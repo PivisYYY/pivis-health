@@ -38,6 +38,9 @@ METRICS: dict[str, dict[str, Any]] = {
               "board": "sleep", "kinds": ("need", "trend")},
     "sleep_debt": {"label": "睡眠债", "unit": "小时", "series": None, "dir": "high_bad", "nd": 1,
                    "board": "sleep", "kinds": ("stack",)},
+    # 睡眠效率（睡着 ÷ 在床，WHOOP 算）：CBT-I 唯一用来调窗口的数，带子 = ≥90 加窗口，虚线 = <85 减窗口
+    "sleep_efficiency": {"label": "睡眠效率", "unit": "%", "series": None, "dir": "low_bad", "nd": 0,
+                         "board": "sleep", "kinds": ("trend",)},
     "steps": {"label": "今天步数", "unit": "步", "series": "steps", "dir": "low_bad", "nd": 0,
               "board": "sport", "kinds": ("progress", "trend")},
     "weight": {"label": "体重", "unit": "kg", "series": "weight", "dir": "high_bad", "nd": 1,
@@ -107,6 +110,10 @@ def _series(tools, metric: str, day: date, days: int) -> list[tuple[str, float]]
     m = METRICS[metric]
     if metric == "sleep":
         return [(n["date"], float(n["actual"])) for n in _sleep_nights(tools, day)][-days:]
+    if metric == "sleep_efficiency":
+        from .coach import sleep_week
+        return [(r["night_of"], float(r["efficiency_pct"])) for r in sleep_week(tools, days, day)["nights"]
+                if r.get("efficiency_pct") is not None]
     if not m["series"]:
         return []
     daily = tools.daily_series(m["series"], day, max(days, 1) + 40)
@@ -233,6 +240,16 @@ def _trend(tools, metric, day, now, s, pref) -> dict:
     asof, value = vals[-1]
     out: dict[str, Any] = {"value": _r(value, m["nd"]), "asof": asof, "days": days,
                            "series": [{"date": d, "value": _r(v, m["nd"])} for d, v in vals]}
+    if metric == "sleep_efficiency":
+        # 固定的两条线（CBT-I 的调窗口规则），不按个人常态算；在做 CBT-I 时带子和虚线上直接写规则
+        from . import cbti
+        in_cbti = cbti.state(tools, day, now) is not None
+        out["band"], out["warn"] = [cbti.EFF_ADD, 100], cbti.EFF_CUT
+        out["band_label"] = "≥90 加窗口" if in_cbti else "≥90"
+        out["warn_label"] = "<85 减窗口" if in_cbti else "85"
+        out["zone"] = "act" if value < cbti.EFF_CUT else ("watch" if value < cbti.EFF_ADD else "steady")
+        out["aside"] = None
+        return out
     if metric == "sleep" and _last_need(tools, day) is not None:
         need = _last_need(tools, day)
         out["need"] = _r(need, 1)

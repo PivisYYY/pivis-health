@@ -182,6 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("project-stats", help="近 N 天某个项目每天做了没、执行率（周复盘用，数字直接抄）")
     sp.add_argument("--id", required=True); sp.add_argument("--days", type=int, default=7)
+    sp = sub.add_parser("cbti", help="进行中的 CBT-I：阶段、处方、效率中位、守窗口、昨晚在床、每周记录、复盘建议、档位（数字直接抄）")
     sp = sub.add_parser("sleep-week", help="近 N 晚睡眠：时长、需要、效率、入睡 / 起床时间、效率分档（CBT-I 周复盘调窗口用）")
     sp.add_argument("--nights", type=int, default=7)
     sp = sub.add_parser("media-add", help="把核对过的公开素材收进老大的素材库：--json '{\"title\":…,\"url\":\"https://…\",\"duration_min\":15,\"type\":\"身体扫描\"}'")
@@ -374,6 +375,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "project-stats":
             from .coach import project_stats
             _json(project_stats(tools, args.id, args.days))
+        elif args.cmd == "cbti":
+            from . import cbti
+            _json(cbti.state(tools) or {"active": False, "message": "现在没有进行中的 CBT-I 项目"})
         elif args.cmd == "sleep-week":
             from .coach import sleep_week
             _json(sleep_week(tools, args.nights))
@@ -409,9 +413,14 @@ def main(argv: list[str] | None = None) -> int:
                     _json({"ok": not probs, "problems": probs, **({"fixed": fixed} if fixed else {})})
             else:
                 text = args.text if args.text is not None else _sys.stdin.read()
-                res = cards.check_text(text)
+                try:
+                    from . import cbti
+                    in_cbti = cbti.state(tools) is not None
+                except Exception:  # noqa: BLE001
+                    in_cbti = False
+                res = cards.check_text(text, cbti_active=in_cbti)
                 if res["count"] == 0:
-                    res["note"] = "这条回复里没有 ```phealth-ui 卡片"
+                    res["note"] = "这条回复里没有 ```phealth-ui 卡片：要讲数字、对比、步骤，就用卡片说"
                 _json(res)
         elif args.cmd == "canvas":
             from . import canvas

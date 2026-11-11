@@ -153,8 +153,10 @@ enum ServerImageCache {
 
     static func load(_ url: URL) async -> UIImage? {
         if let hit = cached(url) { return hit }
-        guard let (data, _) = try? await PivisAPI.send(URLRequest(url: url, timeoutInterval: 20)),
-              let img = UIImage(data: data) else { return nil }
+        // 本地文件（演示里的封面）直接读盘：演示模式不发任何网络请求
+        let fetched: Data? = url.isFileURL ? try? Data(contentsOf: url)
+            : try? await PivisAPI.send(URLRequest(url: url, timeoutInterval: 20)).0
+        guard let data = fetched, let img = UIImage(data: data) else { return nil }
         memory.setObject(img, forKey: url as NSURL)
         return img
     }

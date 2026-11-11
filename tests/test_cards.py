@@ -45,7 +45,8 @@ def test_layout_uses_canvas_validator():
 
 def test_check_text_whole_reply():
     good = '好的。\n```phealth-ui\n{"type":"receipt","change":"今晚起换成身体扫描"}\n```\n'
-    assert cards.check_text(good) == {"ok": True, "cards": [{"index": 1, "type": "receipt", "ok": True, "problems": []}], "count": 1}
+    assert cards.check_text(good) == {"ok": True, "cards": [{"index": 1, "type": "receipt", "ok": True, "problems": []}], "count": 1,
+                                      "problems": [], "outside_chars": 3}
     res = cards.check_text(good + "再选一个：\n```phealth-ui\n" + BROKEN + "\n```")
     assert res["ok"] is False and res["cards"][1].get("fixed")
     res = cards.check_text('```phealth-ui\n{"type":"receipt","change":"x"}')   # 没收尾

@@ -199,12 +199,14 @@ def validate(layout: Any, slot: str = "hero", pool: list[float] | None = None, h
 
 
 BIND_KINDS = {
-    "scalar": "指标数值：" + " / ".join(SCALAR_METRICS) + "，或 <指标>.need / .goal / .target / .short / .pace / .warn / .prev",
+    "scalar": ("指标数值：" + " / ".join(SCALAR_METRICS) + "，或 <指标>.need / .goal / .target / .short / .pace / .warn / .prev；"
+               "做 CBT-I 时还有 cbti.efficiency（7 晚效率中位）/ efficiency_last / ge90 / kept（守住窗口几晚）/ window / week / "
+               "review_in / suggest（复盘建议）/ early / late / rise_dev / diary / breaks / in_bed / asleep / awake / to_bed"),
     "dots": "sleep.nights（每晚睡够没）、steps.week（每天走够没）、project:<项目 id>（项目每天做了没）",
     "bar": "sleep（睡了 / 需要）、steps（走了 / 目标）、weight（已减 / 计划）",
     "ring": "recovery（恢复分数）、steps（走了 / 目标）、project:<项目 id>（第几天 / 共几天）",
     # ---- 新零件
-    "stages": "sleep.stages（最近一晚分期：WHOOP，没有就 Apple Watch）、training.zones（近 7 天训练心率区间合成 轻松 Z0–2 / 中等 Z3 / 高强度 Z4–5）",
+    "stages": "sleep.stages（最近一晚分期：WHOOP，没有就 Apple Watch）、training.zones（近 7 天训练心率区间合成 轻松 Z0–2 / 中等 Z3 / 高强度 Z4–5）、cbti.lastnight（做 CBT-I 时：昨晚在床拆成 睡着 / 醒着）",
     "streak": "sleep.nights、steps.week、project:<项目 id>，或 wake:HH:MM（起床不晚于该时间 +15 分钟）",
     "workout": "workout.last（最近一次训练）、workout.week（近 7 天合计），读 WHOOP 训练的心率区间时长",
     "series": "每天一个数的指标：hrv / resp_rate / resting_hr / recovery / sleep / steps / weight（步数不含今天）",
@@ -231,6 +233,9 @@ def _check_bind(b: str, kinds: tuple[str, ...]) -> str:
         base, _, field = b.partition(".")
         if base in SCALAR_METRICS and (not field or field in EXTRA_FIELDS):
             return b
+        from .cbti import SCALARS as CBTI_SCALARS
+        if base == "cbti" and field in CBTI_SCALARS:
+            return b
     elif kind == "dots":
         if b in ("sleep.nights", "steps.week") or b.startswith("project:"):
             return b
@@ -249,7 +254,7 @@ def _check_bind(b: str, kinds: tuple[str, ...]) -> str:
 
 _SERIES = ("hrv", "resp_rate", "resting_hr", "recovery", "sleep", "steps", "weight")
 _NEW_BINDS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {      # kind → (整串能用的, 能用的前缀)
-    "stages": (("sleep.stages", "training.zones"), ()),
+    "stages": (("sleep.stages", "training.zones", "cbti.lastnight"), ()),
     "streak": (("sleep.nights", "steps.week"), ("project:",)),
     "series": (_SERIES, ()),
     "diverging": (("sleep.need", "steps.goal"), ()),
@@ -329,6 +334,14 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
 
     def scalar(b: str) -> dict:
         base, _, field = b.partition(".")
+        if base == "cbti":
+            from . import cbti
+            if "cbti" not in cache:
+                cache["cbti"] = cbti.state(tools, day, now)
+            if not cache["cbti"]:
+                raise vizmod.VizUnavailable("现在没有进行中的 CBT-I")
+            s = cbti.scalar(cache["cbti"], field)
+            return {**s, "zone": None, "asof": None}
         v = vz(base)
         m = vizmod.METRICS[base]
         if not field:
@@ -369,7 +382,8 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
                     s = scalar(n["bind"])
                     out = {**n, "text": s["text"], "unit": s["unit"], "zone": s["zone"]}
                     out.pop("bind")
-                    if t == "stat" and not out.get("label"):
+                    if t == "stat" and (not out.get("label") or str(n["bind"]).startswith("cbti.")):
+                        # CBT-I 的数含义固定（起晚 / 早上床 / 起床偏差…），小标题用内核的，免得写成「晚上床」这种反的
                         out["label"] = s.get("label") or n["bind"]
                     return out
                 out = {k: v for k, v in n.items() if k != "value"}
@@ -619,7 +633,8 @@ PARTS: list[dict] = [
      "when": "支撑的数，横排 2–3 个", "data": "bind 内核现算，或手写 value", "binds": ["scalar"], "height": "44"},
     {"name": "chart", "cn": "主卡同款图", "group": "基础",
      "example": {"t": "chart", "metric": "hrv", "kind": "trend", "days": 14, "show": ["band", "warn"], "height": "m"},
-     "when": "小幅波动 + 常态带 + 警戒线（HRV、静息心率、呼吸）", "data": "./pivis-health viz 同一份数",
+     "when": "小幅波动 + 常态带 + 警戒线（HRV、静息心率、呼吸）；sleep_efficiency 是每晚睡眠效率（带子 ≥90、虚线 85，做 CBT-I 时写成加 / 减窗口）",
+     "data": "./pivis-health viz 同一份数",
      "height": "s 84 / m 124 / l 164（gauge +60）"},
     {"name": "dots", "cn": "一排点", "group": "基础", "example": {"t": "dots", "bind": "sleep.nights", "days": 7},
      "when": "只关心每天达没达标（3–90 天；超过 30 天每 7 天并成一格）", "data": "睡眠（最多近 14 晚）/ 步数 / 项目打卡",
@@ -749,7 +764,8 @@ PARTS: list[dict] = [
      "when": "几条设置或事实一行一条，左标签右值", "data": "手写（2–6 行，label≤8、value≤12），或 bind project:cbti 取 sleep.cbti",
      "binds": ["project"], "height": "行数×38"},
     {"name": "table", "cn": "小表", "group": "进度", "example": {"t": "table", "bind": "sleep.week", "n": 4},
-     "when": "几晚 / 几天的几样数对齐着看，不画格线", "data": "sleep.week（日期 / 睡了 / 效率 / 入睡），或手写 columns + rows",
+     "when": "几晚 / 几天的几样数对齐着看，不画格线",
+     "data": "sleep.week（日期 / 睡了 / 效率 / 入睡）、cbti.weeks（CBT-I 每周 窗口 / 效率中位 / 调整），或手写 columns + rows",
      "notes": "手写最多 4 列 × 6 行，每格 ≤6 字；第一列写日期或名目", "height": "(行数+1)×26"},
     {"name": "tag", "cn": "标签", "group": "进度", "example": {"t": "tag", "items": ["CBT-I · 第 1 周", "需要处理"], "strong": 1},
      "when": "给标题或一条信息加个状态，别当按钮用", "data": "手写（1–4 个，每个 ≤10 字；strong = 白框强调的下标）", "height": "32"},

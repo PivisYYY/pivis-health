@@ -360,9 +360,11 @@ def test_hypnogram_falls_back_without_apple_night(env):
 def test_sleep_window_with_cbti_band(env):
     s = run(env, {"t": "sleep_window", "days": 7})
     assert s["axis_start"] == 22 and s["axis_hours"] == 12 and len(s["rows"]) == 7
-    assert s["rows"][-1] == {"label": "10/27", "start": "23:20", "end": "06:20", "from": 1.33, "to": 8.33, "now": True}
-    assert s["band"] == {"from": 3.5, "to": 10.5, "label": "CBT-I 窗口 01:30–08:30"}
-    assert [t["label"] for t in s["ticks"]] == ["22:00", "02:00", "06:00", "10:00"]
+    assert s["rows"][-1] == {"label": "10/27", "start": "23:20", "end": "06:20", "from": 1.33, "to": 8.33, "now": True,
+                             "early": True, "late": False}
+    # build 56：不再写「浅色带 = …」那行字，窗口两头的时刻直接标在刻度上
+    assert s["band"] == {"from": 3.5, "to": 10.5}
+    assert s["ticks"] == [{"at": 3.5, "label": "01:30"}, {"at": 10.5, "label": "08:30"}]
 
 
 def test_clock24(env):

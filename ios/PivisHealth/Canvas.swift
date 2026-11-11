@@ -141,11 +141,13 @@ struct CItem: Decodable, Identifiable {
     /// split 一行的单位；split / dotstrip 里「这一条是好的那一组 / 那天结果好」
     var unit: String?
     var hi: Bool?
+    var early: Bool?        // sleep_window：这晚早上床 / 起晚（服务器按 CBT-I 的宽限算，和主卡的数一致）
+    var late: Bool?
 
     private enum CodingKeys: String, CodingKey {
         case on, now, label, text, when, title, note, value, ref
         case prev, pct, frac, fraction, done, state, sub, minutes, today, level, d, count, peak, parts
-        case start, end, from, to, at, kind, stage, week, unit, hi
+        case start, end, from, to, at, kind, stage, week, unit, hi, early, late
     }
 
     /// App 自己拼的条目
@@ -198,6 +200,8 @@ struct CItem: Decodable, Identifiable {
         stage = c.lenient(String.self, .stage)
         week = c.lenient(Bool.self, .week)
         unit = c.string(.unit)
+        early = c.lenient(Bool.self, .early)
+        late = c.lenient(Bool.self, .late)
         hi = c.lenient(Bool.self, .hi)
     }
 

@@ -81,6 +81,9 @@ struct V3Page: Decodable {
         let series: [Dated]?
         let band: [Double]?
         let warn: Double?
+        /// 带子 / 参照线的字由服务器给时用它（比如 CBT-I 的「目标 ≥90」「减窗口 85」），不给就是「常态 a–b」「警戒 x」
+        let bandLabel: String?
+        let warnLabel: String?
         let mid: Double?
         let prev: Double?
         let need: Double?

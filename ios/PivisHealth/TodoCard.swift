@@ -331,10 +331,7 @@ struct TodoCardView: View {
             default:
                 if !fields.isEmpty && photoOnlyField == nil {
                     VStack(alignment: .leading, spacing: 14) {
-                        if todo.kind == "proposal", !todo.note.isEmpty {
-                            Text(todo.note).font(E.body(14)).foregroundStyle(E.text2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                        // 提议卡的备注展开时已经在标题下面那行了（subText），这里不再写一遍（老大 11-10：重复文案都去掉）
                         ForEach(fields) { f in
                             GenFieldView(field: f, value: binding(f.id),
                                          onPick: autoSubmits ? { submitFields() } : nil)

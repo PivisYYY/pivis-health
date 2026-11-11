@@ -454,6 +454,13 @@ def _composition(ctx: Ctx, b: str) -> tuple[list[dict], str, str]:
         asleep = sum(i["value"] for i in items[:3])
         when = "昨晚" if nd == ctx.yday else f"{_md(nd)} 那晚"
         return items, "h", f"{when} {asleep:.1f} 小时"
+    if b == "cbti.lastnight":
+        from . import cbti
+        st = ctx.memo("cbti", lambda: cbti.state(ctx.tools, ctx.day, ctx.now))
+        if not st:
+            raise vizmod.VizUnavailable("现在没有进行中的 CBT-I")
+        items, title = cbti.lastnight_items(st)
+        return items, "h", title
     if b == "training.zones":
         ws = [w for w in _workouts(ctx) if w["zones"] and ctx.day - timedelta(days=6) <= w["start"].date() <= ctx.day]
         if not ws:
@@ -509,6 +516,8 @@ def r_stack(ctx, n):
         items, unit, title = _composition(ctx, n["bind"])
         for i in items:
             i["text"] = f"{i['value']:.1f}" if unit == "h" else f"{int(round(i['value']))}′"
+        if n["bind"] == "cbti.lastnight" and items[1]["value"] < 1:      # 床上醒着不到 1 小时：写分钟
+            items[1]["text"] = f"{int(round(items[1]['value'] * 60))}分"
     else:
         items, title = [dict(i) for i in n["items"]], None
     total = sum(i["value"] for i in items)
@@ -764,9 +773,15 @@ def r_sleep_window(ctx, n):
            "band": None,
            "ticks": [{"at": a, "label": f"{(lo + a) % 24:02d}:00"} for a in range(0, span + 1, step)]}
     if c:
-        out["band"] = {"from": round(bed + (24 if bed < 12 else 0) - lo, 2),
-                       "to": round(wake + (24 if wake < 12 else 0) - lo, 2),
-                       "label": f"CBT-I 窗口 {c['earliest_bed']}–{c['wake']}"}
+        # 窗口两头的时刻直接标在刻度上（最早上床 / 起床），不再在图下写一行「浅色带 = …」（老大 11-11：少文字）
+        bf, bt = round(bed + (24 if bed < 12 else 0) - lo, 2), round(wake + (24 if wake < 12 else 0) - lo, 2)
+        out["band"] = {"from": bf, "to": bt}
+        # 每晚破没破：和主卡「早上床 / 起晚」同一套宽限（上床早 10 分钟内、起床晚 15 分钟内都算守住），App 只把破的那截画亮
+        from .cbti import BED_GRACE_MIN, RISE_GRACE_MIN
+        for r in out["rows"]:
+            r["early"] = r["from"] < bf - BED_GRACE_MIN / 60
+            r["late"] = r["to"] > bt + RISE_GRACE_MIN / 60
+        out["ticks"] = [{"at": bf, "label": c["earliest_bed"]}, {"at": bt, "label": c["wake"]}]
     return out
 
 
@@ -958,7 +973,9 @@ def r_streak(ctx, n):
 
 def n_countdown(node, ck, t):
     to = str(node.get("to") or "").strip()
-    if to.startswith("project:"):
+    if to in ("cbti", "cbti.bed") or "earliest_bed" in to:
+        to = "cbti.bed"                 # 做 CBT-I：倒数到最早上床（内核从 sleep.cbti 取，不用手抄钟点）
+    elif to.startswith("project:"):
         parts = to.split(":")
         if len(parts) != 3 or not parts[1] or not parts[2]:
             raise CanvasError("countdown 的 to 写 HH:MM，或 project:<项目 id>:<待办 key>（取那条待办的时间）")
@@ -984,7 +1001,13 @@ def _wake_anchor(ctx: Ctx) -> str:
 
 def r_countdown(ctx, n):
     to, what = n["to"], None
-    if to.startswith("project:"):
+    if to == "cbti.bed":
+        from . import cbti
+        st = ctx.memo("cbti", lambda: cbti.state(ctx.tools, ctx.day, ctx.now))
+        if not st or not (st.get("rx") or {}).get("earliest_bed"):
+            raise vizmod.VizUnavailable("现在没有进行中的 CBT-I")
+        to = st["rx"]["earliest_bed"]
+    elif to.startswith("project:"):
         _, pid, key = to.split(":")
         p = _project(ctx, pid)
         tpl = next((x for x in p.get("daily") or [] if x.get("key") == key), None)
@@ -1637,8 +1660,9 @@ def r_kv(ctx, n):
 def n_table(node, ck, t):
     if node.get("bind"):
         b = str(node["bind"]).strip()
-        if b != "sleep.week":
-            raise CanvasError("table 的 bind 只能是 sleep.week（日期 / 睡了 / 效率 / 入睡），或者手写 columns + rows")
+        if b not in ("sleep.week", "cbti.weeks"):
+            raise CanvasError("table 的 bind 只能是 sleep.week（日期 / 睡了 / 效率 / 入睡）、cbti.weeks（CBT-I 每周 窗口 / 效率 / 调整），"
+                              "或者手写 columns + rows")
         return {"t": t, "bind": b, "n": _int(node, "n", 4, 1, 6)}
     cols, rows = node.get("columns"), node.get("rows")
     if not isinstance(cols, list) or not 1 <= len(cols) <= 4:
@@ -1658,6 +1682,12 @@ def n_table(node, ck, t):
 def r_table(ctx, n):
     if "rows" in n:
         return {"columns": list(n["columns"]), "rows": [list(r) for r in n["rows"]]}
+    if n["bind"] == "cbti.weeks":
+        from . import cbti
+        st = ctx.memo("cbti", lambda: cbti.state(ctx.tools, ctx.day, ctx.now))
+        if not st:
+            raise vizmod.VizUnavailable("现在没有进行中的 CBT-I")
+        return cbti.weeks_table(st)
     from .coach import sleep_week
     nights = sleep_week(ctx.tools, n["n"], ctx.day)["nights"]
     if all(r.get("asleep_h") is None for r in nights):

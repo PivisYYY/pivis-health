@@ -238,7 +238,8 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                 from . import canvas
                 try:
                     lay = canvas.validate(body.get("layout"), str(body.get("slot") or "chat"))
-                    self._json({"layout": canvas.resolve(tools, lay, board=body.get("board"))})
+                    # 和页面主卡一样收拾排版：竖着摞的小数字横排、多余的细线去掉
+                    self._json({"layout": v3mod._tidy_layout(canvas.resolve(tools, lay, board=body.get("board")))})
                 except canvas.CanvasError as exc:
                     self._json({"error": "invalid", "message": str(exc)}, 422)
                 return

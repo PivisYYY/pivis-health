@@ -15,6 +15,8 @@ final class PracticePlayer: ObservableObject {
     @Published private(set) var playing = false
     @Published private(set) var finished = false
     @Published private(set) var muted = false
+    /// 正在全屏看：画面只交给全屏那一层，卡里的小窗先放手（同一个播放器同时挂两层，全屏那层会黑屏，老大 11-11）
+    @Published var fullscreen = false
     /// 点了封面才建；没建时外面显示封面
     @Published private(set) var player: AVPlayer?
     private(set) var url: URL?
@@ -57,13 +59,14 @@ final class PracticePlayer: ObservableObject {
                 guard let self, self.player === p else { return }
                 let on = status != .paused
                 if self.playing != on { self.playing = on }
+                self.keepAwake()
                 self.publishNowPlaying()
             }
         }
         let nc = NotificationCenter.default
         observers = [
             nc.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.finished = true; self?.publishNowPlaying() }
+                Task { @MainActor in self?.finished = true; self?.keepAwake(); self?.publishNowPlaying() }
             },
             nc.addObserver(forName: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(), queue: .main) { [weak self] note in
                 let type = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init)
@@ -109,10 +112,17 @@ final class PracticePlayer: ObservableObject {
         resumeAfterInterruption = false
         if Self.current === self {
             Self.current = nil
+            UIApplication.shared.isIdleTimerDisabled = false
             releaseRemote()
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
+    }
+
+    /// 放着的时候不自动锁屏（跟练十几分钟，看着看着屏幕熄了就跟不下去）；停了、放完了交还系统
+    private func keepAwake() {
+        guard Self.current === self else { return }
+        UIApplication.shared.isIdleTimerDisabled = playing && !finished
     }
 
     // MARK: 音频会话、锁屏控制
@@ -225,11 +235,7 @@ struct ExecView: View {
             pp.load(url: url, title: title, minutes: v.durationMin ?? fallbackMinutes)
             pp.play()
         }
-        .onDisappear {
-            pp.stop()
-            UIApplication.shared.isIdleTimerDisabled = false
-        }
-        .onChange(of: pp.playing) { _, on in UIApplication.shared.isIdleTimerDisabled = on }
+        .onDisappear { pp.stop() }
     }
 
     private var topBar: some View {
@@ -309,7 +315,8 @@ struct PlayBadge: View {
 
 // MARK: - 原生视频层（不带系统控件）
 struct PlayerLayerView: UIViewRepresentable {
-    let player: AVPlayer
+    /// nil = 这一层先不出画面（画面交给了别的层，比如全屏）
+    let player: AVPlayer?
     var gravity: AVLayerVideoGravity = .resizeAspectFill
     func makeUIView(context: Context) -> PlayerUIView {
         let v = PlayerUIView()
@@ -320,6 +327,10 @@ struct PlayerLayerView: UIViewRepresentable {
     }
     func updateUIView(_ v: PlayerUIView, context: Context) {
         if v.playerLayer.player !== player { v.playerLayer.player = player }
+    }
+    /// 视图拆掉时放手：不然离场动画期间它还挂着播放器，和新的那层抢画面
+    static func dismantleUIView(_ v: PlayerUIView, coordinator: ()) {
+        v.playerLayer.player = nil
     }
     final class PlayerUIView: UIView {
         override class var layerClass: AnyClass { AVPlayerLayer.self }

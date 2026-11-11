@@ -664,10 +664,14 @@ final class ReleaseDailyUITests: XCTestCase {
         full.tap()
         let close = app.buttons["practice-fullscreen-close"].firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 5), "全屏没打开")
+        // build 56（老大 11-11「全屏黑屏、播不完」）：全屏一打开，下面的对话页就把播放器停了，只剩黑底。全屏里必须真的在放
+        let video = app.buttons["practice-fullscreen-player"].firstMatch
+        XCTAssertTrue(waitUntil(8) { video.exists && video.label == "暂停" }, "全屏里视频没在放（黑屏）")
         shot("29-fullscreen")
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5), "点右上角 × 没关掉全屏")
         XCTAssertTrue(any("habit-card").exists || text(containing: "P-Health · 运动").exists, "关掉全屏后没回到对话")
+        XCTAssertTrue(app.buttons["暂停"].firstMatch.waitForExistence(timeout: 5), "关掉全屏后卡里的视频没接着放")
         closeChat()
     }
 

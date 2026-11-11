@@ -21,7 +21,10 @@ final class TodoCardsUITests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["-pivisProfile", "sim", "-uiTestDisableDeviceData", "-noSplash"] + extra
         app.launch()
-        app.buttons["休息"].firstMatch.tap()
+        // 按 id 找：休息页有未读回复时，标签的读屏文字是「休息，对话有新回复」
+        let tab = app.buttons["tab-sleep"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 15), "没有休息页的标签")
+        tab.tap()
         XCTAssertTrue(app.staticTexts["接下来"].waitForExistence(timeout: 15), "休息页没加载出来")
     }
 

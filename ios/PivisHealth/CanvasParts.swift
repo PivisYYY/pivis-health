@@ -884,10 +884,18 @@ struct SleepWindowPart: View {
                         ctx.line(CGPoint(x: x(v), y: 2), CGPoint(x: x(v), y: plotH), E.text3, dash: [2, 3])
                     }
                 }
+                let band: (Double, Double)? = n.x.band.flatMap { b in b.from.flatMap { f in b.to.map { (f, $0) } } }
                 for (i, r) in rows.enumerated() {
                     let y = 10 + CGFloat(i) * 14
                     ctx.label(r.label ?? "", CGPoint(x: 0, y: y), .leading, color: r.now == true ? E.text2 : E.text3)
-                    if let f = r.from, let t = r.to {
+                    guard let f = r.from, let t = r.to else { continue }
+                    if let (bf, bt) = band {
+                        // 有窗口（CBT-I）：窗口里的那段是灰的细线，出了窗口的那截（早上床 / 起晚）是白的粗线，破例一眼看得到
+                        ctx.line(CGPoint(x: x(f), y: y), CGPoint(x: x(t), y: y), E.text3, 3, cap: .round)
+                        // 服务器标了 early / late 就按它（起床晚 15 分钟内算守住）；没标就按出没出窗口
+                        if r.early ?? (f < bf), f < bf { ctx.line(CGPoint(x: x(f), y: y), CGPoint(x: x(Swift.min(t, bf)), y: y), E.text, 4, cap: .round) }
+                        if r.late ?? (t > bt), t > bt { ctx.line(CGPoint(x: x(Swift.max(f, bt)), y: y), CGPoint(x: x(t), y: y), E.text, 4, cap: .round) }
+                    } else {
                         ctx.line(CGPoint(x: x(f), y: y), CGPoint(x: x(t), y: y), E.text, 4, cap: .round)
                     }
                 }

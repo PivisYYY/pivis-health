@@ -197,7 +197,7 @@ struct TrendViz: View {
                         let top = y(b[1]) + 2
                         let spot = Self.place(pts, W: W, tries: [(.leading, top), (.trailing, top), (.center, top),
                                                                  (.leading, y(b[1]) - 16), (.trailing, y(b[1]) - 16)])
-                        Caption(text: "常态 \(lfmt(b[0], nd))–\(lfmt(b[1], nd))")
+                        Caption(text: viz.bandLabel ?? "常态 \(lfmt(b[0], nd))–\(lfmt(b[1], nd))")
                             .frame(width: W - 8, alignment: spot.align)
                             .offset(x: 4, y: spot.y)
                     }
@@ -206,7 +206,7 @@ struct TrendViz: View {
                         let ly = lowBad ? y(wv) + 3 : y(wv) - 16
                         let spot = Self.place(pts, W: W, tries: [(.trailing, ly), (.leading, ly), (.center, ly)])
                         hline(y(wv), 0, W).stroke(E.text3, style: dashed)
-                        Caption(text: "警戒 \(lfmt(wv, nd))")
+                        Caption(text: viz.warnLabel ?? "警戒 \(lfmt(wv, nd))")
                             .frame(width: W - 8, alignment: spot.align)
                             .offset(x: 4, y: spot.y)
                     }
