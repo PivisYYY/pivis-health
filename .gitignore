@@ -35,6 +35,7 @@ Health/
 *.jpg
 *.jpeg
 *.png
+!dsh/icon.png
 # README 截图（只放合成演示数据的截图）
 !docs/images/*.png
 !ios/docs/images/*.png
