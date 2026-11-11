@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "title": "P-Health",
+  "description": "P-Health 的 DeepSeek Harness 插件索引：跑在你自己电脑上的私人健康管家。",
+  "plugins": [
+    {
+      "name": "dsh-plugin-phealth",
+      "title": "P-Health 私人健康管家",
+      "description": "P-Health：跑在你自己电脑上的私人健康管家（睡眠、训练、康复、营养、减压）。装好后扫码连 iPhone App。",
+      "icon": "icon.png",
+      "author": "PivisYYY",
+      "homepage": "https://github.com/PivisYYY/pivis-health",
+      "repository": {
+        "url": "https://github.com/PivisYYY/pivis-health"
+      },
+      "versions": [
+        {
+          "version": "0.55.0",
+          "publishTimestamp": 1794380091,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/PivisYYY/pivis-health",
+            "commit": "f4a31a970e6f976847afa33bc34d249e21b449ec"
+          }
+        }
+      ]
+    }
+  ]
+}
