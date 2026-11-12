@@ -541,43 +541,119 @@ struct CanvasCard: View {
     var slot: String = "chat"
     @State private var node: CNode?
     @State private var failed: String?
+    @Environment(\.scenePhase) private var scenePhase
+    private var isLive: Bool { Self.hasLiveBinding(raw) }
+
+    static func hasLiveBinding(_ raw: Data) -> Bool {
+        func walk(_ value: Any) -> Bool {
+            if let obj = value as? [String: Any] {
+                if let bind = obj["bind"] as? String, bind.hasPrefix("follow:") { return true }
+                return obj.values.contains(where: walk)
+            }
+            return (value as? [Any])?.contains(where: walk) ?? false
+        }
+        return (try? JSONSerialization.jsonObject(with: raw)).map(walk) ?? false
+    }
 
     init(raw: Data, slot: String = "chat") {
         self.raw = raw
         self.slot = slot
-        _node = State(initialValue: CanvasCache.node(raw: raw, slot: slot))
+        // 重开对话要现查任务，不能复用磁盘里的旧进度。
+        _node = State(initialValue: Self.hasLiveBinding(raw) ? nil : CanvasCache.node(raw: raw, slot: slot))
     }
 
     var body: some View {
         Group {
-            if let node { CanvasView(node: node) }
+            if let node {
+                VStack(alignment: .leading, spacing: 8) {
+                    CanvasView(node: node)
+                    if isLive, let failed {
+                        Text(failed).font(E.body(12)).foregroundStyle(E.text3)
+                    }
+                }
+            }
             else if let failed { Text(failed).font(E.body(13)).foregroundStyle(E.text3) }
             else { WorkingLine().padding(.vertical, 24) }
         }
-        .task(id: raw) { if node == nil { await load() } }
+        .task(id: "\(raw.base64EncodedString())-\(scenePhase == .active)") {
+            guard scenePhase == .active else { return }
+            guard isLive || node == nil else { return }
+            repeat {
+                let delay = await load()
+                guard isLive, let delay, !Task.isCancelled else { return }
+                do { try await Task.sleep(for: .seconds(delay)) }
+                catch { return }
+            } while !Task.isCancelled
+        }
         // 容器：只给自己加标识，里面的零件保留各自的标识和朗读（不加 .contain 会把标识盖到每个子元素上）
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("canvas-card")
     }
 
-    private func load() async {
+    private func load() async -> Double? {
         let body: [String: Any] = ["layout": (try? JSONSerialization.jsonObject(with: raw)) ?? [:], "slot": slot]
         let data: Data
         do {
             (data, _) = try await PivisAPI.send(PivisAPI.request("api/v3/canvas", method: "POST", json: body))
-        } catch PivisAPI.Failure.http(_, let msg) {
+        } catch PivisAPI.Failure.http(let code, let msg) {
+            if isLive && (code >= 500 || code == 408 || code == 429) {
+                failed = "暂时取不到最新进度，正在重试"
+                return 5
+            }
             failed = "这张卡不合规范，没画" + (msg.map { "：\($0)" } ?? "")
-            return
+            return nil
+        } catch is CancellationError {
+            return nil
         } catch {
-            failed = "这张卡暂时画不出来（连不上服务器）"
-            return
+            failed = isLive ? "暂时取不到最新进度，正在重试" : "这张卡暂时画不出来（连不上服务器）"
+            return isLive ? 5 : nil
         }
-        node = CanvasCache.decode(data)
-        if node == nil { failed = "这张卡暂时画不出来" } else { CanvasCache.store(data, raw: raw, slot: slot) }
+        guard !Task.isCancelled else { return nil }
+        guard let latest = CanvasCache.decode(data) else {
+            failed = "这张卡暂时画不出来"
+            return isLive ? 5 : nil
+        }
+        node = latest
+        failed = nil
+        if !isLive { CanvasCache.store(data, raw: raw, slot: slot) }
+        let delay = PivisAPI.object(data)?["refresh_after"] as? Double
+        return delay.map { max(2, min(30, $0)) }
     }
 }
 
 /// 画布卡结果缓存：内存 + Caches/canvas/<hash>.json（服务器原样返回的数据）
+#if DEBUG
+/// 隔离验收入口：只在模拟器显式 -progressReview 时出现，使用合成任务。
+struct FollowProgressReview: View {
+    @State private var shown = true
+    private let raw = Data(#"{"t":"v","children":[{"t":"text","text":"放松跟练","role":"title"},{"t":"bar","bind":"follow:jreview"}]}"#.utf8)
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text("生成跟练").font(E.light(28))
+                Text("合成演示数据").font(E.body(12)).foregroundStyle(E.text3)
+                HStack(alignment: .top, spacing: 12) {
+                    EAvatar(size: 28)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("开始做了，下面会自动更新进度。开始后不用一直等在这里。")
+                            .font(E.body(15)).fixedSize(horizontal: false, vertical: true)
+                        if shown {
+                            CanvasCard(raw: raw)
+                                .padding(16)
+                                .overlay(RoundedRectangle(cornerRadius: E.cardRadius).strokeBorder(E.line, lineWidth: 1))
+                        }
+                    }
+                }
+                TypingRow(tool: "查看视频生成进度")
+                Button(shown ? "收起进度" : "查看生成进度") { shown.toggle() }
+                    .font(E.body(14)).buttonStyle(.plain)
+                Spacer(minLength: 80)
+            }.padding(24)
+        }.background(Color.black)
+    }
+}
+#endif
+
 enum CanvasCache {
     private struct R: Decodable { let layout: CNode }
     private static let memory: NSCache<NSString, MemoBox<CNode>> = { let c = NSCache<NSString, MemoBox<CNode>>(); c.countLimit = 120; return c }()

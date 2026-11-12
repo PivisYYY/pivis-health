@@ -203,7 +203,7 @@ BIND_KINDS = {
                "做 CBT-I 时还有 cbti.efficiency（7 晚效率中位）/ efficiency_last / ge90 / kept（守住窗口几晚）/ window / week / "
                "review_in / suggest（复盘建议）/ early / late / rise_dev / diary / breaks / in_bed / asleep / awake / to_bed"),
     "dots": "sleep.nights（每晚睡够没）、steps.week（每天走够没）、project:<项目 id>（项目每天做了没）",
-    "bar": "sleep（睡了 / 需要）、steps（走了 / 目标）、weight（已减 / 计划）",
+    "bar": "sleep（睡了 / 需要）、steps（走了 / 目标）、weight（已减 / 计划）、follow:<任务 id>（跟练出片实时进度）",
     "ring": "recovery（恢复分数）、steps（走了 / 目标）、project:<项目 id>（第几天 / 共几天）",
     # ---- 新零件
     "stages": "sleep.stages（最近一晚分期：WHOOP，没有就 Apple Watch）、training.zones（近 7 天训练心率区间合成 轻松 Z0–2 / 中等 Z3 / 高强度 Z4–5）、cbti.lastnight（做 CBT-I 时：昨晚在床拆成 睡着 / 醒着）",
@@ -241,6 +241,8 @@ def _check_bind(b: str, kinds: tuple[str, ...]) -> str:
             return b
     elif kind == "bar":
         if b in ("sleep", "steps", "weight"):
+            return b
+        if re.fullmatch(r"follow:[A-Za-z0-9_-]{1,48}", b):
             return b
     elif kind == "ring":
         if b in ("recovery", "steps") or b.startswith("project:"):
@@ -292,7 +294,7 @@ def estimate(n: dict) -> int:
     if t == "dots":
         return 30
     if t == "bar":
-        return 34
+        return 116 if str(n.get("bind") or "").startswith("follow:") else 34
     if t == "columns":
         return CHART_H[n.get("height", "s")] + 36      # 柱子 + 底下的日期 + 上面一行说明
     if t == "ring":
@@ -394,6 +396,9 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
             if t == "dots":
                 return {"t": "dots", **_weekly(_dots(tools, n["bind"], n["days"], day, now, vz), "dots")}
             if t == "bar":
+                if n["bind"].startswith("follow:"):
+                    from .follow import progress_node
+                    return progress_node(tools.cfg, n["bind"].partition(":")[2])
                 return {"t": "bar", **_bar(n["bind"], vz)}
             if t == "columns":
                 return {"t": "columns", "height": n["height"], **_weekly(_columns(n["metric"], n["days"], day, vz), "columns")}
@@ -414,6 +419,13 @@ def resolve(tools, layout: dict, day: date | None = None, now: datetime | None =
                     "fallback": True}
 
     return one(layout)
+
+
+def refresh_after(node: dict) -> int | None:
+    """有后台工作进行时自动刷新；终态和普通健康图保持原来的缓存行为。"""
+    delays = [node["refresh_after"]] if node.get("refresh_after") else []
+    delays += [delay for child in node.get("children") or [] if (delay := refresh_after(child))]
+    return min(delays) if delays else None
 
 
 def live_gaps(source: Any, resolved: Any) -> tuple[int, list[str]]:

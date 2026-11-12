@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
 
 from .config import Config
@@ -36,12 +39,97 @@ def run_cli(cfg: Config, argv: list[str]) -> tuple[dict, int]:
         out = {"error": "follow_failed", "message": (r.stderr or txt)[-800:]}
     if isinstance(out, dict):
         _localize(out, cfg)
+        jid = out.get("job")
+        if r.returncode == 0 and isinstance(jid, str) and SAFE.fullmatch(jid):
+            out["progress_card"] = progress_card(jid)
     return out, (0 if r.returncode == 0 else 1)
 
 
 def _localize(obj, cfg):
     """本机文件路径里的素材库前缀换短，方便看"""
     return obj
+
+
+def progress_card(jid: str) -> dict:
+    """现有画布零件绑定后台任务；Agent 原样发卡，不猜进度或剩余分钟。"""
+    if not SAFE.fullmatch(jid):
+        raise ValueError("invalid follow job")
+    return {"type": "layout", "layout": {"t": "v", "children": [
+        {"t": "text", "text": "跟练视频", "role": "title"},
+        {"t": "bar", "bind": f"follow:{jid}"},
+    ]}}
+
+
+def progress_node(cfg: Config, jid: str) -> dict:
+    """只读当前环境任务状态，转成通用零件。绝不把 args、路径、trace 发给 App。"""
+    def node(stage, fraction=0.0, elapsed="", caption="", live=False):
+        children = [
+            {"t": "text", "text": stage, "role": "body", "tone": 1},
+            {"t": "bar", "fraction": fraction, "left": elapsed,
+             "right": f"阶段进度 {int(fraction * 100)}%"},
+            {"t": "text", "text": caption, "role": "caption", "tone": 3},
+        ]
+        out = {"t": "v", "gap": 8, "children": children}
+        if live:
+            out["refresh_after"] = 3
+        return out
+
+    if not cfg.follow_enabled or not SAFE.fullmatch(jid):
+        return node("暂时读不到这个视频任务", caption="请让 P-Health 检查任务。")
+    path = pf_home(cfg) / "jobs" / f"{jid}.json"
+    # 不允许通过符号链接跨到另一环境。
+    if path.is_symlink() or not path.resolve().is_relative_to(pf_home(cfg).resolve()):
+        return node("暂时读不到这个视频任务", caption="请让 P-Health 检查任务。")
+    try:
+        job = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(job, dict):
+            raise ValueError("invalid job")
+        modified = path.stat().st_mtime
+    except FileNotFoundError:
+        return node("找不到这个视频任务", caption="任务可能已清理，请让 P-Health 检查。")
+    except (OSError, ValueError):
+        # 生成器写 JSON 期间可能只读到半份，保留重试能力。
+        return node("正在读取视频进度", caption="进度暂未取到，稍后自动重试。", live=True)
+
+    state = str(job.get("state") or "")
+    try:
+        fraction = float(job.get("progress") or 0)
+        fraction = min(0.99, max(0.0, fraction)) if math.isfinite(fraction) else 0.0
+    except (ValueError, TypeError):
+        fraction = 0.0
+    try:
+        # follow 写的是机器本地时间，不是健康数据的用户时区。
+        started = datetime.strptime(str(job.get("started")), "%Y-%m-%d %H:%M:%S").timestamp()
+        end = modified if state in ("done", "failed") else time.time()
+        seconds = max(0, int(end - started))
+        elapsed = f"已用时 {seconds // 60} 分 {seconds % 60} 秒"
+    except (ValueError, TypeError, OverflowError):
+        elapsed = ""
+    result = job.get("result") if isinstance(job.get("result"), dict) else {}
+    if state == "done" and result.get("verify_ok") is True:
+        return node("视频已生成，验收通过", 1.0, elapsed, "可以在对话里查看成片。")
+    if state == "done":
+        return node("验收未通过", fraction, elapsed, "正在等 P-Health 检查，暂不交付。")
+    if state == "failed":
+        return node("视频生成中断", fraction, elapsed, "请让 P-Health 检查后重试。")
+    if state not in ("queued", "running"):
+        return node("视频任务状态待检查", fraction, elapsed, "请让 P-Health 检查任务。")
+    step = str(job.get("step") or "")
+    # 只显示已知阶段，外部工具的原始错误和自由文本不透出。
+    stage = "正在准备视频"
+    for keyword, label in (("排队", "等待开始"), ("下载", "正在下载原片"),
+                           ("看懂", "正在识别动作和讲解"), ("分析", "正在识别动作和讲解"),
+                           ("切动作", "正在剪辑动作"), ("配音", "正在制作报数和教练配音"),
+                           ("出片", "正在合成跟练视频"), ("验收", "正在逐项验收视频")):
+        if keyword in step:
+            stage = label
+            break
+    if count := re.fullmatch(r"切动作\s+(\d{1,3})/(\d{1,3})", step):
+        stage += f" {count[1]}/{count[2]}"
+    caption = "按真实处理阶段更新，剩余时间暂不能准确估计。"
+    if time.time() - modified > 600:
+        caption = "这个阶段较久没有更新，仍在等候；尚未确认完成。"
+    return node(stage, fraction, elapsed, caption, live=True)
 
 
 def media_path(cfg: Config, path: str) -> Path | None:

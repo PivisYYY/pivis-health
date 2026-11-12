@@ -28,10 +28,20 @@ struct PivisHealthApp: App {
     var body: some Scene {
         WindowGroup {
             // 没配对：引导页；配对过 / 演示：主界面（换服务器时整个重建）
-            AppGate()
+            root
                 .preferredColorScheme(.dark)
                 .tint(.white)
         }
+    }
+
+    @ViewBuilder private var root: some View {
+        #if DEBUG
+        if Profile.isSim && ProcessInfo.processInfo.arguments.contains("-progressReview") {
+            FollowProgressReview()
+        } else { AppGate() }
+        #else
+        AppGate()
+        #endif
     }
 }
 

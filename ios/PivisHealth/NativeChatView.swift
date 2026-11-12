@@ -177,7 +177,7 @@ struct NativeChatView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.leading, E.chatTextInset)
                             }
-                            // 正在做什么不写字：头像在动 + 一个细线小图标（查资料 / 看数据 / 写卡…）+ 一条走动的细线
+                            // 当前阶段用一句短文字说明，配细线图标。
                             if awaitingReply {
                                 TypingRow(tool: toolHint, responding: streamAttempt != nil)
                                     .id("typing")
@@ -1585,31 +1585,39 @@ func commandLabel(_ cmd: String) -> String {
     if let i = parts.firstIndex(where: { $0.hasSuffix("pivis-health") }), i + 1 < parts.count {
         let sub = String(parts[i + 1])
         if sub == "context-record" { return cmd.contains("pref.") ? "记下你的偏好" : "记到记忆里" }
+        if sub == "follow", i + 2 < parts.count {
+            return ["fetch": "下载原片", "analyze": "识别动作和讲解", "make": "开始制作跟练视频",
+                    "build": "重新制作跟练视频", "job": "查看视频生成进度", "verify": "验收跟练视频",
+                    "cut": "剪辑动作示范", "lib": "查找动作素材", "session": "查看跟练课程"][String(parts[i + 2])] ?? "处理跟练视频"
+        }
         return pivisCommandLabels[sub] ?? "查数据"
     }
     return "处理中"
 }
 
-// MARK: - 输入中指示：不写字。头像上的点在走 + 一个细线小图标（在做什么）+ 一条走动的细线；字只给读屏
+// MARK: - 输入中指示：简短文字说明当前阶段，和图标一起显示。
 struct TypingRow: View {
     var tool: String? = nil
     var responding = false
     var body: some View {
         HStack(alignment: .center, spacing: E.chatTextInset - E.avatarSize) {
             EAvatar(active: true, size: E.avatarSize)
-            Group {
+            HStack(spacing: 7) {
                 if let tool, !tool.isEmpty {
                     phaseGlyph(toolGlyph(tool))
-                        .accessibilityLabel(tool.hasPrefix("等待") ? tool : "正在" + tool)
+                        .accessibilityHidden(true)
+                    Text(tool)
                         .accessibilityIdentifier("chat-tool")
                 } else {
-                    // 想 = 三个点；开始写回复 = 带点的气泡
                     phaseGlyph(responding ? "ellipsis.bubble" : "ellipsis")
-                        .accessibilityLabel(responding ? "正在回复" : "正在思考")
+                        .accessibilityHidden(true)
+                    Text(responding ? "正在整理回复" : "正在想怎么帮你")
                         .accessibilityIdentifier("chat-phase")
                 }
             }
-            WorkingLine().frame(width: 72)
+            .font(E.body(13))
+            .foregroundStyle(E.text2)
+            .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
         .padding(.vertical, 4)
