@@ -12,8 +12,22 @@ from typing import Any
 CARD_TYPES = {
     "question", "options", "decision", "decisioncard", "rating", "plan", "confirm", "receipt",
     "metric", "stat", "stat_tile", "stattile", "chart", "bar_chart", "groupcompare", "attributionbar",
-    "line_chart", "bandline", "list", "table", "datatable", "media", "mediacard", "viz", "layout",
+    "line_chart", "bandline", "list", "table", "datatable", "media", "mediacard", "viz", "layout", "sticker",
 }
+# 表情包：24 个 Q 版线条表情，和 ios/PivisHealth/Stickers.json 对齐（scripts/stickers 生成，名字改了两边一起改）
+STICKERS = (
+    "早安", "晒晒太阳", "歇一会", "该睡了", "晚安", "放下手机",           # 作息
+    "又守住了", "干得漂亮", "太棒了", "比心", "好耶", "进步了",           # 夸夸
+    "抱抱", "辛苦了", "摸摸头", "我在呢", "慢慢来", "加油",               # 陪伴
+    "喝水", "动一动", "深呼吸", "好好吃饭", "收到", "记下了",             # 提醒
+)
+# 卡片外的 emoji：一条最多 2 个，只用这 8 个（老大 11-11：回复要亲切、生动些）；不算进 60 字
+EMOJI_OK = ("☀️", "🌙", "👏", "💪", "🫂", "✨", "💧", "🚶")
+EMOJI_MAX = 2
+_EMOJI = re.compile("(?:[\U0001F300-\U0001FAFF\u2600-\u26FF\u2702-\u2712\u2719-\u27BF\u2B50\u2B55"
+                    "\u23F0-\u23FA\u231A\u231B](?:\uFE0F)?(?:\u200D[\U0001F300-\U0001FAFF\u2600-\u27BF](?:\uFE0F)?)*)")
+# 说到就医、急救时不用 emoji 和表情包
+_SERIOUS = re.compile(r"打\s*120|拨打\s*120|120\s*急救|急诊|马上就医|立刻就医|尽快就医|去医院")
 FIELD_TYPES = {"options", "multi", "scale", "number", "text", "time"}
 CHART_TYPES = {"chart", "bar_chart", "groupcompare", "attributionbar", "line_chart", "bandline"}
 
@@ -110,6 +124,10 @@ def check(card: Any) -> list[str]:
     elif t == "viz":
         if not card.get("metric"):
             probs.append("viz 卡缺 metric")
+    elif t == "sticker":
+        name = str(card.get("name") or "").strip()
+        if name not in STICKERS:
+            probs.append(f"表情包 name={name!r} 没有这个（只能用：{'、'.join(STICKERS)}）")
     elif t == "layout":
         from . import canvas
         try:
@@ -126,10 +144,38 @@ _DEBT_WORDS = re.compile(r"睡眠债|欠觉|欠的觉|(?<!不)(?<!别)补觉|需
 
 
 def outside_text(text: str) -> str:
-    """卡片外的文字（去掉卡片代码块和 Markdown 记号）"""
+    """卡片外的文字（去掉卡片代码块、Markdown 记号和 emoji：emoji 不算字数）"""
     t = _BLOCK.sub("", text or "")
+    t = _EMOJI.sub("", t).replace("\ufe0f", "")
     t = re.sub(r"[*_`#>\-]+", "", t)
     return re.sub(r"\s+", "", t)
+
+
+def _emoji_problems(text: str, cards: list[tuple[int, Any]], sticker_at: list[int], blocks: list) -> list[str]:
+    """emoji 和表情包的分寸：emoji 最多 2 个、只用那 8 个、不进卡片；表情包最多 1 个、放最后；说到就医时都不用。"""
+    probs: list[str] = []
+    outside = _BLOCK.sub("", text or "")
+    found = [m.group(0) for m in _EMOJI.finditer(outside)]
+    if len(found) > EMOJI_MAX:
+        probs.append(f"emoji 用了 {len(found)} 个（一条最多 {EMOJI_MAX} 个，放句尾）")
+    ok = {e.replace("\ufe0f", "") for e in EMOJI_OK}
+    bad = sorted({e for e in found if e.replace("\ufe0f", "") not in ok})
+    if bad:
+        probs.append(f"emoji 只用这 8 个：{' '.join(EMOJI_OK)}（这里用了 {' '.join(bad)}）")
+    for idx, obj in cards:
+        if isinstance(obj, dict) and str(obj.get("type") or "").lower() != "sticker" \
+                and _EMOJI.search(json.dumps(obj, ensure_ascii=False)):
+            probs.append(f"第 {idx} 张卡里有 emoji：卡片里面不放 emoji，要放就放卡片外的句尾")
+    if len(sticker_at) > 1:
+        probs.append(f"表情包用了 {len(sticker_at)} 个（一条最多 1 个）")
+    if sticker_at:
+        last = blocks[sticker_at[-1]]
+        if sticker_at[-1] != len(blocks) - 1 or (text or "")[last.end():].strip():
+            probs.append("表情包要放在这条回复的最后（文字、卡片和按钮的下面），后面不再接字或卡")
+    hit = _SERIOUS.search(text or "")
+    if hit and (found or sticker_at):
+        probs.append(f"说到就医、急救（「{hit.group(0)}」）时不用 emoji 和表情包")
+    return probs
 
 
 def check_text(text: str, cbti_active: bool = False) -> dict:
@@ -144,7 +190,10 @@ def check_text(text: str, cbti_active: bool = False) -> dict:
             problems.append(f"在做 CBT-I：不提睡眠债、需要睡多久、差几个小时（这里写了「{hit.group(0)}」）；"
                             "只看睡眠效率、守窗口、入睡和夜醒")
     cards = []
-    for i, m in enumerate(_BLOCK.finditer(text or "")):
+    parsed: list[tuple[int, Any]] = []
+    sticker_at: list[int] = []
+    blocks = list(_BLOCK.finditer(text or ""))
+    for i, m in enumerate(blocks):
         src, closing = m.group(1), m.group(2)
         item: dict[str, Any] = {"index": i + 1}
         if closing != "```":
@@ -152,6 +201,10 @@ def check_text(text: str, cbti_active: bool = False) -> dict:
             cards.append(item)
             continue
         obj, err, fixed = parse(src.strip())
+        if obj is not None:
+            parsed.append((i + 1, obj))
+            if isinstance(obj, dict) and str(obj.get("type") or "").lower() == "sticker":
+                sticker_at.append(i)
         if obj is None:
             item.update(ok=False, problems=[err or "JSON 写坏了"])
         else:
@@ -162,6 +215,7 @@ def check_text(text: str, cbti_active: bool = False) -> dict:
                 item["fixed"] = fixed
             item.update(ok=not probs, problems=probs)
         cards.append(item)
+    problems += _emoji_problems(text, parsed, sticker_at, blocks)
     return {"ok": all(c["ok"] for c in cards) and not problems, "cards": cards, "count": len(cards),
             "problems": problems, "outside_chars": out_len}
 

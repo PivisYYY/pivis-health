@@ -50,11 +50,15 @@ def enabled(cfg) -> bool:
 
 # ---------------------------------------------------------------- 文本
 def summarize(text: str, limit: int = 120) -> str:
-    """一段回复 → 锁屏上的一行：去掉卡片代码块和 markdown 记号；只有卡片时说「发来一张卡：标题」。"""
+    """一段回复 → 锁屏上的一行：去掉卡片代码块和 markdown 记号；只有卡片时说「发来一张卡：标题」，只有表情包时说「发来一个表情：抱抱」。"""
     titles = []
+    sticker = ""
     for m in _FENCE.finditer(text or ""):
         try:
             card = json.loads(m.group(1))
+            if isinstance(card, dict) and str(card.get("type") or "").lower() == "sticker":
+                sticker = sticker or str(card.get("name") or "")      # 表情包不算「一张卡」
+                continue
             t = card.get("title") or (card.get("media") or {}).get("title") if isinstance(card, dict) else None
             if t:
                 titles.append(str(t))
@@ -65,6 +69,8 @@ def summarize(text: str, limit: int = 120) -> str:
     body = re.sub(r"\s+", " ", body).strip()
     if not body and titles:
         body = "发来一张卡：" + titles[0]
+    elif not body and sticker:
+        body = "发来一个表情：" + sticker
     return body if len(body) <= limit else body[: limit - 1].rstrip() + "…"
 
 

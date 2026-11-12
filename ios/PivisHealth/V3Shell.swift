@@ -17,6 +17,9 @@ let V3_BOARDS: [V3Board] = [
 struct V3Root: View {
     @State private var selected = V3Root.initialBoard()
     @State private var chatTarget: ChatTarget? = V3Root.initialChat()
+    /// 对话抽屉的高度：平时 0.9（顶上露出页面），一打字就推到满屏、收起键盘后也留在满屏。
+    /// 以前停在 0.9 时，键盘弹起会被系统整个顶到满屏，键盘收完抽屉再自己掉回 0.9：两段动作，输入栏还会上下弹一下
+    @State private var chatDetent: PresentationDetent = .fraction(0.9)
     @State private var execTodo: V3Todo?
     /// P-Health 拟的时间：时间轮（卡上点虚线时间、或者通知上点「换个时间」）
     @State private var timeAsk: TimeAsk?
@@ -131,18 +134,20 @@ struct V3Root: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.easeOut(duration: 0.15)) { keyboardUp = true }
+            if chatTarget != nil, chatDetent != .large { chatDetent = .large }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeOut(duration: 0.2)) { keyboardUp = false }
         }
         .preferredColorScheme(.dark)
         .sheet(item: $chatTarget, onDismiss: {
+            chatDetent = .fraction(0.9)
             NotificationCenter.default.post(name: .pivisPagesDirty, object: nil)
             PageSync.shared.poke()
         }) { target in
             NativeChatView(context: target.context, pendingText: target.pendingText, draft: target.draft,
                            pendingPhoto: target.photo, about: target.about, openInsight: target.insight)
-                .presentationDetents([.fraction(0.9), .large])
+                .presentationDetents([.fraction(0.9), .large], selection: $chatDetent)
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Color.black)
                 .preferredColorScheme(.dark)

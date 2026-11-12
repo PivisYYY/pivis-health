@@ -1431,6 +1431,10 @@ struct ChatRow: View, Equatable {
                             WorkingLine().frame(width: 90, height: 18)
                         case .text(let t):
                             ChatBubble(msg: ChatMsg(role: "phealth", text: t, time: msg.time), maxWidth: maxWidth, live: streaming)
+                        case .card(let c) where (c.type ?? "").lowercased() == "sticker":
+                            // 表情包：不套卡片边框，放在这条回复最后（card-check 管顺序）
+                            StickerView(name: c.name ?? c.title ?? "")
+                                .padding(.top, 4)
                         case .card(let c):
                             GenCardView(card: c, onAction: onAction, answered: c.title.flatMap { answers?[$0] })
                                 .frame(maxWidth: maxWidth, alignment: .leading)
@@ -1777,6 +1781,8 @@ struct GenCard: Decodable {
     let mediaType: String?  // embed / video / audio
     let kind: String?
     let poster: String?
+    /// 表情卡 {"type":"sticker","name":"抱抱"}
+    let name: String?
     // v3：question / plan / receipt / list
     let fields: [GenFieldSpec]?
     let submitLabel: String?
@@ -1797,7 +1803,7 @@ struct GenCard: Decodable {
         case type, title, description, summary, options, steps, scale, yes, no, confirmLabel, label, value, unit, note, tone
         case columns, rows, points, low, high, target, url, mediaType, kind, poster
         case fields, submitLabel, items, rules, actions, change, effective, remembered
-        case metric, days, show
+        case metric, days, show, name
     }
 
     init(from decoder: Decoder) throws {
@@ -1832,6 +1838,7 @@ struct GenCard: Decodable {
         metric = str(.metric)
         days = (try? c.decodeIfPresent(Int.self, forKey: .days)) ?? str(.days).flatMap { Int($0) }
         show = try? c.decodeIfPresent([String].self, forKey: .show)
+        name = str(.name)
     }
 
     /// 方案 / 确认卡上的按钮字（点了发「字（标题）」）
