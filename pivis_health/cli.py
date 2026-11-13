@@ -19,7 +19,7 @@ TODO_ADD_HELP = """新增一张待办卡。常用字段（全部字段和 13 种
   kind    done / options / number / fields / counter / timer / follow / proposal / confirm …
   练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习）只用视频：kind=follow + 一个 follow 出的片
           "media":{"kind":"video","title":"…","url":"/media/follow/<ssid>/out.mp4","duration_min":8}
-          不写文字步骤；B 站链接、音频、计时、子清单都会被拒。还没有视频：先请老大发博主视频，用 follow 出片
+          不写文字步骤；B 站链接、音频、计时、子清单都会被拒。还没有视频：先请 Psir 发博主视频，用 follow 出片
   timer   只用于午睡、闭眼歇这类休息
   note    一行说明    until  提议卡必填（几点前没答就收起）
 例：./pivis-health todo-add --json '{"board":"life","when":"15:00","title":"喝一杯水","kind":"done"}'"""
@@ -99,14 +99,23 @@ def build_parser() -> argparse.ArgumentParser:
                         description=PROJECT_SET_HELP); sp.add_argument("--json", required=True)
     sp = sub.add_parser("project-list")
     sp = sub.add_parser("media-library", help="可用的放松/跟练素材（只能从这里选链接）")
+    sp = sub.add_parser("exercise", help="动作库：查动作练哪块肌肉、器械、中文步骤、膝盖要留意什么（排动作、核对视频前先查）",
+                        description="例：exercise --q 臀桥；exercise --muscle 臀中肌 --equipment 弹力带；exercise --id 3013（看全部步骤和动图）。"
+                                    "--safe-knee 只要没有膝盖提醒的。中英文都能查。")
+    sp.add_argument("--q", default="", help="动作名或关键词（中文或英文）")
+    sp.add_argument("--muscle", default="", help="目标肌群，如 臀中肌、股四头、腘绳、核心")
+    sp.add_argument("--equipment", default="", help="器械，如 徒手、弹力带、哑铃")
+    sp.add_argument("--id", default="", help="动作 id，看全部步骤")
+    sp.add_argument("--limit", type=int, default=8)
+    sp.add_argument("--safe-knee", action="store_true", help="排除有膝盖提醒的动作")
     sp = sub.add_parser("facts", help="v3 主卡可引用的数字"); sp.add_argument("--date")
-    sp = sub.add_parser("brief", help="全盘简报：老大此刻的全部数据、今晚时间线、交叉信号、数据缺口（服务器算好的）")
+    sp = sub.add_parser("brief", help="全盘简报：Psir 此刻的全部数据、今晚时间线、交叉信号、数据缺口（服务器算好的）")
     sp.add_argument("--write", action="store_true", help="同时写进工作区 CLAUDE.local.md（DSH 会补进每个对话）")
     sp.add_argument("--json", action="store_true")
     sp = sub.add_parser("goal-set", help="记 / 改一个目标（metric: weight / sleep_h / steps / project:<id> / none）")
     sp.add_argument("--json", required=True, help='{"id":"weight","title":"减到 70 kg","metric":"weight","target":70,"deadline":"2027-03-01"}')
-    sub.add_parser("goal-list", help="老大的目标和进度")
-    sp = sub.add_parser("sleep-wakes", help="夜里醒：每晚醒着 ≥ N 分钟的时刻和时长（Apple 健康睡眠分段），清晨 5–8:30 醒了几晚、多在几点。老大说「每天几点醒」「夜里老醒」时先对照")
+    sub.add_parser("goal-list", help="Psir 的目标和进度")
+    sp = sub.add_parser("sleep-wakes", help="夜里醒：每晚醒着 ≥ N 分钟的时刻和时长（Apple 健康睡眠分段），清晨 5–8:30 醒了几晚、多在几点。Psir 说「每天几点醒」「夜里老醒」时先对照")
     sp.add_argument("--days", type=int, default=14)
     sp.add_argument("--min", type=int, default=5, help="只算醒着至少几分钟的")
     sub.add_parser("nutrition-targets", help="营养目标：基础代谢、热量范围、蛋白质、膳食纤维、水、手掌份量（按 profile.body + 体重 + 活动 + 目标算）")
@@ -133,15 +142,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--board", default=None, choices=["now", "sleep", "sport", "stress"], help="点开切到哪页")
     sp = sub.add_parser("pair", help="手机配对：打印配对二维码和链接（App 扫码连这台电脑）；--hosts 只看会给手机试哪些地址")
     sp.add_argument("--hosts", action="store_true")
-    sub.add_parser("data-status", help="WHOOP / Apple 健康连接状态（按原因分：要老大动手的、服务器的、手机没开 App）")
+    sub.add_parser("data-status", help="WHOOP / Apple 健康连接状态（按原因分：要 Psir 动手的、服务器的、手机没开 App）")
     sp = sub.add_parser("review-cycle", help="每周对话复盘（周一早上由 insight-cycle.sh 调）")
     sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--force", action="store_true")
-    sp = sub.add_parser("review-decide", help="老大对复盘里某一条改法的决定（同意 / 不对）")
+    sp = sub.add_parser("review-decide", help="Psir 对复盘里某一条改法的决定（同意 / 不对）")
     sp.add_argument("--period", required=True); sp.add_argument("--n", type=int, required=True)
     g = sp.add_mutually_exclusive_group(required=True)
     g.add_argument("--agree", action="store_true"); g.add_argument("--reject", action="store_true")
     sp.add_argument("--note", default="")
-    sub.add_parser("review-fixes", help="老大同意了、等开发改的复盘改法")
+    sub.add_parser("review-fixes", help="Psir 同意了、等开发改的复盘改法")
     sp = sub.add_parser("page-v3", help="查看 v3 页面文档"); sp.add_argument("page", choices=["now", "sleep", "sport", "stress"])
     sp = sub.add_parser("daily-review", help="定时场景推荐（早上 8 点 / 午后 1 点 / 傍晚 6 点）：让 P-Health 主动推荐 1–2 件事"); sp.add_argument("--board", choices=["sleep", "sport", "stress"]); sp.add_argument("--force", action="store_true")
     sp.add_argument("--slot", choices=["morning", "noon", "evening"], help="不写就按现在的钟点判断")
@@ -151,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("context-record", help="由 P-Health 保存可跨 Session 复用的个人记忆/决定")
     sp.add_argument("--scope", required=True); sp.add_argument("--payload", required=True, help="JSON 对象")
     sp.add_argument("--source-session", default="unknown"); sp.add_argument("--reason", default="")
-    sp = sub.add_parser("compare", help="和老大指定的基线对比（数字由内核算）")
+    sp = sub.add_parser("compare", help="和 Psir 指定的基线对比（数字由内核算）")
     sp.add_argument("--metric", required=True); sp.add_argument("--recent", type=int, default=7)
     sp.add_argument("--baseline", default="prev_week", choices=["prev_week", "personal"]); sp.add_argument("--date")
     sp = sub.add_parser("follow", help="跟练视频：把小红书 / B 站动作视频做成跟练（先读 follow-video skill）", add_help=False)
@@ -159,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("viz", help="主卡图表的数字（P-Health 定画什么，内核填数）；不带 --metric 列出每项能不能画")
     sp.add_argument("--metric"); sp.add_argument("--kind"); sp.add_argument("--days", type=int)
     sp.add_argument("--show", help="逗号分隔：band,warn,need,pace,goal,target,plan")
-    sp = sub.add_parser("prefs-sync", help="把老大定下的偏好写进工作区 AGENTS.local.md")
+    sp = sub.add_parser("prefs-sync", help="把 Psir 定下的偏好写进工作区 AGENTS.local.md")
     sp = sub.add_parser("context-list", help="读取当前共享记忆或 append-only 历史")
     sp.add_argument("--scope"); sp.add_argument("--history", action="store_true")
     sp = sub.add_parser("need-feedback"); sp.add_argument("--type", required=True); sp.add_argument("--action", choices=["做了", "不做", "换一个", "今天算了"], required=True)
@@ -185,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("cbti", help="进行中的 CBT-I：阶段、处方、效率中位、守窗口、昨晚在床、每周记录、复盘建议、档位（数字直接抄）")
     sp = sub.add_parser("sleep-week", help="近 N 晚睡眠：时长、需要、效率、入睡 / 起床时间、效率分档（CBT-I 周复盘调窗口用）")
     sp.add_argument("--nights", type=int, default=7)
-    sp = sub.add_parser("media-add", help="把核对过的公开素材收进老大的素材库：--json '{\"title\":…,\"url\":\"https://…\",\"duration_min\":15,\"type\":\"身体扫描\"}'")
+    sp = sub.add_parser("media-add", help="把核对过的公开素材收进 Psir 的素材库：--json '{\"title\":…,\"url\":\"https://…\",\"duration_min\":15,\"type\":\"身体扫描\"}'")
     sp.add_argument("--json", required=True)
     sp = sub.add_parser("canvas", help="预览 / 校验一张画布卡（主卡 layout 或对话里的 layout 卡）：返回内核现算后的样子，不合规范就报原因")
     sp.add_argument("--json", required=True, help="零件树 JSON"); sp.add_argument("--slot", default="chat", choices=["hero", "chat"])
@@ -199,7 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("serve"); sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8943); sp.add_argument("--tls-cert"); sp.add_argument("--tls-key")
 
     # WHOOP 官方 API 同步（凭据/令牌在 cfg.whoop_auth_dir，不进仓库）
-    sp = sub.add_parser("whoop-auth", help="一次性 WHOOP 授权：老大自己在浏览器登录；secret 只在本机终端隐藏输入")
+    sp = sub.add_parser("whoop-auth", help="一次性 WHOOP 授权：Psir 自己在浏览器登录；secret 只在本机终端隐藏输入")
     sp.add_argument("--client-id", help="WHOOP 应用 Client ID（secret 不收命令行参数，用 WHOOP_CLIENT_SECRET 或提示输入）")
     sp.add_argument("--redirect-uri", help="须与 WHOOP 后台登记的一致，默认 http://127.0.0.1:8765/callback")
     sp.add_argument("--paste", action="store_true", help="回调页打不开时：把浏览器地址栏 URL 粘回终端")
@@ -356,11 +365,17 @@ def main(argv: list[str] | None = None) -> int:
             if args.scope.startswith("correction."):
                 from . import prefs
                 payload = prefs.check_correction(tools.cfg, args.scope, payload)
+            if args.scope.startswith("stance."):
+                from . import prefs
+                payload = prefs.check_stance(tools.cfg, args.scope, payload)
+            if args.scope.startswith("protocol."):
+                from . import prefs
+                payload = prefs.check_protocol(payload)
             entry = AgentContextStore(tools.cfg).record(
                 args.scope, payload, source_session=args.source_session, reason=args.reason)
-            if args.scope.startswith(("profile.", "learn.", "correction.")):
+            if args.scope.startswith(("profile.", "learn.", "correction.", "stance.", "protocol.")):
                 from . import prefs
-                entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}   # 了解到的老大，所有会话都看得到
+                entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}   # 了解到的 Psir，所有会话都看得到
             if args.scope.startswith("pref."):
                 from . import prefs
                 entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}
@@ -507,6 +522,13 @@ def main(argv: list[str] | None = None) -> int:
                 _republish_async(tools, [proj["board"], "now"])
             else:
                 _json({"projects": store.projects()})
+        elif args.cmd == "exercise":
+            from . import exercises
+            if args.id:
+                ex = exercises.get(tools.cfg, args.id)
+                _json(ex if ex else {"error": f"动作库里没有 {args.id}"})
+            else:
+                _json(exercises.search(tools.cfg, args.q, args.muscle, args.equipment, args.limit, args.safe_knee))
         elif args.cmd == "media-library":
             from .v3 import media_library
             _json({"items": media_library(tools)})
@@ -605,7 +627,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "now":
             n = tools._now()
             _json({"now": n.isoformat(timespec="minutes"), "date": n.date().isoformat(),
-                   "day": _day_of(n).isoformat(),   # 老大的「今天」：凌晨 0–6 点还算前一天（待办、页面都按它）
+                   "day": _day_of(n).isoformat(),   # Psir 的「今天」：凌晨 0–6 点还算前一天（待办、页面都按它）
                    "weekday": "一二三四五六日"[n.weekday()], "sim": tools.cfg.sim_mode})
         elif args.cmd == "pushd":
             from .push import run_pushd_once
@@ -617,7 +639,7 @@ def main(argv: list[str] | None = None) -> int:
                     break
                 _time.sleep(args.interval)
         elif args.cmd == "push":
-            # build 44：锁屏推送只由服务器发（红线 7）。要老大到点做事 / 回答，用带 when 的待办卡
+            # build 44：锁屏推送只由服务器发（红线 7）。要 Psir 到点做事 / 回答，用带 when 的待办卡
             _json({"error": "not_allowed", "message": "锁屏推送只由服务器发，P-Health 不推送；到点提醒用带 when 的待办卡（todo-add）"})
             return 1
         return 0

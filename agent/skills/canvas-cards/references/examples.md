@@ -22,7 +22,7 @@
 ```
 
 ## 身体状态三个数（对话卡）
-对话卡：老大要「用几个数字告诉我」——stat_spark 横排，数 + 方向
+对话卡：Psir 要「用几个数字告诉我」——stat_spark 横排，数 + 方向
 ```json
 {"t": "v", "gap": 12, "children": [{"t": "text", "text": "今天的身体状态", "role": "title"}, {"t": "h", "justify": "between", "children": [{"t": "stat_spark", "bind": "hrv", "label": "HRV"}, {"t": "stat_spark", "bind": "resting_hr", "label": "静息心率"}, {"t": "stat_spark", "bind": "resp_rate", "label": "呼吸"}]}]}
 ```

@@ -39,7 +39,7 @@ APPLE_SERIES: dict[str, tuple[str, str]] = {
 }
 WHOOP_SERIES = ("whoop_recovery", "whoop_strain", "whoop_hrv_rmssd", "whoop_skin_temp",
                 "whoop_resting_hr", "whoop_resp_rate")
-# 老大每晚戴的是 WHOOP；这两项 Apple 健康里早没新数（手表不戴了）。
+# Psir 每晚戴的是 WHOOP；这两项 Apple 健康里早没新数（手表不戴了）。
 # 取数时：这段时间里 WHOOP 有就整段用 WHOOP，没有才用 Apple —— 一条序列只来自一个设备，不混算
 # （睡眠时测的静息心率和白天手表测的口径不同，混在一起会把常态范围搞乱）。
 PREFER_WHOOP = {"resting_heart_rate": "whoop_resting_hr", "respiratory_rate": "whoop_resp_rate"}
@@ -80,7 +80,7 @@ class HealthTools:
         return clock_now(self.cfg)
 
     def _today(self) -> date:
-        """老大的「今天」（凌晨 6 点前还算前一天），见 clock.day_of。"""
+        """Psir 的「今天」（凌晨 6 点前还算前一天），见 clock.day_of。"""
         from .clock import day_of
         return day_of(self._now())
 

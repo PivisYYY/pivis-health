@@ -555,7 +555,7 @@ def _columns(metric: str, days: int, day: date, vz) -> dict:
         short = sum(1 for i in items if not i["on"])
         need = nights[-1].get("need")
         ref_label = f"需要 {vizmod._text(need, 1)}" if need else None
-        caption = f"{short} 晚没睡够" if short else "都睡够了"          # 「近 N 晚」横轴已经看得出，不再写（老大 11-11：少写字）
+        caption = f"{short} 晚没睡够" if short else "都睡够了"          # 「近 N 晚」横轴已经看得出，不再写（Psir 11-11：少写字）
     else:
         # 超过 14 晚的睡眠也走走势这条路（「需要多少」只有近 14 晚）；viz 的天数只有 7 / 14 / 30 / 90 几档，取够用的那档再截
         v = vz(metric, "trend", next(x for x in vizmod.DAYS["trend"] if x >= days))
@@ -788,8 +788,9 @@ PARTS: list[dict] = [
      "when": "卡片里直接开始一段练习视频", "data": "follow 出的片：url + title + duration_min（follow session list 能查）",
      "notes": "练习只用 follow 出的片（/media/follow/…）；不放音频、不放 B 站链接", "height": "64"},
     {"name": "photo", "cn": "照片", "group": "进度", "example": {"t": "photo", "latest": "life", "caption": "主食偏多，蛋白质够"},
-     "when": "老大拍的饭、试纸照片和你的一句点评放一起", "data": "待办上传的照片：todo=<待办 id>，或 latest=<板块>（今天最近一张）",
-     "notes": "caption≤30，不写就用那条待办的 summary", "height": "170"},
+     "when": "Psir 拍的饭、试纸照片和你的一句点评放一起；或给 Psir 看一个动作长什么样（动作库的示意动图）",
+     "data": "待办上传的照片：todo=<待办 id>，或 latest=<板块>（今天最近一张）；动作示意：exercise=<动作库 4 位 id>（./pivis-health exercise 查）",
+     "notes": "caption≤30，不写就用那条待办的 summary（动作示意默认写主练肌群 + 动作名）；动作动图只作示意，不是练习视频", "height": "170"},
 ]
 
 

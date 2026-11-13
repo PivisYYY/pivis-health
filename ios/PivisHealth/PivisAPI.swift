@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import ImageIO
 import UIKit
 
 // MARK: - 和 P-Health 服务器说话的唯一入口
@@ -156,9 +157,47 @@ enum ServerImageCache {
         // 本地文件（演示里的封面）直接读盘：演示模式不发任何网络请求
         let fetched: Data? = url.isFileURL ? try? Data(contentsOf: url)
             : try? await PivisAPI.send(URLRequest(url: url, timeoutInterval: 20)).0
-        guard let data = fetched, let img = UIImage(data: data) else { return nil }
+        guard let data = fetched, let img = data.starts(with: Array("GIF".utf8)) ? animated(data) : UIImage(data: data) else { return nil }
         memory.setObject(img, forKey: url as NSURL)
         return img
+    }
+
+    /// 动图（动作库的示意 GIF）：拆成帧，按每帧时长拼成会动的 UIImage
+    static func animated(_ data: Data) -> UIImage? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil) else { return UIImage(data: data) }
+        let n = CGImageSourceGetCount(src)
+        guard n > 1 else { return UIImage(data: data) }
+        var frames: [UIImage] = []
+        var total = 0.0
+        for i in 0..<n {
+            guard let cg = CGImageSourceCreateImageAtIndex(src, i, nil) else { continue }
+            let props = CGImageSourceCopyPropertiesAtIndex(src, i, nil) as? [CFString: Any]
+            let gif = props?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+            let d = (gif?[kCGImagePropertyGIFUnclampedDelayTime] as? Double) ?? (gif?[kCGImagePropertyGIFDelayTime] as? Double) ?? 0.1
+            total += d < 0.02 ? 0.1 : d
+            frames.append(UIImage(cgImage: cg))
+        }
+        return frames.isEmpty ? UIImage(data: data) : UIImage.animatedImage(with: frames, duration: total)
+    }
+}
+
+/// 会动的图：SwiftUI 的 Image 只画第一帧，动图交给 UIImageView
+struct AnimatedImageView: UIViewRepresentable {
+    let image: UIImage
+    var contentMode: ContentMode = .fit
+
+    func makeUIView(context: Context) -> UIImageView {
+        let v = UIImageView()
+        v.clipsToBounds = true
+        v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        v.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        return v
+    }
+
+    func updateUIView(_ v: UIImageView, context: Context) {
+        v.contentMode = contentMode == .fit ? .scaleAspectFit : .scaleAspectFill
+        if v.image !== image { v.image = image }
+        if UIAccessibility.isReduceMotionEnabled { v.stopAnimating() } else { v.startAnimating() }
     }
 }
 
@@ -171,7 +210,9 @@ struct ServerImage<Placeholder: View>: View {
 
     var body: some View {
         Group {
-            if let image {
+            if let image, image.images != nil {
+                AnimatedImageView(image: image, contentMode: contentMode)
+            } else if let image {
                 Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
             } else {
                 placeholder(failed)

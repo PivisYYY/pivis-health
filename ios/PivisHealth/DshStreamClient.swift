@@ -94,7 +94,7 @@ final class DshStreamClient {
         case end(attemptId: String)
         case failure(String)
         /// 工具调用开始/结束（阶段性反馈：让用户看到 Agent 正在调用什么）
-        /// key = 这次调用的唯一标识（同一个工具调好几次也各算一行）；label = 给老大看的动作
+        /// key = 这次调用的唯一标识（同一个工具调好几次也各算一行）；label = 给 Psir 看的动作
         case toolStart(key: String, label: String)
         case toolEnd(key: String, label: String)
     }

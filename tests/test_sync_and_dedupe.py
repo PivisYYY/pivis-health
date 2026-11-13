@@ -84,6 +84,7 @@ def test_republish_async_throttled(tmp_path, monkeypatch):
     spawned = []
     import subprocess
     monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: spawned.append(a))
+    monkeypatch.delenv("PIVIS_NO_REPUBLISH")
     assert v3.republish_async(t.cfg) is True
     assert v3.republish_async(t.cfg) is False                    # 一分钟内不再拉起
     assert len(spawned) == 1

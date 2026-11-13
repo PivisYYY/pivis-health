@@ -20,7 +20,7 @@ struct TodoCardView: View {
     @State private var showCapture = false
     @State private var localCount: Int?      // 计数：点了先显示，不等服务器
     @State private var localChecked: Set<Int>?
-    @State private var pickedTime: Date?     // 确认卡：老大在展开里改过的实际时间；没改就记点下去的那一刻
+    @State private var pickedTime: Date?     // 确认卡：Psir 在展开里改过的实际时间；没改就记点下去的那一刻
 
     /// 卡上不再有「自己写一句」：老卡里的 allow_text 也不画
     private var fields: [GenField] {
@@ -37,7 +37,7 @@ struct TodoCardView: View {
         return fs.count == 1 && fs[0].type == "photo" ? fs[0] : nil
     }
     private var processing: Bool { todo.status == "processing" }
-    /// P-Health 有话要问这张卡（不自己开对话，图标上点个白点等老大点）
+    /// P-Health 有话要问这张卡（不自己开对话，图标上点个白点等 Psir 点）
     private var asks: Bool { todo.escalate == "chat" }
 
     var body: some View {
@@ -63,7 +63,7 @@ struct TodoCardView: View {
     // 时间 + 标题这一块是一个按钮（点了展开 / 收起，读屏读出展开状态）；行尾的图标和主动作各是各的按钮
     private var header: some View {
         HStack(alignment: .center, spacing: 0) {
-            // P-Health 拟的时间（等老大确认）：时间单独是一个按钮，点了弹时间轮；行的其余部分照常展开 / 收起
+            // P-Health 拟的时间（等 Psir 确认）：时间单独是一个按钮，点了弹时间轮；行的其余部分照常展开 / 收起
             if isDraftTime {
                 draftTimeButton.padding(.trailing, E.timeGap)
             }
@@ -90,18 +90,18 @@ struct TodoCardView: View {
         }
     }
 
-    // MARK: 时间列（build 54 起不画提醒铃铛：有没有通知对老大是无感的）
+    // MARK: 时间列（build 54 起不画提醒铃铛：有没有通知对 Psir 是无感的）
     private var isDraftTime: Bool { todo.timeDraft == true && !todo.when.isEmpty && !settled }
 
     private var timeColumn: some View {
-        // 每条都有时间（老大 11-08）：没定时间的占位「—」，不空着
+        // 每条都有时间（Psir 11-08）：没定时间的占位「—」，不空着
         Text(todo.when.isEmpty ? "—" : todo.when)
             .font(E.timeFont).monospacedDigit().frame(width: E.timeColumn, alignment: .leading)
             .foregroundStyle(settled || todo.when.isEmpty ? E.text3 : E.text)
             .overlay(alignment: .topTrailing) { bellGlyph }
     }
 
-    /// 有没有提醒对老大是无感的（11-11：铃铛难看，不用告诉他哪条有通知）——卡上不画
+    /// 有没有提醒对 Psir 是无感的（11-11：铃铛难看，不用告诉他哪条有通知）——卡上不画
     private var bellGlyph: some View { EmptyView() }
 
     /// 拟的时间：灰一点、下面一条虚线；点了弹时间轮（「好」/「改成这个时间」）
@@ -149,7 +149,7 @@ struct TodoCardView: View {
     /// 断网时的说明：画面上只是一个小图标，读屏读这句
     static let waitingText = "等网络：还没连上服务器，已经记在手机上，连上后自动发"
 
-    /// 收起时只留时间 + 标题（老大 11-10：字太多显得臃肿）；只有「计数进度」这种正在变的数还写一行，
+    /// 收起时只留时间 + 标题（Psir 11-10：字太多显得臃肿）；只有「计数进度」这种正在变的数还写一行，
     /// 「等网络」只是一个小图标（build 53）。板块名、备注、时长这些点开才显示
     private var subText: String { expanded ? fullSubText : liveHint }
 
@@ -235,7 +235,7 @@ struct TodoCardView: View {
                 submit(action: "done", summary: practiceSummary)
             }
         case "done":
-            // 「上床」这种设备会自动记的也是对勾（老大 11-08）：设备识别到入睡会自己打上，没识别到就自己点
+            // 「上床」这种设备会自动记的也是对勾（Psir 11-08）：设备识别到入睡会自己打上，没识别到就自己点
             circle(system: "checkmark", label: "做完了", id: "todo-done") { submit(action: "done", summary: "做到了") }
         case "counter":
             circle(text: "+1", label: "加一次", id: "todo-inc") { increment() }
@@ -331,7 +331,7 @@ struct TodoCardView: View {
             default:
                 if !fields.isEmpty && photoOnlyField == nil {
                     VStack(alignment: .leading, spacing: 14) {
-                        // 提议卡的备注展开时已经在标题下面那行了（subText），这里不再写一遍（老大 11-10：重复文案都去掉）
+                        // 提议卡的备注展开时已经在标题下面那行了（subText），这里不再写一遍（Psir 11-10：重复文案都去掉）
                         ForEach(fields) { f in
                             GenFieldView(field: f, value: binding(f.id),
                                          onPick: autoSubmits ? { submitFields() } : nil)

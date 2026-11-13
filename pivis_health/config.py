@@ -32,9 +32,11 @@ class Config:
     dsh_web: str = "http://127.0.0.1:8960"
     # 跟练视频（pivis-follow）：默认关；模拟环境 sim_mode 自动开，真实环境验收通过后在 config 里打开
     follow_enabled: bool = False
-    # 洞察（build 49）：每 3 天扫一次，有够格的就存着待发。insight_push 打开前只存不推（上线先给老大看一眼 dry-run）
+    # 动作库（hasaneyldrm/exercises-dataset，本机，不进仓库）；空 = ~/Tools/exercises-dataset
+    exercise_db_dir: str = ""
+    # 洞察（build 49）：每 3 天扫一次，有够格的就存着待发。insight_push 打开前只存不推（上线先给 Psir 看一眼 dry-run）
     insight_push: bool = False
-    review_push: bool = True    # 每周对话复盘（build 52）：浮条 + 一周一条锁屏推送（老大 11-10 同意）
+    review_push: bool = True    # 每周对话复盘（build 52）：浮条 + 一周一条锁屏推送（Psir 11-10 同意）
     # App 设备密钥：拿 DSH 令牌（/api/dsh-token、/dsh）必须带上它（X-Pivis-Key），本机直连免。
     # 放本机 ~/.config/pivis-health/app_key（0600）或 config.local.json，永远不进仓库；没配时只有本机能拿
     app_key: str = field(default="", repr=False)
@@ -82,6 +84,7 @@ def load_config(explicit_path: str | None = None) -> Config:
         sim_mode=bool(values.get("sim_mode", False)),
         dsh_web=str(values.get("dsh_web") or Config.dsh_web).rstrip("/"),
         follow_enabled=bool(values.get("follow_enabled", values.get("sim_mode", False))),
+        exercise_db_dir=str(values.get("exercise_db_dir") or ""),
         insight_push=bool(values.get("insight_push", False)),
         review_push=bool(values.get("review_push", True)),
         app_key=str(values.get("app_key") or _read_app_key()),

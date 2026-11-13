@@ -21,7 +21,7 @@ STICKERS = (
     "抱抱", "辛苦了", "摸摸头", "我在呢", "慢慢来", "加油",               # 陪伴
     "喝水", "动一动", "深呼吸", "好好吃饭", "收到", "记下了",             # 提醒
 )
-# 卡片外的 emoji：一条最多 2 个，只用这 8 个（老大 11-11：回复要亲切、生动些）；不算进 60 字
+# 卡片外的 emoji：一条最多 2 个，只用这 8 个（Psir 11-11：回复要亲切、生动些）；不算进 60 字
 EMOJI_OK = ("☀️", "🌙", "👏", "💪", "🫂", "✨", "💧", "🚶")
 EMOJI_MAX = 2
 _EMOJI = re.compile("(?:[\U0001F300-\U0001FAFF\u2600-\u26FF\u2702-\u2712\u2719-\u27BF\u2B50\u2B55"
@@ -137,6 +137,8 @@ def check(card: Any) -> list[str]:
     return probs
 
 
+# 开头附和 / 夸问题（b60 导师立场：第一句直接给判断）
+_OPENER = re.compile(r"\s*(你说得对|说得对|没错|你说的没错|问得对|问得好|抓得准|你抓对了)")
 OUTSIDE_MAX = 60       # 卡片外最多 60 字（AGENTS 4.6：只说结论和下一步，其余放进卡里）
 # 做 CBT-I 时不说的话：睡眠债一类（CBT-I 没有这个概念，前两周少睡是方案本身）；「不补觉」这种劝阻不算
 _DEBT_WORDS = re.compile(r"睡眠债|欠觉|欠的觉|(?<!不)(?<!别)补觉|需要\s*\d+(?:\.\d+)?\s*(?:个)?(?:小时|h)|"
@@ -183,7 +185,12 @@ def check_text(text: str, cbti_active: bool = False) -> dict:
     problems: list[str] = []
     out_len = len(outside_text(text))
     if out_len > OUTSIDE_MAX:
-        problems.append(f"卡片外的文字有 {out_len} 字（最多 {OUTSIDE_MAX}）：只留结论和下一步，数字、依据、步骤放进卡里，能画就画")
+        problems.append(f"卡片外的文字有 {out_len} 字（最多 {OUTSIDE_MAX}）：只留结论和下一步，数字、依据、步骤放进卡里，能画就画；"
+                        "说理用「为什么」卡，卡片后面不补段落")
+    head = _OPENER.match(outside_text(text) or "")
+    if head:
+        problems.append(f"开头「{head.group(1)}」是附和或夸问题：第一句直接给判断（AGENTS 2.5 第 8 条）。"
+                        "Psir 给了新信息才改，并说「因为…我改成…」")
     if cbti_active:
         hit = _DEBT_WORDS.search(text or "")
         if hit:

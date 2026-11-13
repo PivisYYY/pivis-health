@@ -1,5 +1,5 @@
 """洞察（build 49，一期）：服务器每 3 天扫一次，算出带样本量的候选；P-Health 挑最多 3 条写成一段话，
-校验过了存着待发；老大点「聊聊」（或点推送）才发进主对话。
+校验过了存着待发；Psir 点「聊聊」（或点推送）才发进主对话。
 
 一期只算两类：
   ① 闭环断在哪：发现了问题 3 天没给建议 / 同类建议被拒 2 次 / 接受了但两周做到不到一半 / 做到七成满 3 周指标没变
@@ -54,7 +54,7 @@ SOFT = ("可能", "看起来", "好像", "似乎", "初步")
 TIER = {"exp_result": 0, "followup": 0, "loop_no_advice": 1, "loop_rejected": 2, "loop_low_adherence": 2,
         "loop_no_effect": 2, "remind_late": 3, "remind_ignored": 3, "remind_condition": 3,
         "cross_pair": 4, "plateau": 4, "best_days": 4, "topic_unmanaged": 4}
-FEEDBACK_DAYS = 3        # 点开后 3 天内看老大有没有采纳（点选项、确认 plan、开实验、没改回）
+FEEDBACK_DAYS = 3        # 点开后 3 天内看 Psir 有没有采纳（点选项、确认 plan、开实验、没改回）
 WEIGHT_DAYS = 56         # 权重看最近 8 周的反应
 CLASS_REJECT = 2         # 同一类 4 周内被否 2 次：这一类 4 周内都不说
 FOLLOWUP_WAIT = 14       # 采纳后最多等 14 天出结果（数据不够也照实说）
@@ -217,7 +217,7 @@ class Data:
         return out
 
     def user_texts(self, since: str) -> list[tuple[str, str]]:
-        """主对话里老大说的话（时间, 原话），since 之后的。点选项卡会把那一项的文字作为老大的消息发出。"""
+        """主对话里 Psir 说的话（时间, 原话），since 之后的。点选项卡会把那一项的文字作为 Psir 的消息发出。"""
         from . import dsh_chat
         try:
             msgs = dsh_chat.read_messages(0, None, "")
@@ -266,7 +266,7 @@ def _due(t: dict) -> datetime | None:
 
 
 def acted_at(data: Data, t: dict) -> datetime | None:
-    """老大第一次对这张卡动手的时刻：开始 / 打勾 / 计数 / 自动识别；只有做完时间时，用做完减时长估开始。"""
+    """Psir 第一次对这张卡动手的时刻：开始 / 打勾 / 计数 / 自动识别；只有做完时间时，用做完减时长估开始。"""
     ops = [e for e in data.ops(t["id"]) if e.get("op") in OPEN_OPS]
     if ops:
         first = min(ops, key=lambda e: str(e.get("at")))
@@ -372,7 +372,7 @@ def reminder_candidates(data: Data) -> list[dict]:
                     cand["numbers"]["to"] = to
                     cand["action"] = {"kind": "move_reminder", "project": proj["id"], "key": gk.split(":", 1)[1],
                                       "from": when, "to": to}
-                    cand["facts"].append(f"建议：提醒挪到 {to}（P-Health 先改，老大说一句就改回）")
+                    cand["facts"].append(f"建议：提醒挪到 {to}（P-Health 先改，Psir 说一句就改回）")
             cand.setdefault("action", {"kind": "suggest"})
             cand["option"] = f"「{title}」换个时间"
             out.append(cand)
@@ -599,7 +599,7 @@ def _fb_entry(c: dict, pid: str, at: str, outcome: str = "pending", option: str 
 
 
 def _ctx_at(e: dict, cfg) -> str:
-    """记忆条目的 recorded_at 是这台机器的本地时间（不带时区，实际是太平洋时间）：换成老大那边的钟再比。"""
+    """记忆条目的 recorded_at 是这台机器的本地时间（不带时区，实际是太平洋时间）：换成 Psir 那边的钟再比。"""
     raw = str(e.get("recorded_at") or "")
     try:
         dt = datetime.fromisoformat(raw)
@@ -612,7 +612,7 @@ def _ctx_at(e: dict, cfg) -> str:
 
 
 def close_feedback(data: "Data", state: dict) -> list[dict]:
-    """点开过的每一点：3 天里老大有没有采纳。证据：点了这一点的选项、确认了改这个项目 / 板块的 plan、开了实验、
+    """点开过的每一点：3 天里 Psir 有没有采纳。证据：点了这一点的选项、确认了改这个项目 / 板块的 plan、开了实验、
     先改后说的提醒没改回；否掉 = 记了 correction.insight.<topic>；「都先不动」或什么都没做 = 没理。"""
     changed = []
     fbs = state.get("feedback") or []
@@ -627,7 +627,7 @@ def close_feedback(data: "Data", state: dict) -> list[dict]:
         start = _naive(f.get("at"))
         if not start:
             continue
-        at = start.isoformat(timespec="seconds")              # 统一成不带时区的老大那边的钟，和日志比
+        at = start.isoformat(timespec="seconds")              # 统一成不带时区的 Psir 那边的钟，和日志比
         end = start + timedelta(days=FEEDBACK_DAYS)
         c = f.get("cand") or {}
         topic = c.get("topic") or f.get("key")
@@ -809,7 +809,7 @@ def _retire_learned(cfg, f: dict) -> None:
         return
     try:
         from .agent_context import AgentContextStore
-        if AgentContextStore(cfg).retire(scope, "老大说这条洞察不对"):
+        if AgentContextStore(cfg).retire(scope, "Psir 说这条洞察不对"):
             from . import prefs
             prefs.sync_agents_md(cfg)
     except Exception:  # noqa: BLE001
@@ -821,7 +821,7 @@ def mine(tools, now: datetime | None = None, state: dict | None = None) -> dict:
     """算候选 + 按规则筛和挑。不写文件（cycle 决定存不存）。"""
     data = Data(tools, now)
     state = state if state is not None else _load(tools.cfg, STATE, {})
-    closed = close_feedback(data, state)          # 上几期点开过的：老大采纳了没有（只改内存里的 state，cycle 决定存不存）
+    closed = close_feedback(data, state)          # 上几期点开过的：Psir 采纳了没有（只改内存里的 state，cycle 决定存不存）
     raw = experiment_candidates(data, state) + followup_candidates(data, state) + loop_candidates(data) \
         + reminder_candidates(data)
     try:
@@ -842,7 +842,7 @@ def mine(tools, now: datetime | None = None, state: dict | None = None) -> dict:
         c["weight"] = weights.get(c["type"], 0.5)
         why = None
         if c["key"] in corrected:
-            why = "老大 4 周内否过"
+            why = "Psir 4 周内否过"
         elif c["type"] in blocked:
             why = f"这一类 4 周内被否了 {CLASS_REJECT} 次"
         elif not c["confirmed"] and not c.get("low_cost"):
@@ -857,7 +857,7 @@ def mine(tools, now: datetime | None = None, state: dict | None = None) -> dict:
                     why = "4 周内说过"
         (dropped if why else kept).append({**c, **({"dropped": why} if why else {})})
     # 排序：到期实验 → 断在 P-Health 自己的 → 项目卡住 → 督促小调整；同档里确认的、样本多的先
-    # 同档里：能先改后说的提醒调整 → 老大以前更愿意采纳的那类（权重）→ 确认的 → 样本多的
+    # 同档里：能先改后说的提醒调整 → Psir 以前更愿意采纳的那类（权重）→ 确认的 → 样本多的
     kept.sort(key=lambda c: (c["tier"], (c.get("action") or {}).get("kind") != "move_reminder", -c["weight"],
                              not c["confirmed"], -int(c.get("sample") or 0)))
     picked, subjects = [], set()
@@ -882,12 +882,12 @@ COMPOSE_SCHEMA = """输出一个 JSON 对象（不要代码块之外的任何文
 - 最多 3 点，宁少勿凑；每个候选最多写成 1 点；只写下面给你的候选，不要加别的。
 - 数字只能抄候选 facts / numbers 里的；钟点、日期照抄；不要自己算比例、不要四舍五入成别的数。
 - 只说「常一起出现」，不说「导致 / 因为 / 造成 / 引起 / 所以」这类因果词（小实验结果可以说「试了之后」）。
-- 不诊断、不说病名和用药，不说教（「你要自律」）；只跟老大自己的平时比。
+- 不诊断、不说病名和用药，不说教（「你要自律」）；只跟 Psir 自己的平时比。
 - confirmed=false 的候选（观察中）措辞要软，用「可能 / 看起来 / 好像」——软话放在判断上（「看起来这个提醒时间不合适」），
   数字本身是准的，不要写成「好像只有 2 次」。
 - own=true 的是 P-Health 自己的问题：直接认（「是我的问题」）。
-- type=followup 的是上次老大采纳的事的结果：照实说做到了多少、数变没变，可以说「试了之后」；没做成也直说，不评价。
-- type=topic_unmanaged 是老大反复提到却没人管的事：不诊断，身体部位反复不舒服就建议先记两周、一直不好去看医生或康复师。
+- type=followup 的是上次 Psir 采纳的事的结果：照实说做到了多少、数变没变，可以说「试了之后」；没做成也直说，不评价。
+- type=topic_unmanaged 是 Psir 反复提到却没人管的事：不诊断，身体部位反复不舒服就建议先记两周、一直不好去看医生或康复师。
 - action.kind=move_reminder 的点：P-Health 已经先改好了，body 里直接说「我先把提醒挪到 <to>，不合适回一句我就改回」，
   这一点的 option 写 null（不放进选项卡）。
 - card：需要时才配，文字说得清就写 null。只能是 {"type":"layout","layout":{零件树}}。has_response_card=true 的候选
@@ -896,7 +896,7 @@ COMPOSE_SCHEMA = """输出一个 JSON 对象（不要代码块之外的任何文
   has_dotstrip_card=true（每天一点）配 {"type":"layout","layout":{"t":"dotstrip","bind":"insight:<cid>.dotstrip"}}；
   一点只配一张；
   数字用 bind 绑 insight:<cid>.<numbers 里的字段>，手写数字也只能抄候选。
-- 不要写开头那句「老大，这几天看出 N 件事」，服务器会加；不要写序号，服务器会编号。
+- 不要写开头那句「Psir，这几天看出 N 件事」，服务器会加；不要写序号，服务器会编号。
 """
 
 
@@ -1059,7 +1059,7 @@ def validate_compose(doc: Any, cands: dict[str, dict]) -> dict:
 
 def assemble(v: dict) -> str:
     """校验过的稿 → 发进主对话的那段话（markdown + ```phealth-ui 卡片）。开头和编号由服务器加。"""
-    parts = [f"老大，这几天看出{_cn_count(len(v['points']))}件事："]
+    parts = [f"Psir，这几天看出{_cn_count(len(v['points']))}件事："]
     for i, p in enumerate(v["points"], 1):
         parts.append(f"**{i}. {p['title']}**{p['body']}")
         if p["card"]:
@@ -1103,7 +1103,7 @@ def compose(tools, picked: list[dict], ask: Callable[[str], str] | None = None) 
     from .publications import _parse_json
     cands = {c["id"]: c for c in picked}
     ask = ask or _dsh_ask(f"i{int(time.time() * 1000)}")
-    prompt = ("你是 P-Health，在给老大写这几天的洞察（一段话，最多 3 点）。只按下面的格式输出 JSON，不调用任何工具。\n"
+    prompt = ("你是 P-Health，在给 Psir 写这几天的洞察（一段话，最多 3 点）。只按下面的格式输出 JSON，不调用任何工具。\n"
               + COMPOSE_SCHEMA + "\n候选（已按优先级排好，靠前的优先）：\n"
               + json.dumps([_public(c) for c in picked], ensure_ascii=False, indent=1))
     err = None
@@ -1134,7 +1134,7 @@ def cycle(tools, dry_run: bool = False, force: bool = False, ask: Callable[[str]
     last = state.get("last_scan")
     if not force and last and (now.date() - date.fromisoformat(last)).days < EVERY_DAYS:
         return {"ran": False, "reason": f"上次扫描 {last}，不满 {EVERY_DAYS} 天"}
-    # 真实环境：老大看过 dry-run、打开 insight_push 之前，定时任务也只试算（不存、不推、App 里不出浮条），结果记进日志备查
+    # 真实环境：Psir 看过 dry-run、打开 insight_push 之前，定时任务也只试算（不存、不推、App 里不出浮条），结果记进日志备查
     gated = not dry_run and not cfg.insight_push and not cfg.sim_mode
     dry_run = dry_run or gated
     out: dict[str, Any] = {"ran": True, "dry_run": dry_run, **({"gated": True} if gated else {})}
@@ -1213,7 +1213,7 @@ def cycle(tools, dry_run: bool = False, force: bool = False, ask: Callable[[str]
 def _push(tools, pending: dict, state: dict) -> dict:
     from . import notify
     if not tools.cfg.insight_push:
-        return {"ok": False, "skipped": "insight_push 没打开（先给老大看 dry-run）"}
+        return {"ok": False, "skipped": "insight_push 没打开（先给 Psir 看 dry-run）"}
     if not notify.enabled(tools.cfg):
         return {"ok": False, "skipped": "disabled"}
     if int(state.get("unopened") or 0) >= STOP_PUSH_AFTER:
@@ -1238,10 +1238,10 @@ def inject_text(p: dict) -> str:
     topics = "；".join(f"第 {i} 点 topic={x['topic']}" for i, x in enumerate(p.get("points") or [], 1))
     changes = "；".join(f"已把项目 {c['project']} 里 {c['key']} 的提醒从 {c['from']} 挪到 {c['to']}"
                         for c in (p.get("applied") or []))
-    return (f"【洞察 {p['id']}】老大点了「聊聊」。把 <<< 和 >>> 之间的那段话原样发出：一个字、一个数都不改，"
+    return (f"【洞察 {p['id']}】Psir 点了「聊聊」。把 <<< 和 >>> 之间的那段话原样发出：一个字、一个数都不改，"
             f"```phealth-ui 卡片照抄，不加别的话，不跑命令，不用 card-check。\n<<<\n{p['message']}\n>>>\n"
-            f"（只给你看，不要发出来）{topics}。" + (f"{changes}（老大说「改回去」就按 insight skill 改回原来的时间）。" if changes else "")
-            + "老大之后说哪一点不对，按 insight skill 记 correction.insight.<topic>。")
+            f"（只给你看，不要发出来）{topics}。" + (f"{changes}（Psir 说「改回去」就按 insight skill 改回原来的时间）。" if changes else "")
+            + "Psir 之后说哪一点不对，按 insight skill 记 correction.insight.<topic>。")
 
 
 def _apply_changes(tools, p: dict) -> list[dict]:
@@ -1324,7 +1324,7 @@ def open_pending(tools, pid: str, send: Callable[[str, str], Any] | None = None)
 
 
 def _verify_reply(tools, p: dict, timeout: int = 300) -> None:
-    """P-Health 照抄出去的和存的对不对：数字和卡片不一致记一条错误（不撤回，老大已经看到了）。"""
+    """P-Health 照抄出去的和存的对不对：数字和卡片不一致记一条错误（不撤回，Psir 已经看到了）。"""
     from . import dsh_chat
     try:
         before = len(dsh_chat.read_session_events(""))
@@ -1407,7 +1407,7 @@ TOPIC_KINDS = {"body": "身体部位", "concern": "困扰", "mention": "提到�
 
 
 def tag_topics(tools, ask: Callable[[str], str] | None = None, now: datetime | None = None) -> dict:
-    """上周老大在四个对话里说的话 → 主题标签（身体部位、困扰、提到的事），存 chat_topics.jsonl。离上次不满 7 天就跳过。"""
+    """上周 Psir 在四个对话里说的话 → 主题标签（身体部位、困扰、提到的事），存 chat_topics.jsonl。离上次不满 7 天就跳过。"""
     cfg = tools.cfg
     now = (now or tools._now()).replace(tzinfo=None)
     state = _load(cfg, STATE, {})
@@ -1431,7 +1431,7 @@ def tag_topics(tools, ask: Callable[[str], str] | None = None, now: datetime | N
         return {"ran": True, "items": 0}
     ask = ask or _dsh_ask(f"t{int(time.time() * 1000)}")
     from .publications import _parse_json
-    prompt = ("给老大上周说的话打主题标签。只输出 JSON：{\"items\":[{\"date\":\"YYYY-MM-DD\",\"kind\":\"body|concern|mention\","
+    prompt = ("给 Psir 上周说的话打主题标签。只输出 JSON：{\"items\":[{\"date\":\"YYYY-MM-DD\",\"kind\":\"body|concern|mention\","
               "\"label\":\"≤8 字\"}]}。body=身体部位（肩膀、膝盖），concern=困扰（睡不着、累），mention=提到的事（打网球、出差）。"
               "同一天同一个标签只写一次；不写人名、地名；没有就给空列表。不调用任何工具。\n"
               + "\n".join(lines[-300:]))

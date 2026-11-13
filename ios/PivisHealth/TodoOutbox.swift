@@ -17,7 +17,7 @@ final class TodoOutbox {
         let values: Data          // JSON 对象
         let text: String?
         let summary: String?
-        let at: Date              // 老大点下去的时间（服务器按它记，断网补发也不会错）
+        let at: Date              // Psir 点下去的时间（服务器按它记，断网补发也不会错）
         var attempts = 0
     }
 
@@ -119,7 +119,7 @@ final class TodoOutbox {
                     save()
                     NotificationCenter.default.post(name: .pivisTodosChanged, object: op.todoId)
                 } catch V3API.SubmitError.rejected(let message) {
-                    // 服务器明确不收（不是网络问题）：不再重发，告诉老大，页面按服务器的样子刷新
+                    // 服务器明确不收（不是网络问题）：不再重发，告诉 Psir，页面按服务器的样子刷新
                     pending.removeFirst()
                     save()
                     rejected = message.isEmpty ? "这条没记上" : "没记上：\(message)"

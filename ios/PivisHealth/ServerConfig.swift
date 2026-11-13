@@ -85,7 +85,7 @@ enum ServerConfig {
         var record: Record?
         var key: String?
         var demo: Bool
-        /// 老大在开发版里点过「断开」：不再退回 LocalConfig（直到重新配对）
+        /// Psir 在开发版里点过「断开」：不再退回 LocalConfig（直到重新配对）
         var localOff: Bool
         var push: PushMode?
         /// -forceUnpaired：这次启动当作没配对；这次里配对成功后就照常
@@ -129,7 +129,7 @@ enum ServerConfig {
     }
 
     /// build 54 及以前：地址和密钥编在 App 里，App 每次启动抄一份进 App Group 给小组件。
-    /// 第一次跑这一版、还没配对过：把那一份当成配对过的电脑接着用（老大自己的手机装上就能用，不用先扫码）。只做一次
+    /// 第一次跑这一版、还没配对过：把那一份当成配对过的电脑接着用（Psir 自己的手机装上就能用，不用先扫码）。只做一次
     private static func migrateLegacyIfNeeded() {
         let d = UserDefaults.standard
         let flag = "pair_migrated_v1"

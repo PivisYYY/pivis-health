@@ -7,7 +7,7 @@
 纪律：
 - 应用凭据（client id/secret）和令牌只放 cfg.whoop_auth_dir（默认 ~/.config/pivis-health/whoop，
   目录 0700、文件 0600），永不进仓库；client secret 只从环境变量或本机终端隐藏输入读取，不走命令行参数。
-- 老大自己在浏览器里登录 WHOOP；本模块只在 127.0.0.1 上等回调。
+- Psir 自己在浏览器里登录 WHOOP；本模块只在 127.0.0.1 上等回调。
 - 刷新令牌一用就作废（轮换）：整个同步持文件锁，新令牌先落盘再拉数据。
 - 任何一类拉取失败都不写快照（旧快照原样保留），并把失败写进状态文件 —— 不允许假 PASS。
 - launchd 每 15 分钟一次，夜里也拉（同步不发消息）；超过 1 小时没成功即 stale。
@@ -80,7 +80,7 @@ class WhoopError(RuntimeError):
 
 
 class NotAuthorised(WhoopError):
-    """没有可用令牌，或刷新令牌被 WHOOP 拒绝：需要老大重新跑 whoop-auth。"""
+    """没有可用令牌，或刷新令牌被 WHOOP 拒绝：需要 Psir 重新跑 whoop-auth。"""
     code = "not_authorised"
     exit_code = 3
 
@@ -206,13 +206,13 @@ class WhoopClient:
     def client(self) -> dict:
         c = _read_json(_client_path(self.auth_dir))
         if not c or not c.get("client_id") or not c.get("client_secret"):
-            raise NotAuthorised("还没有 WHOOP 应用凭据：请老大在终端运行 ./pivis-health whoop-auth")
+            raise NotAuthorised("还没有 WHOOP 应用凭据：请 Psir 在终端运行 ./pivis-health whoop-auth")
         return c
 
     def tokens(self) -> dict:
         t = _read_json(_tokens_path(self.auth_dir))
         if not t or not t.get("refresh_token"):
-            raise NotAuthorised("还没有 WHOOP 授权令牌：请老大在终端运行 ./pivis-health whoop-auth")
+            raise NotAuthorised("还没有 WHOOP 授权令牌：请 Psir 在终端运行 ./pivis-health whoop-auth")
         return t
 
     def _token_request(self, form: dict) -> dict:
@@ -247,7 +247,7 @@ class WhoopClient:
                     break  # 换 Basic 认证再试
                 if err in ("invalid_grant", "invalid_client", "unauthorized_client") or status in (400, 401, 403):
                     raise NotAuthorised(
-                        f"WHOOP 拒绝令牌请求（{err or status}）：请老大在终端重新运行 ./pivis-health whoop-auth")
+                        f"WHOOP 拒绝令牌请求（{err or status}）：请 Psir 在终端重新运行 ./pivis-health whoop-auth")
                 raise ApiError(f"令牌请求失败 HTTP {status}: {_short(raw)}")
             else:
                 raise ApiError(f"令牌请求失败：{last}")
@@ -320,7 +320,7 @@ class WhoopClient:
                 self.sleep(min(2 ** attempt, 30))
                 continue
             if status in (401, 403):
-                raise NotAuthorised(f"WHOOP 拒绝访问 {path}（HTTP {status}）：请老大重新运行 whoop-auth")
+                raise NotAuthorised(f"WHOOP 拒绝访问 {path}（HTTP {status}）：请 Psir 重新运行 whoop-auth")
             raise ApiError(f"GET {path} 失败 HTTP {status}: {_short(raw)}")
         raise ApiError(f"GET {path} 重试 {self.max_retries} 次仍失败：{last}")
 
@@ -527,7 +527,7 @@ def _fresh_brief(cfg, now: datetime) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# 一次性授权（老大自己在浏览器登录）
+# 一次性授权（Psir 自己在浏览器登录）
 # ---------------------------------------------------------------------------
 
 _DONE_HTML = ("<!doctype html><meta charset='utf-8'><title>P-Health</title>"
@@ -781,7 +781,7 @@ def backfill(cfg, since: str, *, endpoints: Endpoints = Endpoints(), now: dateti
 
 
 def run_cli(cfg, args) -> tuple[dict, int]:
-    """返回（JSON 结果，退出码）。0=正常；1=失败；2=快照过期；3=需要老大重新授权。"""
+    """返回（JSON 结果，退出码）。0=正常；1=失败；2=快照过期；3=需要 Psir 重新授权。"""
     try:
         if args.cmd == "whoop-auth":
             out = authorise(cfg, client_id=args.client_id, redirect_uri=args.redirect_uri,

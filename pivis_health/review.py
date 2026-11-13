@@ -1,4 +1,4 @@
-"""每周对话复盘（build 52）：和洞察同一个样子，只是复盘的是 P-Health 自己这一周的对话，重点看老大点踩的。
+"""每周对话复盘（build 52）：和洞察同一个样子，只是复盘的是 P-Health 自己这一周的对话，重点看 Psir 点踩的。
 
 每周一 08:30（insight-cycle.sh 顺带调）：
   1. 服务器算账：这周多少轮对话、👍 / 👎 各多少、按原因分，用了专业技能的比例、回答里带数的比例、回复速度，和上周比。
@@ -6,9 +6,9 @@
   3. 后台写稿会话（和洞察同一套）写：最突出的 1–3 个问题，每个带例子、错在哪、正确该怎么答、改哪一层、具体改法；
      每个案例写成一道考题（存本机的考题库）。校验通过才存。
   4. 主对话入口浮条「这周对话复盘，要看看吗？」。点开 → 服务器把写好的那段话交给 P-Health 原样发出，
-     最后一张选项卡让老大逐条点「同意 / 不对」。
+     最后一张选项卡让 Psir 逐条点「同意 / 不对」。
   5. 同意的：偏好 / 纠正 / 档案这类 P-Health 当场记；规则、技能、数据、工具这类进待改清单（review_fixes.jsonl），
-     老大跟开发说「处理复盘」时由开发改，改完先考考题库。点「不对」的撤掉，之后不再提同样的改法。
+     Psir 跟开发说「处理复盘」时由开发改，改完先考考题库。点「不对」的撤掉，之后不再提同样的改法。
 """
 from __future__ import annotations
 
@@ -26,13 +26,13 @@ from .insight import _load, _numbers_in, _num_ok, _save
 STATE = "review_state.json"
 PENDING = "review_pending.json"
 RUNS = "review_runs.jsonl"
-CASES = "review_cases.jsonl"        # 考题库（本机，带老大的原话，不进仓库）
-FIXES = "review_fixes.jsonl"        # 待改清单：老大同意了、要开发改的
+CASES = "review_cases.jsonl"        # 考题库（本机，带 Psir 的原话，不进仓库）
+FIXES = "review_fixes.jsonl"        # 待改清单：Psir 同意了、要开发改的
 EVERY_DAYS = 6
 CONTEXTS = ("", "休息", "运动", "压力")
 CONTEXT_NAME = {"": "主对话", "休息": "休息", "运动": "运动", "压力": "压力"}
 AUTO_PREFIX = ("【每日推荐】", "【待办提交】", "【洞察", "【反馈", "【事件")
-LAYERS = {"knowledge": "技能资料", "rule": "规则", "data": "服务器数据", "tool": "工具", "model": "模型", "preference": "老大的偏好"}
+LAYERS = {"knowledge": "技能资料", "rule": "规则", "data": "服务器数据", "tool": "工具", "model": "模型", "preference": "Psir 的偏好"}
 COMPOSE_ROUNDS = 4
 INJECT_PREFIX = "【洞察复盘"
 BAR_TEXT = "这周对话复盘，要看看吗？"
@@ -48,8 +48,8 @@ def _text_of(content: list) -> str:
 
 
 def turns(events: list[dict], context: str, since: datetime, until: datetime, tz: str = "Asia/Shanghai") -> list[dict]:
-    """一轮 = 一次 turn/start…turn/end：老大那句、P-Health 最后发出的那段、用了哪些命令和 skill、花了多久。
-    时间一律换成老大的时区（这台机器是太平洋时间）。"""
+    """一轮 = 一次 turn/start…turn/end：Psir 那句、P-Health 最后发出的那段、用了哪些命令和 skill、花了多久。
+    时间一律换成 Psir 的时区（这台机器是太平洋时间）。"""
     from zoneinfo import ZoneInfo
     zone = ZoneInfo(tz)
     out, cur = [], None
@@ -108,7 +108,7 @@ def collect(tools, since: datetime, until: datetime, events_of: Callable[[str], 
 
 
 def join_feedback(cfg, ts: list[dict], since: datetime) -> None:
-    """把老大的 👍 / 👎 挂到对应那一轮（按回复时间，差 3 秒内）。"""
+    """把 Psir 的 👍 / 👎 挂到对应那一轮（按回复时间，差 3 秒内）。"""
     from zoneinfo import ZoneInfo
     from . import feedback
     zone = ZoneInfo(cfg.timezone)
@@ -161,7 +161,7 @@ def pick_cases(ts: list[dict]) -> list[dict]:
     downs = [t for t in ts if t.get("rating") == "down"][-8:]
     ups = [t for t in ts if t.get("rating") == "up"][-3:]
     rest = [t for t in ts if not t.get("rating") and not t["auto"] and t["reply"]]
-    rest = sorted(rest, key=lambda t: -len(t["user"]))[: max(0, 6 - len(downs))]   # 老大说得最多的几轮
+    rest = sorted(rest, key=lambda t: -len(t["user"]))[: max(0, 6 - len(downs))]   # Psir 说得最多的几轮
     out, n = [], 0
     for t in downs + ups + rest:
         n += 1
@@ -181,10 +181,10 @@ SCHEMA = """输出格式（只输出这个 JSON）：
     "fix": "具体改法，≤60 字（改哪个 skill / 规则 / 记哪条偏好）"}
  ],
  "exams": [
-   {"case": "r1", "question": "考题：老大会怎么问（可以照抄原话）", "must": ["答案必须有的要点"], "must_not": ["不能出现的说法"]}
+   {"case": "r1", "question": "考题：Psir 会怎么问（可以照抄原话）", "must": ["答案必须有的要点"], "must_not": ["不能出现的说法"]}
  ]}
-要求：problems 1–3 个，按严重程度排；点踩的案例优先，老大写了「应该是…」的照他说的写 better；
-每个 problem 至少引用 1 个案例 id；layer 选最根本的那层（偏好 = 只是老大个人的习惯，记一条偏好就能解决）；
+要求：problems 1–3 个，按严重程度排；点踩的案例优先，Psir 写了「应该是…」的照他说的写 better；
+每个 problem 至少引用 1 个案例 id；layer 选最根本的那层（偏好 = 只是 Psir 个人的习惯，记一条偏好就能解决）；
 exams 给每个点踩的案例各写一道；所有数字只能来自上面的账和案例原文，不要编数。"""
 
 
@@ -241,7 +241,7 @@ def assemble(v: dict, m: dict, prev: dict | None, cases: list[dict]) -> str:
         d = m[k] - prev[k]
         return f"（上周 {prev[k]}{unit}）" if d else "（和上周一样）"
     reasons = "、".join(f"{k} {n}" for k, n in (m.get("down_reasons") or {}).items())
-    head = [f"老大，这周的对话复盘：{v['summary']}",
+    head = [f"Psir，这周的对话复盘：{v['summary']}",
             f"这周 {m['turns']} 轮对话，👍 {m['up']}、👎 {m['down']}{delta('down')}" + (f"（{reasons}）" if reasons else "")
             + (f"；用了专业 skill 的 {m['skill_pct']}%{delta('skill_pct', '%')}" if m.get("skill_pct") is not None else "")
             + (f"，回复一半在 {m['latency_median_s']} 秒内" if m.get("latency_median_s") is not None else "") + "。"]
@@ -265,10 +265,10 @@ def compose(tools, cases: list[dict], m: dict, rejected: list[str], ask: Callabl
     from .insight import _dsh_ask
     from .publications import _parse_json
     ask = ask or _dsh_ask(f"rv{int(time.time() * 1000)}")
-    prompt = ("你是 P-Health，在复盘自己这一周和老大的对话，找出最该改的问题。只按格式输出 JSON，不调用工具。\n"
-              "判断标准：有没有给专业判断（不拿「不诊断」推回去）、有没有结合老大自己的数据、够不够具体、对不对、有没有照老大说的做。\n"
+    prompt = ("你是 P-Health，在复盘自己这一周和 Psir 的对话，找出最该改的问题。只按格式输出 JSON，不调用工具。\n"
+              "判断标准：有没有给专业判断（不拿「不诊断」推回去）、有没有结合 Psir 自己的数据、够不够具体、对不对、有没有照 Psir 说的做。\n"
               + SCHEMA + "\n这周的账：" + json.dumps(m, ensure_ascii=False)
-              + ("\n老大以前点过「不对」的改法（不要再提）：" + "；".join(rejected) if rejected else "")
+              + ("\nPsir 以前点过「不对」的改法（不要再提）：" + "；".join(rejected) if rejected else "")
               + "\n案例（rating=down 是点踩，up 是点赞，空的是普通对话）：\n" + json.dumps(cases, ensure_ascii=False, indent=1))
     err, attempts = None, []
     for rnd in range(COMPOSE_ROUNDS):
@@ -359,9 +359,9 @@ def pending_status(cfg) -> dict | None:
 def inject_text(p: dict) -> str:
     plan = "；".join(f"第 {i} 条 apply={x['apply']} layer={x['layer']} 改法：{x['fix']}"
                      for i, x in enumerate(p.get("problems") or [], 1))
-    return (f"【洞察复盘 {p['id']}】老大点了「看看」。把 <<< 和 >>> 之间的那段话原样发出：一个字、一个数都不改，"
+    return (f"【洞察复盘 {p['id']}】Psir 点了「看看」。把 <<< 和 >>> 之间的那段话原样发出：一个字、一个数都不改，"
             f"```phealth-ui 卡片照抄，不加别的话，不跑命令，不用 card-check。\n<<<\n{p['message']}\n>>>\n"
-            f"（只给你看，不要发出来）{plan}。老大答了「这几条改法」之后，按 insight skill「对话复盘」一节逐条处理。")
+            f"（只给你看，不要发出来）{plan}。Psir 答了「这几条改法」之后，按 insight skill「对话复盘」一节逐条处理。")
 
 
 def open_pending(tools, pid: str, send: Callable[[str, str], Any] | None = None) -> dict:
@@ -410,7 +410,7 @@ def dismiss_pending(tools, pid: str) -> dict:
 
 
 def decide(tools, pid: str, n: int, agree: bool, note: str = "") -> dict:
-    """老大对第 n 条改法的决定。同意 + 要开发改的进待改清单；不对的记下来，以后不再提。"""
+    """Psir 对第 n 条改法的决定。同意 + 要开发改的进待改清单；不对的记下来，以后不再提。"""
     cfg = tools.cfg
     p = _load(cfg, PENDING, {})
     if p.get("id") != pid:

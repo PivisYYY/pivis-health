@@ -73,12 +73,11 @@ def _rx(cfg, p: dict) -> dict:
 
 
 def _window_h(rx: dict) -> float | None:
-    if rx.get("window_h"):
-        return round(float(rx["window_h"]), 2)
+    """窗口时长以两头的钟点为准（记录里的时长和两头钟点对不上时，两套数会让 P-Health 说法打架）"""
     w, b = _m(rx.get("wake")), _m(rx.get("earliest_bed"))
-    if w is None or b is None:
-        return None
-    return round(((w - b) % 1440) / 60, 2)
+    if w is not None and b is not None:
+        return round(((w - b) % 1440) / 60, 2)
+    return round(float(rx["window_h"]), 2) if rx.get("window_h") else None
 
 
 def _diaries(store, p: dict, day: date, nights: int) -> dict[str, dict]:

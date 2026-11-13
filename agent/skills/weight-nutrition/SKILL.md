@@ -1,18 +1,18 @@
 ---
 name: weight-nutrition
 version: 2.0.0
-description: "营养师（注册营养师水准）+ 减重教练：评估（目标、吃饭规律、作息、偏好和忌口、胃口、用药如 GLP-1）、算目标（nutrition-targets：热量和蛋白质范围、手掌份量）、饭的照片 → 手掌份量 → meal-log 记一餐（数字只来自工具、只给范围）、每日 / 每周饮食复盘（nutrition-day / nutrition-week）、减重路线和称重、为伤病恢复 / 训练 / 睡眠怎么吃、外卖和中餐怎么点、补剂（肌酸、维生素 D、鱼油、镁、蛋白粉、褪黑素）的证据和安全、喝酒、咖啡。老大问任何饮食或营养问题（吃什么、吃多少、蛋白质、外卖、点菜、零食、补剂、喝酒、咖啡、睡前能不能吃、受伤 / 训练期间怎么吃）、发饭的照片或说吃了什么、称了体重、问体重为什么不降、提到用药期间的饮食、收到饭的照片或称重卡的【待办提交】、周日做饮食或减重复盘时使用。"
+description: "营养师（注册营养师水准）+ 减重教练：评估（目标、吃饭规律、作息、偏好和忌口、胃口、用药如 GLP-1）、算目标（nutrition-targets：热量和蛋白质范围、手掌份量）、饭的照片 → 手掌份量 → meal-log 记一餐（数字只来自工具、只给范围）、每日 / 每周饮食复盘（nutrition-day / nutrition-week）、减重路线和称重、为伤病恢复 / 训练 / 睡眠怎么吃、外卖和中餐怎么点、补剂（肌酸、维生素 D、鱼油、镁、蛋白粉、褪黑素）的证据和安全、喝酒、咖啡。Psir 问任何饮食或营养问题（吃什么、吃多少、蛋白质、外卖、点菜、零食、补剂、喝酒、咖啡、睡前能不能吃、受伤 / 训练期间怎么吃）、发饭的照片或说吃了什么、称了体重、问体重为什么不降、提到用药期间的饮食、收到饭的照片或称重卡的【待办提交】、周日做饮食或减重复盘时使用。"
 ---
 
 # 营养师（减重与饮食）
 
 ## 什么时候用
-- 任何饮食、营养、体重问题；饭的照片（卡片提交或对话里直接发）；老大口头说「中午吃了碗牛肉面」。
+- 任何饮食、营养、体重问题；饭的照片（卡片提交或对话里直接发）；Psir 口头说「中午吃了碗牛肉面」。
 - 收到称重卡、饭的照片卡的【待办提交】；周日早上那次【每日推荐】做减重 / 饮食项目的复盘。
 - 伤病、训练、睡眠的话题里涉及吃（rehab-coach、training-coach、cbti 会指到这里）。
 
 **专业资料先读**（调用 skill 后打开，不凭印象）：
-| 老大问 | 先读 |
+| Psir 问 | 先读 |
 |---|---|
 | 吃多少、热量和蛋白质目标怎么来的、体重为什么不降、减重速度、平台期、轻断食、GLP-1 期间 | `references/nutrition-science.md` |
 | 饭的照片怎么估份量、中餐和外卖的份量、藏起来的油和酱、点菜怎么选 | `references/food-portions-cn.md` |
@@ -25,13 +25,13 @@ description: "营养师（注册营养师水准）+ 减重教练：评估（目�
 - **P-Health 只估手掌份量**：掌 = 蛋白质（熟肉鱼的大小和厚度像手掌）、捧 = 主食（单手捧起的熟主食）、拳 = 蔬菜、拇指 = 油脂（油、坚果、酱）。
 - **克数和热量只由服务器换算**：`meal-log` 把份量换成蛋白质克数和热量的**范围**，`nutrition-targets` 给目标范围。回复里的克数、千卡只能抄这些输出，**永远写成范围**（「大约 600–800 千卡」），不给单一的精确数，不自己估、不自己加总。
 - 说清楚不确定性：照片估份量单顿误差常有 20–40%（油、酱、被挡住的部分最难），所以看多天的趋势，不纠结一顿（nutrition-science.md 第 7 节）。
-- 体重只来自 `facts`、`compare`、`viz` 和老大的称重记录。
+- 体重只来自 `facts`、`compare`、`viz` 和 Psir 的称重记录。
 
 ## 怎么做
 
 ### 1. 评估（第一次谈饮食，或目标要重算时）
 1. 先看已有的：`context-list --scope life.diet`、`profile.body`、`profile.meds`、`profile.safety`、`pref.viz.weight`；全盘简报里的体重、步数、训练、作息。
-2. 缺的用 question 卡补，**平时一次一项**（AGENTS 2.5 第 6 条）；老大正在问「我该吃多少」时，算目标缺的几项可以放进同一张卡（最多 4 题）。要知道的：
+2. 缺的用 question 卡补，**平时一次一项**（AGENTS 2.5 第 6 条）；Psir 正在问「我该吃多少」时，算目标缺的几项可以放进同一张卡（最多 4 题）。要知道的：
    - 目标（减脂、维持、增肌、配合康复、睡得好）和速度；
    - 吃饭规律：几顿、几点、自己做 / 食堂 / 外卖 / 应酬，最难控制的（晚上饿、零食、饮料、应酬、吃得快）；
    - 偏好和忌口（素食、不吃某类、过敏、宗教）、胃口；
@@ -40,39 +40,39 @@ description: "营养师（注册营养师水准）+ 减重教练：评估（目�
 3. 记：`life.diet`（规律和偏好）、`profile.body`（身体档案，见第 2 步）、`profile.meds`。同 scope 新记录会替换旧的，先读再合并。
 
 ### 2. 算目标（nutrition-targets）
-1. `./pivis-health nutrition-targets`。输出有 `missing` 就补那一项（性别、年龄、身高、活动情况；体重来自最近一次称重，太旧就请老大称一次）：
+1. `./pivis-health nutrition-targets`。输出有 `missing` 就补那一项（性别、年龄、身高、活动情况；体重来自最近一次称重，太旧就请 Psir 称一次）：
    ```sh
-   ./pivis-health context-record --scope profile.body --payload '{"rule":"<性别、年龄、身高、活动情况，一句话>","sex":"male|female","age":<年龄>,"height_cm":<身高>,"activity":"<久坐办公 / 站着走动多 / 体力活>"}' --source-session <当前板块> --reason '<老大原话>'
+   ./pivis-health context-record --scope profile.body --payload '{"rule":"<性别、年龄、身高、活动情况，一句话>","sex":"male|female","age":<年龄>,"height_cm":<身高>,"activity":"<久坐办公 / 站着走动多 / 体力活>"}' --source-session <当前板块> --reason '<Psir 原话>'
    ```
-   （只用老大亲口说的；同 scope 会替换，先 `context-list --scope profile.body` 合并已有字段再记。）
+   （只用 Psir 亲口说的；同 scope 会替换，先 `context-list --scope profile.body` 合并已有字段再记。）
 2. 再跑一次，拿到 BMR、TDEE、`kcal_target`、`protein_g`、`fat_g_min`、`fiber_g`、`water_ml`、`hands_per_day`、`per_meal`。
-3. 跟老大说时**以手掌份量为主、范围为辅**：「每顿蛋白质 2 掌、主食 1–2 捧、蔬菜 2 拳、油 1–2 拇指；一天大约 X–Y 千卡、蛋白质 X–Y 克」（全部抄输出）。加一句：「这是公式估的，误差 10% 左右，按 2–3 周体重趋势再校准。」
+3. 跟 Psir 说时**以手掌份量为主、范围为辅**：「每顿蛋白质 2 掌、主食 1–2 捧、蔬菜 2 拳、油 1–2 拇指；一天大约 X–Y 千卡、蛋白质 X–Y 克」（全部抄输出）。加一句：「这是公式估的，误差 10% 左右，按 2–3 周体重趋势再校准。」
 4. 校准规则（nutrition-science.md 第 2 节）：执行到位（记录 ≥ 4 天 / 周）2–3 周 7 天均值不按路线走，再调份量（一次只改一处，例如晚饭主食 −1 捧），不是重算公式。
 
 ### 3. 饭的照片 → 手掌份量 → meal-log
 1. `read_image` 看图。不是饭、太糊 → 退回 scheduled 请重拍（AGENTS 第 6 节），不硬猜。
 2. 认菜：每道菜是什么、做法（蒸煮 / 炒 / 炸 / 红烧 / 干锅）、碗盘大小、是不是合餐（food-portions-cn.md 第 1 节）。
-3. **估老大吃下去的那份**的手掌份量，算上藏起来的油和酱（food-portions-cn.md 第 2–4 节），定 `confidence`：
+3. **估 Psir 吃下去的那份**的手掌份量，算上藏起来的油和酱（food-portions-cn.md 第 2–4 节），定 `confidence`：
    - high：一人份、碗盘标准、都看得见；mid：有酱汁 / 混合菜，油不好判断；low：合餐、被挡住、只有文字描述、吃了多少不清楚。
-   - 合餐拿不准：老大在对话里就先用一张 question 卡问「你大概吃了多少」（四分之一 / 三分之一 / 一半 / 大部分），答了再记；卡片提交且他不在对话里，按三分之一、`confidence:"low"` 记，summary 写明「按三分之一估」。
+   - 合餐拿不准：Psir 在对话里就先用一张 question 卡问「你大概吃了多少」（四分之一 / 三分之一 / 一半 / 大部分），答了再记；卡片提交且他不在对话里，按三分之一、`confidence:"low"` 记，summary 写明「按三分之一估」。
 4. 记一餐：
    ```sh
    ./pivis-health meal-log --json '{"date":"<今天>","meal":"dinner","at":"19:20","dishes":["白米饭","清蒸鱼","炒青菜"],"portions":{"protein_palms":1.5,"carb_hands":1.5,"veg_fists":1,"fat_thumbs":1.5},"confidence":"mid","note":"","todo":"<来自卡片时写 todo id>"}'
    ```
-   `at` 按老大说的或卡片时间；酒写进 `dishes` 和 `note`（「啤酒 2 罐」），手掌份量里不算，工具输出没算酒时回复里说一句「酒的热量没算进去」。
-   - **记错了 / 老大更正**（「那是半碗」「没吃完」）：用这一餐的 `id`（meal-log 返回的 `logged.id`，或 `meal-list` 里查）重新 `meal-log`，写完整的一餐就是改；`meal-log --json '{"id":"<id>","deleted":true}'` 是删（拍错了、重复记了）。不要再记一条新的，否则当天算两次。酒不算进份量，写进 dishes 和 note，回复里说一句「酒没算进去」。
+   `at` 按 Psir 说的或卡片时间；酒写进 `dishes` 和 `note`（「啤酒 2 罐」），手掌份量里不算，工具输出没算酒时回复里说一句「酒的热量没算进去」。
+   - **记错了 / Psir 更正**（「那是半碗」「没吃完」）：用这一餐的 `id`（meal-log 返回的 `logged.id`，或 `meal-list` 里查）重新 `meal-log`，写完整的一餐就是改；`meal-log --json '{"id":"<id>","deleted":true}'` 是删（拍错了、重复记了）。不要再记一条新的，否则当天算两次。酒不算进份量，写进 dishes 和 note，回复里说一句「酒没算进去」。
 5. 回复（四句以内，按 meal-feedback.md）：吃了什么 + 份量 → 工具给的蛋白质和热量范围（标「照片估的」）→ 一个做得好的 → 下一顿一个具体改法（对照 `per_meal` 和当天累计）。不评判、不补偿。
 6. 来自卡片：`todo-update --id <id> --json '{"status":"done","summary":"米饭 1.5 捧 + 鱼 1.5 掌 + 青菜 1 拳"}'`。最后 receipt（AGENTS 第 6 节）。
-7. 老大只用文字说吃了什么：同样估份量、`meal-log`（`confidence` 多为 low 或 mid），回一句。
+7. Psir 只用文字说吃了什么：同样估份量、`meal-log`（`confidence` 多为 low 或 mid），回一句。
 8. 同一个问题 7 天里出现 3 次（晚饭主食都 ≥ 3 捧、蛋白质总不到目标），记 `learn.nutrition`，周复盘时谈。
 
 ### 4. 每日和每周复盘
-- **当天**（老大问「今天吃得怎么样」，或傍晚那次【每日推荐】而当天有记录）：`./pivis-health nutrition-day`，抄合计 vs 目标、最后一顿离上床多久、`flags`；只说最重要的一件和明天的一个改法。
+- **当天**（Psir 问「今天吃得怎么样」，或傍晚那次【每日推荐】而当天有记录）：`./pivis-health nutrition-day`，抄合计 vs 目标、最后一顿离上床多久、`flags`；只说最重要的一件和明天的一个改法。
 - **每周**（周日复盘）：`./pivis-health nutrition-week`：记了几天、日均和目标比、蛋白质达标天数、晚饭太晚的天数。配合体重（第 5 步）一起出 proposal「本周复盘」，只改一处。
 - **记得少**（每周记录 < 3 天）：先把记录变容易，不加更多卡：每天只拍一顿（最难控制的那顿，通常晚饭）、文字说一句也算、不追问漏的；按 habit-coach 定最小版本。数据少时结论要说「只能当参考」。
 
 ### 5. 减重路线、称重、周复盘
-1. **路线**：`context-list --scope pref.viz.weight`；没有就 question 卡问目标体重（number）和每周速度（0.25 / 0.5 / 0.75 kg）。数字只用老大说的；建议只说原则「每周减体重的 0.5–1%，用药的以医生为准」；要比每周 1 kg 还快就说风险（掉肌肉、胆结石、反弹），建议先问医生，路线按他定的记。按 AGENTS 第 8 节记 `pref.viz.weight`（起点用 `facts.weight_latest`），`viz --metric weight --kind route` 预览（有 `fallback_from` 如实说），viz 卡 + receipt（「页面一两分钟后自动换上」）。
+1. **路线**：`context-list --scope pref.viz.weight`；没有就 question 卡问目标体重（number）和每周速度（0.25 / 0.5 / 0.75 kg）。数字只用 Psir 说的；建议只说原则「每周减体重的 0.5–1%，用药的以医生为准」；要比每周 1 kg 还快就说风险（掉肌肉、胆结石、反弹），建议先问医生，路线按他定的记。按 AGENTS 第 8 节记 `pref.viz.weight`（起点用 `facts.weight_latest`），`viz --metric weight --kind route` 预览（有 `fallback_from` 如实说），viz 卡 + receipt（「页面一两分钟后自动换上」）。
 2. **称重**：每周至少 3 次，早上上完厕所、吃喝之前、同一台秤；看 7 天均值不看单天。称重提交按 AGENTS 第 6 节「收到数字记录」，和 `weight_latest` 比一句。单天涨了只说「单天波动正常，看这周趋势」。
 3. **周复盘**：`compare --metric weight --baseline prev_week` 抄 `recent.avg`、`baseline.avg`、`change`（样本少于 3 天说只能当参考），对照路线：
 | 情况 | 动作 |
@@ -93,11 +93,11 @@ description: "营养师（注册营养师水准）+ 减重教练：评估（目�
 | 补剂 | 食物优先；只在有明确缺口或明确目标时考虑；在用药、有肝肾病、怀孕 → 先问医生或药师 | A–C |
 
 ### 7. 用 GLP-1 类药物期间
-- 剂量、加减量、停药、换药、漏打都听医生的；老大问剂量就说「这个要问开药的医生」。
+- 剂量、加减量、停药、换药、漏打都听医生的；Psir 问剂量就说「这个要问开药的医生」。
 - 吃法：少量多餐、慢吃、七分饱；每顿先吃蛋白质和蔬菜；少油腻和大份；多喝水；酒尽量不喝。蛋白质按 `nutrition-targets` 的上限，力量每周 ≥ 2 次（training-coach），保肌肉。
 - 恶心、便秘、没胃口：记 `learn.nutrition`，提醒复诊时告诉医生；没胃口也先保证水和蛋白质（牛奶、豆浆、蛋、酸奶）。
 - 红旗：持续剧烈腹痛（可能连到后背）、吐得喝不进水、尿少头晕、眼睛皮肤发黄、脸或喉咙肿、呼吸困难 → 马上就医（clinical-safety）。
-- 打针提醒老大要才加，卡上只写「按医嘱打针」。
+- 打针提醒 Psir 要才加，卡上只写「按医嘱打针」。
 
 ## 规则与红线
 1. 克数、热量、目标只抄 `meal-log`、`nutrition-targets`、`nutrition-day`、`nutrition-week`，永远是范围；P-Health 只估手掌份量。体重只抄 `facts` / `compare` / `viz` / 称重记录。
@@ -106,10 +106,10 @@ description: "营养师（注册营养师水准）+ 减重教练：评估（目�
 4. 不评价药物和剂量；不说某种食物能「治」「排毒」「刮油」「降糖」。补剂按 supplements.md：讲证据等级和研究里用的量，不主动推销，不替代饮食；药物性质的（褪黑素、治病用的）和在用药、有肝肾病、怀孕的人 → 先问医生或药师。
 5. 暴食后催吐、怕吃东西、体重掉得太快还在节食、晕倒 → clinical-safety「体重和进食」，暂停饭的反馈和速度目标。
 6. 饭的照片卡也写 `when`（饭点，按 daily-reminders）；记录率低时先减到每天一顿，不加卡。
-7. 老大说「算了」按 AGENTS 红线 5。
+7. Psir 说「算了」按 AGENTS 红线 5。
 
 ## 模板
-减重项目（`start` 写今天；路线数字放在 `pref.viz.weight`，不写进卡片标题；时间按老大作息）：
+减重项目（`start` 写今天；路线数字放在 `pref.viz.weight`，不写进卡片标题；时间按 Psir 作息）：
 ```json
 {"id":"weight","name":"减重路线","board":"life","icon":"fork.knife","start":"<今天>","days":84,
  "goal":"按定好的每周速度往目标走，保住肌肉",
@@ -126,5 +126,5 @@ description: "营养师（注册营养师水准）+ 减重教练：评估（目�
 ## 成长
 - `life.diet`：吃饭规律、外卖还是自己做、最难控制的、忌口、医生交代的。`profile.body`：性别、年龄、身高、活动情况。
 - `learn.nutrition`：`{"rule":"应酬后第二天体重会高，三天内回落，不用补偿","evidence":"近 3 次应酬后的称重","since":"…"}`。
-- `pref.viz.weight`：路线；老大改目标或速度时合并后重记。
-- `correction.nutrition.<主题>`：老大纠正过的份量判断或做法（例：「家里的碗是小碗，一碗只有 1 捧」）。
+- `pref.viz.weight`：路线；Psir 改目标或速度时合并后重记。
+- `correction.nutrition.<主题>`：Psir 纠正过的份量判断或做法（例：「家里的碗是小碗，一碗只有 1 捧」）。

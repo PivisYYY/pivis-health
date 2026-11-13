@@ -1,7 +1,7 @@
 """开屏的「反直觉、但是对的」健康观。
 
 每条都有可查的依据，写法守 P-Health 的底线：讲清机制和适用范围，不诊断、不替代医生。
-App 每次打开显示一条（共 100 条），点开看解释；和老大正在做的项目（CBT-I、训练、减重……）相关的更常出现，
+App 每次打开显示一条（共 100 条），点开看解释；和 Psir 正在做的项目（CBT-I、训练、减重……）相关的更常出现，
 最近看过的 12 条不重复。
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ KEEP_SEEN = 12
 
 
 def _interests(cfg) -> set[str]:
-    """从老大正在进行的项目推出他现在关心什么：休息板块 → sleep，项目 id 带 cbti → cbti，以此类推。"""
+    """从 Psir 正在进行的项目推出他现在关心什么：休息板块 → sleep，项目 id 带 cbti → cbti，以此类推。"""
     tags: set[str] = set()
     try:
         from .todos import TodoStore
@@ -39,7 +39,7 @@ def _interests(cfg) -> set[str]:
 
 
 def pick(cfg, rng: random.Random | None = None) -> dict:
-    """挑一条：最近看过的 12 条不出；和老大正在做的事相关的权重 ×3。挑中的记进已看列表。"""
+    """挑一条：最近看过的 12 条不出；和 Psir 正在做的事相关的权重 ×3。挑中的记进已看列表。"""
     rng = rng or random.Random()
     path = cfg.data_dir / SEEN_FILE
     try:

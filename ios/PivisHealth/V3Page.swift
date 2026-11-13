@@ -131,7 +131,7 @@ struct BoardPageView: View {
             if ServerConfig.isDemo { await loader.load(); return }
             // 下拉：Apple 健康由手机直接传、服务器马上回 WHOOP / Apple 的数据有多新（需要时它在后台补拉 WHOOP），
             // 两边同时进行；再拉最新页面。不写字：轻震一下 + 顶上两个小圆点（实心 = 新的），2 秒后淡出。
-            // 只有服务器说要老大动手（action）时才写那一句；P-Health 还在改主卡由流光框表示
+            // 只有服务器说要 Psir 动手（action）时才写那一句；P-Health 还在改主卡由流光框表示
             async let apple = DeviceDataReporter.shared.syncNow()
             async let whoop = V3API.syncHealth()
             let (appleOK, w) = await (apple, whoop)
@@ -303,7 +303,7 @@ struct BoardPageView: View {
     /// 测试（仅模拟器回放）：-syncDotsHold 让小圆点多留 8 秒（XCUITest 手势结束后要等 App 空闲约 2 秒，2 秒的窗口抓不到）
     private static let syncDotsHold = Profile.isSim && ProcessInfo.processInfo.arguments.contains("-syncDotsHold")
 
-    /// 两个小圆点：出来后 2 秒淡出；要老大动手（有那句话）时多留一会儿，够读完、够点
+    /// 两个小圆点：出来后 2 秒淡出；要 Psir 动手（有那句话）时多留一会儿，够读完、够点
     private func showSyncDots(_ d: HealthDots) {
         let token = UUID()
         syncDotsToken = token
@@ -497,7 +497,7 @@ struct HabitRows: View {
                 Button {
                     openChat(context: contextFor(h.board), about: ChatAbout(kind: .habit, id: h.id, name: h.name))
                 } label: {
-                    // 一行：图标、名字 · 第几天/共几天、右边今天要做的（老大 11-10：字要少，不再每行写「坚持习惯」）
+                    // 一行：图标、名字 · 第几天/共几天、右边今天要做的（Psir 11-10：字要少，不再每行写「坚持习惯」）
                     HStack(spacing: 12) {
                         // 每个项目自己的线条图标（「腰背放松」不再是网球拍）；没给就用板块图标
                         ProjectGlyph(icon: h.icon, board: h.board)

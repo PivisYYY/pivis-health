@@ -1,5 +1,5 @@
 #!/bin/sh
-# v3 定时节拍（launchd com.pivis.health-composer，每个整点唤醒一次）。按老大所在时区（config 里的 timezone，北京）：
+# v3 定时节拍（launchd com.pivis.health-composer，每个整点唤醒一次）。按 Psir 所在时区（config 里的 timezone，北京）：
 # - 8 点、13 点、18 点：先让 P-Health 按场景主动推荐 1–2 件事（每档每天只发一次），再重排四个页面的结论和主卡；
 # - 11 点、15 点、20 点：只重排「此刻」（跟着一天走：早上练什么、白天动一动、午休和晚上才是休息），
 #   20 点再重排「休息」（做 CBT-I 时晚上换成「今晚」：离最早上床还有多久）。

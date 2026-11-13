@@ -1,7 +1,7 @@
 # 常见流程
 
-## 午睡（分两步，时间和时长让老大定，不要替他定）
-1. 老大在提议里选了午睡 → 先把这张卡改成问「几点、多久」（时长最多 20 分钟，15:00 前结束）：
+## 午睡（分两步，时间和时长让 Psir 定，不要替他定）
+1. Psir 在提议里选了午睡 → 先把这张卡改成问「几点、多久」（时长最多 20 分钟，15:00 前结束）：
 ```json
 {"title":"几点睡、睡多久？","kind":"fields","submit_label":"就这样","note":"不超过 20 分钟，15:00 前结束",
  "inputs":[{"id":"start","label":"几点躺下","type":"options","options":["12:30","13:00","13:30"],"submit":"agent"},
@@ -21,8 +21,8 @@
 {"board":"sleep","when":"23:30","title":"床外拉伸","kind":"follow","note":"在床外做，床只用来睡",
  "media":{"kind":"video","title":"睡前拉伸 · 10 分钟","url":"/media/follow/<ssid>/out.mp4","duration_min":10}}
 ```
-- 拉伸在床外做。上床以后只听声音：视频锁屏也能接着放，老大可以锁屏听。
-- 还没有视频：不写文字步骤，按 follow-video skill 的「还没有视频」请老大发；follow 出片后发视频卡 + plan 卡，老大点「就这样」再 todo-add / project-set。
+- 拉伸在床外做。上床以后只听声音：视频锁屏也能接着放，Psir 可以锁屏听。
+- 还没有视频：不写文字步骤，按 follow-video skill 的「还没有视频」请 Psir 发；follow 出片后发视频卡 + plan 卡，Psir 点「就这样」再 todo-add / project-set。
 - 白噪音、雨声不是练习：在对话里发音频卡，不做成待办。
 
 ## 提议卡

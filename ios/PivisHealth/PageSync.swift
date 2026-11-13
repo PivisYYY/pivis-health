@@ -15,7 +15,7 @@ final class PageSync: ObservableObject {
     /// 有没看过的 P-Health 回复的对话（"" 主对话 / 休息 / 运动 / 压力）：入口上亮个点
     @Published private(set) var unread: Set<String> = []
     private var lastReply: [String: Date] = [:]
-    /// P-Health 看出几件事、等老大点开聊（status.insight）：主对话浮条 + 中间圆钮的点。
+    /// P-Health 看出几件事、等 Psir 点开聊（status.insight）：主对话浮条 + 中间圆钮的点。
     /// 本地点过「聊聊」/ 划掉的那条不再显示，哪怕服务器的状态还没跟上
     @Published private(set) var insight: PendingInsight?
     private var serverInsight: PendingInsight?

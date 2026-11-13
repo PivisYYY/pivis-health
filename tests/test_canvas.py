@@ -52,7 +52,7 @@ def test_validate_page_accepts_layout_and_forbids_mixing(monkeypatch):
     with pytest.raises(ValueError, match="layout"):
         v3.validate_page("sleep", doc, evidence)
     doc["hero"].pop("fields")
-    # b44：主卡放 timeline 只是写法建议，老大明确要过的布局里有它也能发出去
+    # b44：主卡放 timeline 只是写法建议，Psir 明确要过的布局里有它也能发出去
     doc["hero"]["layout"]["children"].append({"t": "timeline", "n": 2})
     assert v3.validate_page("sleep", doc, evidence)["hero"]["layout"]["children"][-1]["t"] == "timeline"
 

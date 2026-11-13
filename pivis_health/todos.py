@@ -36,7 +36,7 @@ INPUT_TYPES = ("options", "multi", "scale", "number", "text", "time", "photo")
 SUBMIT_MODES = ("local", "agent", "chat")
 MEDIA_KINDS = ("audio", "video", "embed")
 _HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-UNTIMED_KINDS = ("options", "proposal", "scale")    # 问老大的卡不需要时间；其他 P-Health 加的卡都要有时间（build 53）
+UNTIMED_KINDS = ("options", "proposal", "scale")    # 问 Psir 的卡不需要时间；其他 P-Health 加的卡都要有时间（build 53）
 
 
 # 待办的 13 种形式（todo-cards skill 和 `./pivis-health todo-forms` 都从这里读，别在提示词里抄一份）
@@ -61,7 +61,7 @@ TODO_FORMS: list[dict] = [
     {"form": "timer", "name": "计时", "kind": "timer", "use": "只用于午睡、闭眼歇这类休息：开始后倒计时、到点响。任何练习都不用它（练习用「练习视频」）",
      "template": {"board": "sleep", "when": "13:30", "title": "午睡 20 分钟", "kind": "timer", "duration_min": 20, "alarm": "13:50"}},
     {"form": "follow", "name": "练习视频", "kind": "follow",
-     "use": "所有练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习）：这个项目 + 一个视频（只认 follow 出的片），点开就播；老大点对勾才算做完",
+     "use": "所有练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习）：这个项目 + 一个视频（只认 follow 出的片），点开就播；Psir 点对勾才算做完",
      "template": {"board": "sleep", "when": "22:40", "title": "睡前拉伸", "kind": "follow",
                   "steps": [{"title": "睡前拉伸", "media": {"kind": "video", "title": "睡前拉伸 · 8 分钟",
                                                             "url": "<follow 出片给的 /media/follow/<ssid>/out.mp4>",
@@ -72,16 +72,16 @@ TODO_FORMS: list[dict] = [
     {"form": "rating", "name": "打分", "kind": "options", "use": "用完素材 / 新做法之后评价，按分数换或留",
      "template": {"board": "sleep", "title": "昨晚的放松有用吗", "kind": "options", "note": "身体扫描 · 12 分钟",
                   "inputs": [{"id": "rate", "label": "", "type": "options", "options": ["有用", "一般", "没用，换一个"], "submit": "agent"}]}},
-    {"form": "proposal", "name": "提议", "kind": "proposal", "use": "你想改计划时先问：原因写进 note，2–3 个方案让老大选；一定写 until",
+    {"form": "proposal", "name": "提议", "kind": "proposal", "use": "你想改计划时先问：原因写进 note，2–3 个方案让 Psir 选；一定写 until",
      "template": {"board": "sleep", "title": "本周复盘：睡前流程", "kind": "proposal", "until": "21:30",
                   "note": "身体扫描 3 次都跳了，理由都是太晚太困",
                   "inputs": [{"id": "fix", "label": "", "type": "options",
                               "options": ["提前到 23:10，换 6 分钟呼吸", "只换 6 分钟短版", "先不动，再跑一周"], "submit": "agent"}]}},
-    {"form": "ask", "name": "追问", "kind": "options", "use": "破了规则后的追问：选一个原因（想多说的，老大会点卡上的图标进对话说）",
+    {"form": "ask", "name": "追问", "kind": "options", "use": "破了规则后的追问：选一个原因（想多说的，Psir 会点卡上的图标进对话说）",
      "template": {"board": "sleep", "title": "起晚了，是什么原因", "kind": "options",
                   "inputs": [{"id": "why", "label": "", "type": "options", "options": ["没听到闹钟", "太困起不来", "想多睡会", "别的原因"],
                               "submit": "agent"}]}},
-    {"form": "auto", "name": "设备自动完成", "kind": "done", "use": "设备能识别的事（入睡），不用老大点",
+    {"form": "auto", "name": "设备自动完成", "kind": "done", "use": "设备能识别的事（入睡），不用 Psir 点",
      "template": {"board": "sleep", "when": "01:30", "title": "01:30 后再上床", "kind": "done", "auto": "bedtime"}},
     {"form": "confirm", "name": "确认 + 时间", "kind": "confirm", "use": "要留下完成时间的事（按医嘱用药），卡上不写剂量",
      "template": {"board": "life", "when": "08:00", "title": "按医嘱打针", "kind": "confirm", "note": "每周一"}},
@@ -110,7 +110,7 @@ def _sort_when(when: str) -> str:
 
 
 def sort_key(t: dict) -> tuple:
-    """等老大拍板/回答的卡排最前：提议，以及没有时间点、等着填的卡（P-Health 追问时会把提议改成这种）。其余按时间。"""
+    """等 Psir 拍板/回答的卡排最前：提议，以及没有时间点、等着填的卡（P-Health 追问时会把提议改成这种）。其余按时间。"""
     waiting = t["status"] in ("proposed", "processing", "scheduled")
     asks = t["kind"] == "proposal" or (not t["when"] and t["kind"] in ("fields", "options", "scale", "number"))
     return (0 if waiting and asks else 1, _sort_when(t["when"]), t.get("created_at") or "")
@@ -165,7 +165,7 @@ def _norm_input(i: Any, idx: int) -> dict:
         if not 2 <= len(norm) <= 6:
             raise TodoError("选项需要 2–6 个")
         out["options"] = norm
-        # build 43 起卡上不再有「自己写一句」（allow_text 忽略）：想多说的，老大点卡上的图标带着这张卡进对话
+        # build 43 起卡上不再有「自己写一句」（allow_text 忽略）：想多说的，Psir 点卡上的图标带着这张卡进对话
     if typ == "scale":
         out["min"] = int(i.get("min", 1))
         out["max"] = int(i.get("max", 5))
@@ -198,7 +198,7 @@ def _norm_input(i: Any, idx: int) -> dict:
 
 PRACTICE_RULE = ("练习（拉伸、力量、呼吸、身体扫描、睡前流程、入眠练习……）一律是「这个项目 + 一个视频」："
                  "kind=follow，steps 只放一项、带一个 video，url 是 follow 出片给的 /media/follow/<ssid>/out.mp4。"
-                 "B 站等公开链接、音频、文字步骤、计时、子清单都不能当练习；还没有视频就先请老大发一个博主视频，用 follow 命令出片")
+                 "B 站等公开链接、音频、文字步骤、计时、子清单都不能当练习；还没有视频就先请 Psir 发一个博主视频，用 follow 命令出片")
 
 
 def check_practice(t: dict, cfg: Config | None = None) -> None:
@@ -225,7 +225,7 @@ REMIND_KEYS = ("off", "lead_min", "extra", "nudge")
 def _norm_remind(r) -> dict | None:
     """这张卡怎么提醒（build 53，P-Health 可以改）：
     off 不提醒；lead_min 提前几分钟（0 = 只在到点提醒，最多 120）；extra 另加的钟点（最多 3 个）；nudge 过点没做要不要再催。
-    不写就是默认：提前（老大的 pref.remind.lead_min，默认 10 分钟）+ 到点，练习 / 打勾过点 15 分钟再催。"""
+    不写就是默认：提前（Psir 的 pref.remind.lead_min，默认 10 分钟）+ 到点，练习 / 打勾过点 15 分钟再催。"""
     if not r:
         return None
     if not isinstance(r, dict) or set(r) - set(REMIND_KEYS):
@@ -275,14 +275,14 @@ def normalize(t: dict, existing: dict | None = None) -> dict:
     if when and not _HHMM.match(when):
         raise TodoError("when 必须是 HH:MM")
     if not when:
-        # 每条待办都该有时间（老大 11-08：不统一很乱）：标题里写了钟点（「23:15 前洗完澡」）就拿它当时间
+        # 每条待办都该有时间（Psir 11-08：不统一很乱）：标题里写了钟点（「23:15 前洗完澡」）就拿它当时间
         m = _TITLE_TIME.search(str(base.get("title") or "")) or _TITLE_TIME.search(str(base.get("note") or ""))
         if m:
             when = f"{int(m.group(1)):02d}:{m.group(2)}"
     status = base.get("status") or ("proposed" if kind == "proposal" else "scheduled")
     if status not in STATUSES:
         raise TodoError(f"status 只能是 {STATUSES}")
-    # 卡上只有一个主动作（build 43 起没有「晚点」「算了」：要改时间、今天不做，老大点卡上的图标进对话说）
+    # 卡上只有一个主动作（build 43 起没有「晚点」「算了」：要改时间、今天不做，Psir 点卡上的图标进对话说）
     verbs = base.get("verbs") or {"follow": ["start", "done"], "timer": ["start"], "done": ["done"]}.get(kind, [])
     verbs = [v for v in verbs if v not in ("later", "skip")]   # 老卡里的「晚点」「算了」不再显示
     for v in verbs:
@@ -364,7 +364,7 @@ def _same_content(a: dict, b: dict) -> bool:
     return {k: v for k, v in a.items() if k not in skip} == {k: v for k, v in b.items() if k not in skip}
 
 
-TITLE_MAX = 12        # 待办标题（老大 11-10：卡上字太多）。写的时候 ≤ 8 字最好
+TITLE_MAX = 12        # 待办标题（Psir 11-10：卡上字太多）。写的时候 ≤ 8 字最好
 NOTE_MAX = 20         # note 只在卡展开后显示
 PROJECT_NAME_MAX = 10 # 项目名（去掉「· 56 天」后）不带括号、频率（第几天 App 自己显示）
 
@@ -450,7 +450,7 @@ class TodoStore:
 
     # ---- 待办 ----
     def add(self, todo: dict, today: date, now: datetime | None = None) -> dict:
-        """now：老大那边的「现在」（模拟回放时是假的），拟时间用；不给就按配置的时区取。"""
+        """now：Psir 那边的「现在」（模拟回放时是假的），拟时间用；不给就按配置的时区取。"""
         todo = dict(todo)
         todo.setdefault("date", today.isoformat())
         check_lengths(todo)
@@ -463,7 +463,7 @@ class TodoStore:
                 t["id"] = f"{t['id'].split('-')[0]}-{n}"
                 n += 1
             if not t["when"] and t["kind"] not in UNTIMED_KINDS and t.get("source") == "agent":
-                # 不留空时间：按今晚时间线拟一个，标成待确认，通知线程推一条请老大确认
+                # 不留空时间：按今晚时间线拟一个，标成待确认，通知线程推一条请 Psir 确认
                 from . import timedraft
                 from .clock import day_of
                 now = now or datetime.now(ZoneInfo(self.cfg.timezone)).replace(tzinfo=None)
@@ -507,7 +507,7 @@ class TodoStore:
                 t["edited"] = True
             if by == "agent" and cur.get("status") == "processing":
                 t["request"] = None
-            # P-Health 重写 record 时，老大提交过的历史（submitted）保留
+            # P-Health 重写 record 时，Psir 提交过的历史（submitted）保留
             kept = (cur.get("record") or {}).get("submitted")
             if kept:
                 t["record"] = {**(t.get("record") or {}), "submitted": (t.get("record") or {}).get("submitted") or kept}
@@ -759,14 +759,14 @@ class TodoStore:
                 t["request"] = {"values": values, "text": text or "", "at": now.isoformat(timespec="seconds"),
                                 "previous_status": t["status"]}
                 t["status"] = "processing"
-                # 老大提交的内容同时存进 record（带最近 10 次的历史）：P-Health 改完这条时 request 会清掉，答案不能跟着丢
+                # Psir 提交的内容同时存进 record（带最近 10 次的历史）：P-Health 改完这条时 request 会清掉，答案不能跟着丢
                 rec = dict(t.get("record") or {})
                 subs = list(rec.get("submitted") or [])[-9:]
                 subs.append({"values": values, "text": text or "", "at": now.isoformat(timespec="seconds")})
                 rec.update({"values": values, "text": text or "", "at": now.isoformat(timespec="seconds"), "submitted": subs})
                 t["record"] = rec
             elif action == "confirm_time":
-                # 拟的时间：老大点「好」（不带 when）或在时间轮上换了一个（带 when）
+                # 拟的时间：Psir 点「好」（不带 when）或在时间轮上换了一个（带 when）
                 when = str(values.get("when") or t.get("when") or "")
                 if not _HHMM.match(when):
                     raise TodoError("when 必须是 HH:MM")

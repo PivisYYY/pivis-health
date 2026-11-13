@@ -15,7 +15,7 @@ NIGHT_END_HOUR = 6   # 00:00–05:59 属于前一天的「当晚」：待办、�
 
 
 def day_of(dt: datetime) -> date:
-    """老大的「今天」：凌晨 0–6 点还算前一天（熬到 00:30 时，今晚的上床、拉伸还是今天的事）。"""
+    """Psir 的「今天」：凌晨 0–6 点还算前一天（熬到 00:30 时，今晚的上床、拉伸还是今天的事）。"""
     return (dt - timedelta(hours=NIGHT_END_HOUR)).date()
 
 

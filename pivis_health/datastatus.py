@@ -1,9 +1,9 @@
 """数据连接状态（build 53）：先分清原因，再决定说不说、对谁说。
 
-老大的要求：不能再出现「WHOOP / Apple 健康连不上」的提示，除非真要他动手。
-- 原因在服务器 / 开发（比如样本被拒、WHOOP 接口慢在重试）→ 不告诉老大去改设置，记进 dev_alerts.jsonl；
+Psir 的要求：不能再出现「WHOOP / Apple 健康连不上」的提示，除非真要他动手。
+- 原因在服务器 / 开发（比如样本被拒、WHOOP 接口慢在重试）→ 不告诉 Psir 去改设置，记进 dev_alerts.jsonl；
 - 手机只是没打开 App（后台上报没有健康样本）→ 不算问题，打开就补上；
-- 真要老大动手的只有两种：WHOOP 登录真的失效（刷新令牌被拒）、Apple 健康权限确认关了（App 在前台查到 0 条并报了上来）。
+- 真要 Psir 动手的只有两种：WHOOP 登录真的失效（刷新令牌被拒）、Apple 健康权限确认关了（App 在前台查到 0 条并报了上来）。
 
 状态只读本地文件和库，不联网。
 """
@@ -87,7 +87,7 @@ def apple(cfg, now: datetime | None = None) -> dict:
         return {**out, "state": "fresh"}
     rej = _parse(st.get("last_reject_at"))
     if rej and (not _parse(st.get("last_accepted_at")) or rej > _parse(st.get("last_accepted_at"))):
-        # 手机发了、服务器拒了：是我们的 bug，不是老大的设置
+        # 手机发了、服务器拒了：是我们的 bug，不是 Psir 的设置
         return {**out, "state": "server", "cause": ",".join(x for x in (st.get("last_reject_reasons") or []) if x)}
     hk = st.get("health") or {}
     hk_h = _hours(now, hk.get("at"))
@@ -99,7 +99,7 @@ def apple(cfg, now: datetime | None = None) -> dict:
         return {**out, "state": "quiet"}          # 手机一天没开 App / 没网：打开就补上，不算问题
     if out["age_h"] is not None and out["age_h"] <= 36:
         return {**out, "state": "fresh"}
-    return {**out, "state": "late"}               # 手机在线但样本旧：原因不明，进开发排查，不打扰老大
+    return {**out, "state": "late"}               # 手机在线但样本旧：原因不明，进开发排查，不打扰 Psir
 
 
 def status(cfg, now: datetime | None = None) -> dict:
@@ -115,20 +115,20 @@ def brief_lines(cfg, now: datetime | None = None) -> list[str]:
     w, a = s["whoop"], s["apple"]
     out = []
     if w.get("state") == "needs_login":
-        out.append("WHOOP 登录失效，要老大在 App 里点「重新登录 WHOOP」（这是唯一要他做的事）")
+        out.append("WHOOP 登录失效，要 Psir 在 App 里点「重新登录 WHOOP」（这是唯一要他做的事）")
     elif w.get("state") == "late":
-        out.append(f"WHOOP 数据晚到约 {int(w.get('late_h') or 0)} 小时，服务器在自动重试，不用老大做什么；别说他没连上，用最近的数就说明是哪天的")
+        out.append(f"WHOOP 数据晚到约 {int(w.get('late_h') or 0)} 小时，服务器在自动重试，不用 Psir 做什么；别说他没连上，用最近的数就说明是哪天的")
     if a.get("state") == "blocked":
         out.append("Apple 健康权限关了：" + PERMISSION_ACTION.split("：", 1)[1])
     elif a.get("state") == "server":
-        out.append("Apple 健康的数据卡在服务器这边（开发在修），不用老大做什么；不要让他去改设置，也不要说他没连上")
+        out.append("Apple 健康的数据卡在服务器这边（开发在修），不用 Psir 做什么；不要让他去改设置，也不要说他没连上")
     elif a.get("state") == "late":
-        out.append("Apple 健康最近的数据有点旧，原因在排查，不用老大做什么；不要说他没连上")
+        out.append("Apple 健康最近的数据有点旧，原因在排查，不用 Psir 做什么；不要说他没连上")
     return out
 
 
 def notices(cfg, now: datetime | None = None) -> list[dict]:
-    """页面上的提示：只放要老大动手的。"""
+    """页面上的提示：只放要 Psir 动手的。"""
     return [{"text": t, "source": "server", "action": True} for t in status(cfg, now)["actions"]]
 
 
@@ -150,7 +150,7 @@ def _alert(cfg, kind: str, detail: str, now: datetime) -> bool:
 
 
 def self_check(cfg, now: datetime | None = None) -> list[str]:
-    """每小时巡一次：手机在线但数据没进库、WHOOP 一直失败——当 bug 记下来，不等老大发现。"""
+    """每小时巡一次：手机在线但数据没进库、WHOOP 一直失败——当 bug 记下来，不等 Psir 发现。"""
     now = now or datetime.now(timezone.utc)
     s = status(cfg, now)
     raised = []

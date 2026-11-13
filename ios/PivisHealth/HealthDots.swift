@@ -1,8 +1,8 @@
 import SwiftUI
 
 // MARK: - 下拉刷新后的两个小圆点（build 53）：WHOOP、Apple 健康的数据新不新。不写字。
-// 实心 = 新的；空心 = 不是最新（不等于「没连上」：服务器在后台补拉、手机没开 App 都会这样，不用老大做什么）；
-// 服务器在后台补拉 WHOOP 时那个点慢慢呼吸。只有服务器说要老大动手（action）时下面才出一句话，
+// 实心 = 新的；空心 = 不是最新（不等于「没连上」：服务器在后台补拉、手机没开 App 都会这样，不用 Psir 做什么）；
+// 服务器在后台补拉 WHOOP 时那个点慢慢呼吸。只有服务器说要 Psir 动手（action）时下面才出一句话，
 // WHOOP 登录失效那句可以点，直接重新登录。
 
 struct HealthDots: Equatable {
@@ -56,7 +56,7 @@ struct HealthDotsView: View {
         }
     }
 
-    /// 要老大动手的那一句（服务器的原话）；WHOOP 登录失效那句点了直接重新登录
+    /// 要 Psir 动手的那一句（服务器的原话）；WHOOP 登录失效那句点了直接重新登录
     @ViewBuilder
     private func actionLine(_ text: String) -> some View {
         let line = HStack(spacing: 6) {

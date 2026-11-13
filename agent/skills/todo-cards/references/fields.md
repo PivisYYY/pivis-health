@@ -11,7 +11,7 @@
 ## inputs（每项）
 `{"id":"latency","label":"躺下后多久睡着","type":"options","options":["15 分内","15–30","30–60","1 小时+"],"submit":"local"}`
 - type：options / multi / scale（min、max、min_label、max_label）/ number（unit；`step` 画加减按钮；`default`："last" 先填上次的值，或一个数）/ text（placeholder）/ time / photo（拍照或从相册选，submit 用 agent，照片会交给你看）
-- 待办卡上的 options / multi 不能让老大自己写一句（`allow_text` 无效，不要写）；要文字就单独加一项 type=text。
+- 待办卡上的 options / multi 不能让 Psir 自己写一句（`allow_text` 无效，不要写）；要文字就单独加一项 type=text。
 - **submit**：`local` 直接记录；`agent` 交给你处理（卡片进入等待态，你收到【待办提交】后用 todo-update 更新）；`chat` 直接转到对话。文字输入默认 agent。
 
 ## 主动作（不用写）

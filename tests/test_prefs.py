@@ -1,4 +1,4 @@
-"""老大定下的偏好：记下后写进 AGENTS.local.md（build 51 起不再写进 AGENTS.md），改口替换。"""
+"""Psir 定下的偏好：记下后写进 AGENTS.local.md（build 51 起不再写进 AGENTS.md），改口替换。"""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -54,7 +54,7 @@ def test_symlinked_agents_md_is_left_alone(tmp_path):
     assert real.read_text(encoding="utf-8") == "x"
 
 
-# ---- 老大纠正过的专业要点：渲染进 AGENTS.md；同一件事第二次纠正要求写进 skill
+# ---- Psir 纠正过的专业要点：渲染进 AGENTS.md；同一件事第二次纠正要求写进 skill
 def test_corrections_render_and_repeat(tmp_path):
     from dataclasses import replace as _replace
     import pytest as _pytest
@@ -71,4 +71,4 @@ def test_corrections_render_and_repeat(tmp_path):
     p2 = _prefs.check_correction(cfg, "correction.sleep.bath", {"rule": "热水澡在最早上床前 1–2 小时洗完"})
     assert p2["times"] == 2 and p2["needs_skill"] is True
     block = _prefs.render_block([], [], _prefs.corrections(cfg))
-    assert "老大纠正过的专业要点" in block and "热水澡在最早上床前 1–2 小时洗完；之前错在：说成睡前随便洗" in block
+    assert "Psir 纠正过的专业要点" in block and "热水澡在最早上床前 1–2 小时洗完；之前错在：说成睡前随便洗" in block

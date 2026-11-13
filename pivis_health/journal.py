@@ -60,7 +60,7 @@ def new_push_id() -> str:
 
 
 def now_iso(cfg=None) -> str:
-    """老大那边的钟（config 的 timezone；模拟环境用模拟时钟），不带时区。
+    """Psir 那边的钟（config 的 timezone；模拟环境用模拟时钟），不带时区。
     这台机器的系统时区不一定是北京（实际是太平洋时间）：日志要和待办的钟点放在同一条时间轴上。"""
     if cfg is not None and getattr(cfg, "timezone", None):
         from .clock import now as clock_now

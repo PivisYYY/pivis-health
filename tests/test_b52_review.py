@@ -68,7 +68,7 @@ def good_reply(cases):
     downs = [c["id"] for c in cases if c["rating"] == "down"]
     return json.dumps({
         "summary": "两次点踩都是没给专业判断",
-        "problems": [{"title": "拿不诊断挡回去", "cases": downs[:1], "wrong": "老大问节律，回了「你自己看」",
+        "problems": [{"title": "拿不诊断挡回去", "cases": downs[:1], "wrong": "Psir 问节律，回了「你自己看」",
                       "better": "先判断节律没乱：起床稳定，问题在睡得少；再给固定起床和见光", "layer": "rule",
                       "fix": "AGENTS 红线 2 改成必须给判断"},
                      {"title": "早醒只说常见", "cases": downs[1:2], "wrong": "没分原因", "better": "先问是尿意、反刍还是环境",
@@ -83,7 +83,7 @@ def test_collect_metrics_and_cases(tmp_path):
     ts = review.collect(tools, MON - timedelta(days=7), MON, lambda c: evs[c])
     review.join_feedback(tools.cfg, ts, MON - timedelta(days=7))
     m = review.metrics(ts)
-    assert m["turns"] == 4 and m["auto_turns"] == 1           # 【每日推荐】不算老大发起的
+    assert m["turns"] == 4 and m["auto_turns"] == 1           # 【每日推荐】不算 Psir 发起的
     assert m["up"] == 1 and m["down"] == 2 and m["down_reasons"] == {"不专业": 1, "太空泛": 1}
     assert m["skill_pct"] == 25
     cases = review.pick_cases(ts)
@@ -122,7 +122,7 @@ def test_cycle_open_decide(tmp_path):
     out = review.cycle(tools, ask=ask, events_of=lambda c: evs[c])
     assert out["pending"].startswith("rv-") and out["rounds"] == 1
     msg = out["message"]
-    assert msg.startswith("老大，这周的对话复盘：") and "👎 2" in msg and "```phealth-ui" in msg and "这几条改法" in msg
+    assert msg.startswith("Psir，这周的对话复盘：") and "👎 2" in msg and "```phealth-ui" in msg and "这几条改法" in msg
     st = review.pending_status(tools.cfg)
     assert st["button"] == "看看" and st["text"] == review.BAR_TEXT
     assert len(list(journal.read(tools.cfg, review.CASES))) == 2          # 两条点踩各一道考题

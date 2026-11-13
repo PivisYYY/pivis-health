@@ -1,13 +1,13 @@
-"""通知（APNs）：老大在等的几类事都推到锁屏（2026-11-08 老大要求放宽通知）。
+"""通知（APNs）：Psir 在等的几类事都推到锁屏（2026-11-08 Psir 要求放宽通知）。
 
 - P-Health 回了新消息：每一轮回复说完（turn/end）推一条，正文是这轮最后一段话（去掉卡片代码块）
-- 待办：到点前 N 分钟（老大的 pref.remind.lead_min，默认 10）、到点各一条；练习 / 打勾类过点 15 分钟还没做再催一次。
+- 待办：到点前 N 分钟（Psir 的 pref.remind.lead_min，默认 10）、到点各一条；练习 / 打勾类过点 15 分钟还没做再催一次。
   卡片时间写真实时刻，提前量只由这里给（不再把卡片时间往前挪）
 - 计时：开始后到「叫你」的时刻推一条（和手机上的系统闹钟同时到，闹钟没授权或静音时兜底）
 - P-Health 新问了一句：新出现的要选 / 要填的卡（提议、单选），或者给某张卡标了「有话问」
 
 服务进程里一个后台线程每 20 秒巡一次（两个服务进程都起线程，flock 保证同一时间只有一个在巡）；
-每件事只推一次（notify_state.json 记着推过什么）。不占每日推送额度、不受夜间免打扰：这几类都是老大自己在等的。
+每件事只推一次（notify_state.json 记着推过什么）。不占每日推送额度、不受夜间免打扰：这几类都是 Psir 自己在等的。
 模拟回放 / 演示 / 封版测试环境不推（sim_mode、会话前缀、没配 APNs）。
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ from typing import Any, Callable
 from .clock import day_of as _day_of
 
 TICK_S = 20
-PRE_MIN = 10          # 到点前多久提醒（默认；老大可以用 pref.remind 的 lead_min 改）
+PRE_MIN = 10          # 到点前多久提醒（默认；Psir 可以用 pref.remind 的 lead_min 改）
 NUDGE_MIN = 15        # 练习 / 打勾过点多久还没做再催
 GRACE_MIN = 5         # 计时到了：过点 5 分钟内还补发
 DUE_LATE_MIN = 15     # 到点那条 / 另加的钟点：服务停过、推送失败，过点 15 分钟内补发（build 53，以前 5 分钟）
@@ -186,7 +186,7 @@ def replies(state: dict, send, events_of: Callable[[str], list[dict]], on_cards=
 
 
 def lead_minutes(cfg) -> int:
-    """到点前多久提醒：老大在 pref.remind 里定的 lead_min（0–60），没定就 PRE_MIN。"""
+    """到点前多久提醒：Psir 在 pref.remind 里定的 lead_min（0–60），没定就 PRE_MIN。"""
     try:
         from .agent_context import AgentContextStore
         for e in AgentContextStore(cfg).snapshot()["entries"]:
@@ -200,7 +200,7 @@ def lead_minutes(cfg) -> int:
 
 
 def timer_end(t: dict) -> datetime | None:
-    """计时卡在什么时刻叫老大（不带时区）：卡上写了「几点叫你」（alarm）且还在开始之后，就按它；否则开始 + 时长。
+    """计时卡在什么时刻叫 Psir（不带时区）：卡上写了「几点叫你」（alarm）且还在开始之后，就按它；否则开始 + 时长。
     App 定系统闹钟用的是同一条规则。"""
     from .todos import due_at
     started = str((t.get("record") or {}).get("started_at") or "")
@@ -304,7 +304,7 @@ def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[
                 out.append({"why": "ask", "todo": tid, "ok": r.get("ok")})
             else:
                 sent[ask_key] = now.isoformat()              # 不新鲜的也记上，以后不再看
-        # 拟的时间：请老大确认（「好」「换个时间」两个按钮）；不回就按这个时间提醒
+        # 拟的时间：请 Psir 确认（「好」「换个时间」两个按钮）；不回就按这个时间提醒
         if t.get("time_draft") and t.get("when"):
             dkey = f"draft:{tid}:{t['when']}"
             if dkey not in sent:
@@ -327,7 +327,7 @@ def todos(state: dict, send, store, now: datetime, lead: int = PRE_MIN) -> list[
 
 def _fresh(t: dict) -> bool:
     stamp = str(t.get("updated_at") or t.get("created_at") or "")
-    try:   # 待办的时间戳是这台机器的本地时间（todos._now_iso），不是老大那边的钟
+    try:   # 待办的时间戳是这台机器的本地时间（todos._now_iso），不是 Psir 那边的钟
         return datetime.now() - datetime.fromisoformat(stamp[:19]) <= timedelta(minutes=ASK_FRESH_MIN)
     except ValueError:
         return False
@@ -338,7 +338,7 @@ REMINDERS = "reminders.json"
 
 
 def add_reminder(cfg, day: str, at: str, title: str, body: str = "", board: str | None = None) -> dict:
-    """P-Health 自己排一条到点推送（不是待办卡），比如「22:30 提醒老大收手机」。服务器到点一定推。"""
+    """P-Health 自己排一条到点推送（不是待办卡），比如「22:30 提醒 Psir 收手机」。服务器到点一定推。"""
     import re as _re
     from datetime import date as _date
     if not _re.match(r"^([01]\d|2[0-3]):[0-5]\d$", at or ""):
@@ -376,7 +376,7 @@ def reminders(state: dict, send, cfg, now: datetime) -> list[dict]:
 
 
 def _created_local(t: dict, tz: str) -> datetime | None:
-    """待办的 created_at 是这台机器的本地时间：换成老大那边的钟（不带时区），好和提醒时间比。"""
+    """待办的 created_at 是这台机器的本地时间：换成 Psir 那边的钟（不带时区），好和提醒时间比。"""
     from zoneinfo import ZoneInfo
     try:
         return datetime.fromisoformat(str(t.get("created_at"))[:19]).astimezone(ZoneInfo(tz)).replace(tzinfo=None)

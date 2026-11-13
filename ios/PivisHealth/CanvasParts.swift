@@ -2164,14 +2164,21 @@ struct PhotoPart: View {
                 .frame(height: 140)
                 .overlay {
                     // /api/ 下的照片要带设备密钥：不用 AsyncImage
-                    ServerImage(url: PivisAPI.resolve(n.x.url)) { failed in placeholder(failed ? "照片暂时打不开" : nil) }
+                    // 动作库示意动图：完整显示（白底小图，不裁切）；Psir 拍的照片铺满
+                    ServerImage(url: PivisAPI.resolve(n.x.url), contentMode: n.x.kind == "exercise" ? .fit : .fill) { failed in
+                        placeholder(failed ? (n.x.kind == "exercise" ? "动图暂时打不开" : "照片暂时打不开") : nil)
+                    }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             if let c = n.caption {
                 Text(c).font(E.body(15)).foregroundStyle(E.text).fixedSize(horizontal: false, vertical: true)
             }
+            if n.x.kind == "exercise" {
+                // 动图的版权标注（Gym visual 的使用条件：每次使用都带上）
+                Text("© Gym visual — gymvisual.com").font(E.body(11)).foregroundStyle(E.text3)
+            }
         }
-        .partLabel(["照片", n.caption])
+        .partLabel([n.x.kind == "exercise" ? "动作示意" : "照片", n.caption])
     }
 
     private func placeholder(_ s: String?) -> some View {

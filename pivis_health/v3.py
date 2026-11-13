@@ -160,7 +160,7 @@ def media_library(tools=None) -> list[dict]:
             "kind": kind(it["url"])} for it in content.LIBRARY]
     if tools is not None:
         from .coach import user_media
-        lib += [{**m, "source": "老大的素材库"} for m in user_media(tools)]
+        lib += [{**m, "source": "Psir 的素材库"} for m in user_media(tools)]
     # 能不能排成练习卡：只有 follow 出的片可以；其余只能在对话里发媒体卡（白噪音、雨声这类）
     return [{**m, "plannable": is_follow_video(str(m.get("url", "")))} for m in lib]
 
@@ -275,7 +275,7 @@ def _debt_parts(node: Any) -> list[str]:
 
 
 def _strip_explain(node: Any) -> Any:
-    """主卡不放解释句（老大 11-10：主表只表达最有问题的数据和现状）：去掉 caption / body 文字，标签和标题留着"""
+    """主卡不放解释句（Psir 11-10：主表只表达最有问题的数据和现状）：去掉 caption / body 文字，标签和标题留着"""
     if not isinstance(node, dict):
         return node
     if node.get("t") == "text" and node.get("role") in ("caption", "body"):
@@ -379,7 +379,7 @@ def validate_page(page: str, doc: Any, evidence: dict, strict: bool = True) -> d
             raise ValueError(f"hero.layout：{exc}") from exc
         out_layout = _strip_explain(out_layout) or out_layout
         # 「主卡别放 timeline」「结论别重复主卡的数」是写法建议（见 SCHEMA），不再硬拦：
-        # 老大明确要过的布局（pref.page）里有 timeline 时，以前三次都被拦，页面一直发不出去
+        # Psir 明确要过的布局（pref.page）里有 timeline 时，以前三次都被拦，页面一直发不出去
     _check_numbers(pool, str(hero.get("note") or ""), "hero.note")
     notices = doc.get("notices") or []
     if len(notices) > 2:
@@ -413,7 +413,7 @@ def _layout_sig(node: Any) -> list[tuple]:
 
 
 def page_pref(cfg, page: str) -> dict | None:
-    """老大在对话里确认过的这一页主卡（pref.page.<page> 里带 layout 的那条）。"""
+    """Psir 在对话里确认过的这一页主卡（pref.page.<page> 里带 layout 的那条）。"""
     from . import prefs
     for e in prefs.active_prefs(cfg):
         p = e.get("payload") or {}
@@ -428,7 +428,7 @@ def _evidence_pool(facts_: dict) -> list[float]:
 
 
 def enforce_page_pref(page: str, doc: dict, pref: dict | None, facts_: dict, final: bool) -> dict:
-    """老大确认过的主卡样子必须照做：零件和 bind 一样才算（文字可以微调）。
+    """Psir 确认过的主卡样子必须照做：零件和 bind 一样才算（文字可以微调）。
     不一样：还能重排就退回（ValueError，原因发回编排）；最后一次直接换成确认过的零件树。"""
     if not pref:
         return doc
@@ -441,7 +441,7 @@ def enforce_page_pref(page: str, doc: dict, pref: dict | None, facts_: dict, fin
     if hero.get("layout") and _layout_sig(hero["layout"]) == _layout_sig(want):
         return doc
     if not final:
-        raise ValueError("老大确认过这一页主卡的样子（上面给的零件树），hero.layout 必须照它排：零件、bind、metric、days 都别改，"
+        raise ValueError("Psir 确认过这一页主卡的样子（上面给的零件树），hero.layout 必须照它排：零件、bind、metric、days 都别改，"
                          "只能微调文字；label 和结论也要讲这张图说的事")
     from . import viz as vizmod
     metric = next((s[2] or s[1] for s in _layout_sig(want) if s[1] or s[2]), "")
@@ -475,15 +475,15 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
 - 一页只表达最主要的一个问题。主卡 = 这个问题的值 + 档位；支撑它的数放 fields（最多 3 个）或 table（最多 4 列 5 行，第一列写日期或名目），二选一，也可以都不放。
 - 主卡首选画图 hero.viz：你决定画哪项（metric）、怎么画（kind）、看几天（days）、显示哪些参照（show）；数字由内核按描述填，你不用写进去。
   · metric 只能选 facts.viz 里 ok=true 的，且要属于本页板块（facts.viz.*.board）。用了 viz 就不放 fields/table。
-  · kind 不写就用默认画法：hrv/resp_rate=trend（折线+常态带+警戒线），resting_hr=range（区间刻度），recovery=gauge（半圆仪表），sleep=need（睡了 vs 需要的缺口条），sleep_debt=stack（每晚欠的叠起来），steps=progress（按此刻该走到的进度），weight=route（朝目标的计划路线）。每项能换的画法在 facts.viz.*.kinds；老大说喜欢折线就用 trend。
+  · kind 不写就用默认画法：hrv/resp_rate=trend（折线+常态带+警戒线），resting_hr=range（区间刻度），recovery=gauge（半圆仪表），sleep=need（睡了 vs 需要的缺口条），sleep_debt=stack（每晚欠的叠起来），steps=progress（按此刻该走到的进度），weight=route（朝目标的计划路线）。每项能换的画法在 facts.viz.*.kinds；Psir 说喜欢折线就用 trend。
   · days：trend 7/14/30，range 7/14，need 7/14，stack 5/7。show 从 band、warn、need、pace、goal、target、plan 里挑，不写就全显示。
-  · hero.value 写 facts.viz.<metric>.value_text；常态区间和警戒线是按老大自己 30 天的数算的（或他自己定的），不是医学标准，不要说成诊断。
-    结论和 note 里说「比你平时高 / 低」「出了你自己的常态」，**不要写「正常范围」「超标」「异常」**（老大会以为是医学上的不正常）。
+  · hero.value 写 facts.viz.<metric>.value_text；常态区间和警戒线是按 Psir 自己 30 天的数算的（或他自己定的），不是医学标准，不要说成诊断。
+    结论和 note 里说「比你平时高 / 低」「出了你自己的常态」，**不要写「正常范围」「超标」「异常」**（Psir 会以为是医学上的不正常）。
   · facts.viz.<metric>.zone 是内核按常态和警戒线算的位置：act=过了警戒线，watch=出了常态，steady=常态里。level 由你判断，但 zone=act 时不能写 steady。
 - **主卡也可以自己排（hero.layout，开放画布）**：主卡标题行（label + 档位）App 会画，标题行下面整块（宽 354、高最多 400）由你用零件拼，替代 value/viz/fields/table（用了 layout 就别再放这三样）。样式没法写，只能选零件和档位：
   · hero.layout 的零件和写法见 canvas-cards skill，或跑 `./pivis-health parts`；写完用 `./pivis-health canvas --slot hero --json '<零件树>'` 预览，过了再输出。
   · 数字优先用 bind（内核现算，永远是最新的）；手写的数字也只能抄 facts。
-  · 页面主卡下面已经列了「接下来」的待办和「坚持习惯」那一行：layout 里别放 timeline、别重复项目名，除非老大的偏好里明确要。
+  · 页面主卡下面已经列了「接下来」的待办和「坚持习惯」那一行：layout 里别放 timeline、别重复项目名，除非 Psir 的偏好里明确要。
   · 什么时候用 layout：一个数 + 一张图就够时用 viz；要把两三样拼在一起讲一件事（睡了多久 + 一排每晚点 + 坚持习惯进度；恢复圆环 + HRV/静息心率两个字段；步数进度条 + 今天还差多少 + 接下来去走的那件事）时用 layout。
 - level：act=需要处理；watch=留意；steady=平稳/没问题。客户端按 level 给动效：act 最强、watch 缓慢、steady 静止。
 - headline 说判断和接下来该做什么；数字只放主卡，不要在结论里重复主卡的 value。
@@ -506,8 +506,8 @@ SCHEMA = """只输出一个 JSON 对象，不要 Markdown、不要解释：
 - last_night 为空、last_night_status 是 pending：昨晚的睡眠还没出来（人还没睡，或 WHOOP 醒后才算好），不是数据断了，不要写「停了 / 断了」；主卡换别的有数指标，或用前一晚并写日期。
 - 数据断了、授权掉了的提示由服务器按同步状态自己加，notices 和结论里都不要写「数据停了 / 没传上来」。
 - sleep_nights 里的 short_h 是「每晚缺觉」，不是睡眠债（睡眠债是 sleep_debt_5n_h 一个数）。
-- 老大对某项图表定过的偏好（pref.viz.<metric>：画法、天数、警戒线、目标）和页面偏好（pref.page.<page>）优先于上面的默认值。
-- shared_context 里是老大定下的偏好，必须遵守。pref.* 是展示和对比偏好（例如图表用折线、跟上一周比）；facts 里有 compare 时，说「比…高/低」一律用 compare 里按老大指定基线算好的数（recent.avg、baseline.avg、change、change_pct），不要再拿别的时间段比。"""
+- Psir 对某项图表定过的偏好（pref.viz.<metric>：画法、天数、警戒线、目标）和页面偏好（pref.page.<page>）优先于上面的默认值。
+- shared_context 里是 Psir 定下的偏好，必须遵守。pref.* 是展示和对比偏好（例如图表用折线、跟上一周比）；facts 里有 compare 时，说「比…高/低」一律用 compare 里按 Psir 指定基线算好的数（recent.avg、baseline.avg、change、change_pct），不要再拿别的时间段比。"""
 
 
 NOW_SLOTS = (  # (从几点, 名字, 能不能放休息)：此刻页按时段挑「现在最该做的事」，午休和晚上才轮到休息
@@ -561,7 +561,7 @@ def evidence_for(tools, page: str) -> dict:
     yesterday = [{"title": t["title"], "board": t["board"], "status": t["status"], "summary": t.get("summary")}
                  for t in store.for_date(day - timedelta(days=1))]
     fx = facts(tools, day)
-    # 老大指定了对比基线（pref.baseline）：按它把几个主要指标算好，页面只许用这里的对比
+    # Psir 指定了对比基线（pref.baseline）：按它把几个主要指标算好，页面只许用这里的对比
     from . import prefs
     bp = prefs.baseline_pref(tools.cfg)
     if bp:
@@ -574,7 +574,7 @@ def evidence_for(tools, page: str) -> dict:
             except Exception:
                 pass
         fx["compare"] = {"baseline": bp, "metrics": cmp}
-        # 只留老大指定的这一种对比，别的对比口径（近 3 天对之前、对近 7 天均值）拿掉，免得页面混用
+        # 只留 Psir 指定的这一种对比，别的对比口径（近 3 天对之前、对近 7 天均值）拿掉，免得页面混用
         fx.pop("hrv_trend", None)
         for k in ("resting_hr", "resp_rate"):
             if isinstance(fx.get(k), dict):
@@ -601,7 +601,7 @@ CBTI_PAUSED_PREFS = ("pref.page.sleep", "pref.viz.sleep", "pref.viz.sleep_debt")
 
 def prefs_for_page(cfg, page: str, facts_: dict) -> tuple[list[str], dict | None, bool]:
     """编排这一页要遵守的偏好（规则文字、确认过的主卡）。做 CBT-I 时休息页那几条「睡了 vs 该睡」的偏好暂停：
-    CBT-I 没有睡眠债的概念（老大 11-11），结束后自动恢复。返回 (规则, 确认过的主卡, 有没有暂停)"""
+    CBT-I 没有睡眠债的概念（Psir 11-11），结束后自动恢复。返回 (规则, 确认过的主卡, 有没有暂停)"""
     from . import prefs
     paused = bool(facts_.get("cbti")) and page in ("sleep", "now")
     active = [e for e in prefs.active_prefs(cfg) if not (paused and e.get("scope") in CBTI_PAUSED_PREFS)]
@@ -620,13 +620,13 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
     context = f"组件编排:{page}:{run_id}"
     session = _ensure_composer(page, run_id)
     rules, confirmed, paused = prefs_for_page(tools.cfg, page, evidence["facts"])
-    pref_text = ("\n老大定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules)) if rules else ""
+    pref_text = ("\nPsir 定下的偏好（必须遵守）：\n" + "\n".join(f"- {r}" for r in rules)) if rules else ""
     if paused:
         pref_text += ("\n做 CBT-I 期间，休息页主卡「睡了多久 vs 该睡多少」的竖柱 / 睡眠债偏好暂停（CBT-I 没有睡眠债的概念），"
                       "按上面 CBT-I 的规则拼；CBT-I 结束后恢复。")
-    # 老大在对话里确认过的主卡样子：照这个零件树排（bind 的数会现算成最新的）；发布前代码还会再核对一遍
+    # Psir 在对话里确认过的主卡样子：照这个零件树排（bind 的数会现算成最新的）；发布前代码还会再核对一遍
     if confirmed:
-        pref_text += ("\n老大确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
+        pref_text += ("\nPsir 确认过这一页主卡的样子，hero.layout 照这个排（可以微调文字，零件和 bind 别改）：\n"
                       + json.dumps(confirmed["layout"], ensure_ascii=False))
     prompt = ("你是 P-Health 的页面编排，不是聊天。根据真实证据为「" + {"now": "此刻", "sleep": "休息", "sport": "运动",
               "stress": "压力"}[page] + "」页写主卡和结论。\n" + SCHEMA + pref_text + "\n证据：\n"
@@ -663,7 +663,7 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
 
 
 def _check_not_same_as_board(tools, page: str, doc: dict) -> None:
-    """此刻页和专项页别放同一张卡（老大 11-11：晚上此刻和休息一模一样）：板块相同时换个角度"""
+    """此刻页和专项页别放同一张卡（Psir 11-11：晚上此刻和休息一模一样）：板块相同时换个角度"""
     if page != "now":
         return
     hero = doc.get("hero") or {}
@@ -791,6 +791,9 @@ def republish_async(cfg) -> bool:
     import os
     import subprocess
     import sys
+    # 跑测试时不许拉起真实的 publish-v3（以前一周在真实工作区里凭空开了 1800 多个 composer 会话）
+    if os.environ.get("PIVIS_NO_REPUBLISH") == "1":
+        return False
     try:
         if _republish_lock_busy(cfg):
             (cfg.data_dir / "republish.again").write_text(str(time.time()))
@@ -917,7 +920,7 @@ def _recent_location(cfg, hours: float = 24) -> bool:
 
 
 def data_notices(tools, page: str, day: date) -> list[dict]:
-    """页面上的数据提示（build 53）：只放真要老大动手的（WHOOP 登录失效、Apple 健康权限确认关了）。
+    """页面上的数据提示（build 53）：只放真要 Psir 动手的（WHOOP 登录失效、Apple 健康权限确认关了）。
     服务器 / 开发这边的问题、手机只是没开 App，都不提示——原因判断在 datastatus。"""
     from . import datastatus
     try:
@@ -931,7 +934,7 @@ def _norm_text(t) -> str:
 
 
 def _drop_dup_title(layout: dict, label: str | None) -> dict:
-    """主卡上方已经写了指标名（hero.label），画布里再写一遍同样的标题就删掉（老大 11-11：「近 7 晚睡了多久」出现了两次）。
+    """主卡上方已经写了指标名（hero.label），画布里再写一遍同样的标题就删掉（Psir 11-11：「近 7 晚睡了多久」出现了两次）。
     只看最外层和第一层容器里的 text 零件。"""
     want = _norm_text(label)
     if not want:
@@ -987,7 +990,7 @@ _STATS = ("stat", "stat_spark")
 
 def _tidy_layout(node: Any) -> Any:
     """主卡排版收拾（现算后、给 App 之前）：竖着摞的小数字两三个一排横放；开头、结尾和连着的细线去掉。
-    agent 拼什么零件不管，只管别摆得又长又散（老大 11-11：三个小数字一行一个，占了半屏）"""
+    agent 拼什么零件不管，只管别摆得又长又散（Psir 11-11：三个小数字一行一个，占了半屏）"""
     if not isinstance(node, dict) or not isinstance(node.get("children"), list):
         return node
     kids = [_tidy_layout(k) for k in node["children"]]
@@ -1021,7 +1024,7 @@ def _tidy_layout(node: Any) -> Any:
 
 def _one_title(hero: dict) -> dict:
     """主卡只留一个标题：画布第一格是标题（role=title 的 text），就把它提到上方当指标名、画布里删掉；
-    否则只删掉和指标名一样的那行。（老大 11-11：同一张卡上两个标题，字多还重复）"""
+    否则只删掉和指标名一样的那行。（Psir 11-11：同一张卡上两个标题，字多还重复）"""
     lay = hero["layout"]
     kids = lay.get("children") if isinstance(lay.get("children"), list) else []
     first = kids[0] if kids else None
@@ -1031,7 +1034,7 @@ def _one_title(hero: dict) -> dict:
 
 
 def _pub_day(pub: dict) -> date:
-    """页面是老大哪一天编排的（凌晨 0–6 点编排的算前一天）。读不出就当很久以前。"""
+    """页面是 Psir 哪一天编排的（凌晨 0–6 点编排的算前一天）。读不出就当很久以前。"""
     try:
         return day_of(datetime.fromisoformat(str(pub.get("published_at") or "")))
     except ValueError:
@@ -1099,14 +1102,14 @@ def page_doc(tools, page: str) -> dict:
         hero = {**hero, "layout": _tidy_layout(_drop_dup_parts(hero["layout"], hero.get("label")))}
     return {
         "page": page, "now": now.isoformat(timespec="minutes"), "date": day.isoformat(),
-        # 老大 11-11：主板块不要那句解释的话、少出现文字——结论句不再显示（编排时照样写，只是不给 App）
+        # Psir 11-11：主板块不要那句解释的话、少出现文字——结论句不再显示（编排时照样写，只是不给 App）
         "headline": {"text": ""},
         "hero": {**hero, "level_label": LEVEL_LABEL.get(hero.get("level"), ""), "board_label": BOARD_LABEL.get(board, "")},
         # 主卡下面每个习惯一行（此刻页 = 所有板块）：点进去是这个板块的对话，顶部是习惯卡（GET /api/v3/habit/<id>）
         "habits": habit_rows(store, page, day),
         "todos": pending, "more": more, "done": done, "hidden": hidden,
         "details": (pub or {}).get("details") or [],
-        # 只放要老大动手的提示（服务器算的）；编排时写的提示是解释性文字，不显示（老大 11-11）
+        # 只放要 Psir 动手的提示（服务器算的）；编排时写的提示是解释性文字，不显示（Psir 11-11）
         "notices": data_notices(tools, page, day)[:2],
         "projects": [{"id": p["id"], "name": p["name"], "board": p["board"], "rules": p.get("rules"),
                       "start": p["start"], "days": p["days"], "reviews": p.get("reviews")}
@@ -1205,7 +1208,7 @@ def habit_rows(store: TodoStore, page: str, day: date) -> list[dict]:
         else:
             # 今天没有要做的（休息日），或今天的都过点了：写下一次
             right = _next_text(p, day) or "休息"
-        label = f"{name} · {n}/{p['days']}" if state == "active" else name    # 老大 11-10：字要少
+        label = f"{name} · {n}/{p['days']}" if state == "active" else name    # Psir 11-10：字要少
         rows.append({"id": p["id"], "name": name, "board": p["board"], "board_label": BOARD_LABEL.get(p["board"], ""),
                      "icon": icons.for_project(p),
                      "day": n if state == "active" else 0, "days": p["days"], "state": state,
@@ -1387,9 +1390,9 @@ def _whoop_bg(cfg) -> None:
 
 
 def sync_health(tools, now: datetime | None = None) -> dict:
-    """老大在 App 里下拉刷新（build 53）：不再当场等 WHOOP（以前限时 25 秒，撞上定时同步或接口慢就报「没同步上」，
+    """Psir 在 App 里下拉刷新（build 53）：不再当场等 WHOOP（以前限时 25 秒，撞上定时同步或接口慢就报「没同步上」，
     其实数据是新的）。马上回数据有多新；WHOOP 超过 10 分钟没拉就在后台补拉一次（App 同时把 Apple 健康传上来）。
-    ok=False 只在真要老大动手时（action 写着要做什么）。"""
+    ok=False 只在真要 Psir 动手时（action 写着要做什么）。"""
     from . import datastatus
     cfg = tools.cfg
     st = datastatus.status(cfg)
@@ -1521,7 +1524,7 @@ def widget_doc(tools) -> dict:
         "play": t["kind"] == "follow" and any(str((st.get("media") or {}).get("url", "")).startswith("/media/follow/")
                                               for st in t.get("steps") or []),
         # 小组件上能直接打勾的：只要知道做没做的（跟做、填写、计时这些要进 App）
-        # 打勾卡（包括「上床」这种设备也会自动记的）：小组件上直接点 ✓（老大 11-08：上床也应该是对勾）
+        # 打勾卡（包括「上床」这种设备也会自动记的）：小组件上直接点 ✓（Psir 11-08：上床也应该是对勾）
         "check": t["kind"] == "done" and t["status"] != "processing",
     } for t in pending]
     bed = next((t for t in today if t.get("auto") == "bedtime"), None)
@@ -1552,7 +1555,7 @@ def widget_doc(tools) -> dict:
 
 
 def _client_now(server_now: datetime, client_at) -> datetime:
-    """老大点下去的那一刻（App 断网时先记在本地，连上再发）。只认最近 36 小时内、不超前 5 分钟的时间，
+    """Psir 点下去的那一刻（App 断网时先记在本地，连上再发）。只认最近 36 小时内、不超前 5 分钟的时间，
     否则（包括模拟回放的假时钟）用服务器时间。"""
     if not client_at:
         return server_now
@@ -1599,7 +1602,7 @@ def submit(tools, todo_id: str, body: dict) -> dict:
                 before = len(dsh_chat.read_session_events(context))
                 dsh_chat.send_message(msg, context)
                 # 兜底：P-Health 这一轮结束了，卡片却还停在「处理中」（它说了要退回却没改），
-                # 就把卡片放回原来的状态，并打开对话让老大看到它说了什么
+                # 就把卡片放回原来的状态，并打开对话让 Psir 看到它说了什么
                 deadline = time.time() + 300
                 while time.time() < deadline:
                     time.sleep(3)
@@ -1645,14 +1648,14 @@ def slot_for(now: datetime) -> str:
 def _recommend_message(slot: str, now: datetime) -> str:
     name, scene = SLOTS[slot]
     head = (f"{RECOMMEND_PREFIX}{day_of(now).isoformat()} {now.strftime('%H:%M')}｜{name}\n"
-            f"系统的定时推荐。现在是{name}（老大{scene}的时候）。先看工作区 CLAUDE.local.md 的「全盘简报」"
+            f"系统的定时推荐。现在是{name}（Psir{scene}的时候）。先看工作区 CLAUDE.local.md 的「全盘简报」"
             "（服务器刚更新过：今天状态、作息、训练、习惯完成率、今晚时间线、交叉信号、数据缺口），"
             f"再按 daily-recommend skill 里「{name}」那一节做。推荐必须从全盘出发：交叉信号命中的先处理"
-            "（恢复日就别推强度，作息偏晚就推见光、固定起床），每件事的理由写老大自己的数；不要和项目里已有的重复，"
+            "（恢复日就别推强度，作息偏晚就推见光、固定起床），每件事的理由写 Psir 自己的数；不要和项目里已有的重复，"
             "下面「近 3 天推荐过的」不要原样再推（同一件事最多连着 2 天）。"
-            "练习只推荐 follow 出过片的（follow session list 能查）；没有就请老大发一个博主视频，今天已经问过就别再问。")
+            "练习只推荐 follow 出过片的（follow session list 能查）；没有就请 Psir 发一个博主视频，今天已经问过就别再问。")
     if slot == "morning":
-        return head + ("\n早上这次回复老大看得到，写成「今日判断」，三行以内：① 今天是什么状态（一句话判断 + 2 个数，比如"
+        return head + ("\n早上这次回复 Psir 看得到，写成「今日判断」，三行以内：① 今天是什么状态（一句话判断 + 2 个数，比如"
                        "「恢复 39、呼吸频率高出常态：今天按恢复日过」）；② 今天最该做的 1–2 件（卡已经排好）；③ 今天要避开的 1 件。")
     return head + "\n做完只回一句话，写推荐了什么和为什么（带一个数），例如「午后推荐：闭眼歇 3 分钟——昨晚只睡 5.6 小时，CBT-I 期间不补觉」。"
 

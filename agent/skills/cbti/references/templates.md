@@ -1,10 +1,10 @@
-# CBT-I 模板（照抄，时间换成老大的）
+# CBT-I 模板（照抄，时间换成 Psir 的）
 
 示例按「起床 08:00、窗口 7.5 小时」写：最早上床 00:30，咖啡截止 16:30，睡前流程 23:30，日记 08:20。
 **这些是示例时间，写入前必须换成开始前第 3 步算出的时间。** `start` 用 `./pivis-health now` 的今天。`reviews` 写开始满 7 天后的每个周日，只在页面上显示复盘日期，不出卡；复盘卡由周日早上那次【每日推荐】出（AGENTS 第 7 节），开始不满 7 天的那个周日也会出，只看执行情况，不调窗口。
 
 ## 1. 项目（project-set）
-睡前流程（winddown）是「这个项目 + 一个视频」：url 只能用 follow 出片给的地址（`./pivis-health follow session list` 里的 video），不要照抄占位符，不用素材库里的音频或 B 站链接。还没有视频，就先不写 winddown 这一项，请老大发一个睡前拉伸的博主视频（按 follow-video 的「还没有视频」），出好片再用同一个 id 加上。
+睡前流程（winddown）是「这个项目 + 一个视频」：url 只能用 follow 出片给的地址（`./pivis-health follow session list` 里的 video），不要照抄占位符，不用素材库里的音频或 B 站链接。还没有视频，就先不写 winddown 这一项，请 Psir 发一个睡前拉伸的博主视频（按 follow-video 的「还没有视频」），出好片再用同一个 id 加上。
 ```json
 {"id":"cbti","name":"CBT-I","board":"sleep","start":"2026-11-06","days":42,
  "goal":"固定起床、压缩在床时间，让睡眠变整，再慢慢加回来",
@@ -35,7 +35,7 @@
   {"key":"bed","when":"00:30","title":"00:30 后再上床","kind":"done","auto":"bedtime","note":"困了再上床，床只用来睡"}]}
 ```
 写入：`./pivis-health project-set --json '<上面的 JSON>'`。每周调窗口时用同一个 id 再 set 一次，只改 rules 里的时间，以及 caffeine、winddown、bed 三项的 title 和 when。
-- 拉伸在床外做。睡前流程只放一个视频；老大想再加呼吸或身体扫描，是另一项、另一个视频，不并进同一张卡。
+- 拉伸在床外做。睡前流程只放一个视频；Psir 想再加呼吸或身体扫描，是另一项、另一个视频，不并进同一张卡。
 - 上床以后只听声音，不看屏幕：视频和对话里的音频卡锁屏也能接着放。白噪音、雨声在对话里发音频卡，不写进 daily。
 
 ## 2. 追问卡（每天最多一张，todo-add）

@@ -83,7 +83,7 @@ _PHOTO_REF = re.compile(r"照片 (\S+?\.(?:jpe?g|png))（用 read_image 看这�
 
 
 def _photo_marker(m: re.Match) -> str:
-    """把服务器路径换成 [[photo:文件名]]：客户端据此从 /api/v3/photo/<文件名> 取缩略图显示，路径不露给老大。"""
+    """把服务器路径换成 [[photo:文件名]]：客户端据此从 /api/v3/photo/<文件名> 取缩略图显示，路径不露给 Psir。"""
     return f"[[photo:{Path(m.group(1)).name}]]"
 
 
@@ -278,7 +278,7 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
             data = d.get("data", d)
             src = data.get("source")
             if isinstance(src, dict) and src.get("kind") not in (None, "user"):
-                continue    # DSH 自己插的（重复调用提醒「You are repeating…」、时间快照、规则注入）：不是老大说的话
+                continue    # DSH 自己插的（重复调用提醒「You are repeating…」、时间快照、规则注入）：不是 Psir 说的话
             content = data.get("content", [])
             for c in content:
                 if isinstance(c, dict) and c.get("type") == "text" and c.get("text", "").strip():
@@ -292,13 +292,13 @@ def read_messages(limit: int = 20, after_time: str | None = None, context: str =
                                              "The approval policy changed",
                                              "The sandbox mode changed",
                                              "Sandbox mode changed",
-                                             "【洞察",     # 洞察 / 对话复盘：服务器替老大点「聊聊」发的系统消息，老大只看到 P-Health 那段话
-                                             "【反馈")):   # 点踩时写的那句：服务器转给 P-Health 的，老大那边已经看过
+                                             "【洞察",     # 洞察 / 对话复盘：服务器替 Psir 点「聊聊」发的系统消息，Psir 只看到 P-Health 那段话
+                                             "【反馈")):   # 点踩时写的那句：服务器转给 P-Health 的，Psir 那边已经看过
                         continue
                     body, ctx = split_context(c["text"])
                     msg = {
                         "role": "me",
-                        "text": _PHOTO_REF.sub(_photo_marker, body),   # 不把服务器上的照片路径给老大看，换成缩略图标记
+                        "text": _PHOTO_REF.sub(_photo_marker, body),   # 不把服务器上的照片路径给 Psir 看，换成缩略图标记
                         "time": ts.isoformat() if ts else "",
                         "type": "user"
                     }

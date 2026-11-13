@@ -166,8 +166,8 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 struct ChatTarget: Identifiable {
     let id = UUID()
     let context: String
-    let pendingText: String?   // 打开抽屉后自动发送的消息（只用于老大自己点出来的动作；推送里带的问句一律走 draft）
-    var draft: String? = nil   // 打开抽屉后放进输入框、等老大补完再发（推送里的 pending、「记录不对：…实际是」）
+    let pendingText: String?   // 打开抽屉后自动发送的消息（只用于 Psir 自己点出来的动作；推送里带的问句一律走 draft）
+    var draft: String? = nil   // 打开抽屉后放进输入框、等 Psir 补完再发（推送里的 pending、「记录不对：…实际是」）
     var photo: PendingPhoto? = nil   // 打开抽屉后直接发这张照片（待办卡上拍的）
     var about: ChatAbout? = nil      // 带着一个习惯 / 一张待办进来：顶部是那张卡，输入框上方「关于：X」
     var insight: String? = nil       // 点洞察推送进来：打开主对话后直接点开这条洞察（不经过浮条）

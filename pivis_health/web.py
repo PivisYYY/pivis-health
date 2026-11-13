@@ -130,6 +130,15 @@ def make_handler(cfg: Config, tools: HealthTools, v2=None):
                     return True
                 self._send_file(f, "video/mp4" if f.suffix == ".mp4" else "image/jpeg")
                 return True
+            if u.path.startswith("/media/exercise/"):
+                # 动作库的缩略图和动图（© Gym visual，只在本机服务里给 Psir 自己看）
+                from .exercises import media_path as ex_media
+                f = ex_media(cfg, u.path)
+                if f is None:
+                    self._json({"error": "not_found"}, 404)
+                    return True
+                self._send_file(f, "image/gif" if f.suffix == ".gif" else "image/jpeg")
+                return True
             if u.path.startswith("/media/sleep-audio/"):
                 name = unquote(u.path.rsplit("/", 1)[-1])
                 f = Path.home() / ".dsh/bot/workspace/sleep-audio" / name

@@ -32,7 +32,9 @@ def _empty() -> dict:
 # 记忆只收这几类（以前随便起名，三天长出 21 个分类，学到的规律散在 habit.* 里别的会话看不到）
 SCOPE_PREFIXES = ("pref.", "profile.", "learn.", "request.", "ask.", "plan.", "device.",
                   "sleep.", "sport.", "stress.", "life.",
-                  "correction.")   # 老大纠正过的专业要点：correction.<领域>.<主题>，渲染进 AGENTS.md，不再犯
+                  "correction.",   # Psir 纠正过的专业要点：correction.<领域>.<主题>，渲染进 AGENTS.local.md，不再犯
+                  "stance.",       # b60 你表过的态（stance.<领域>.<主题>）：所有对话一致，改要写 changed_because
+                  "protocol.")     # b60 方案书（protocol.<项目 id>）：规则 + 为什么 + 这阶段会怎样 + 什么时候调
 
 
 def check_agent_scope(scope: str) -> str:
@@ -40,7 +42,7 @@ def check_agent_scope(scope: str) -> str:
     text = str(scope or "").strip()
     if not text.startswith(SCOPE_PREFIXES):
         raise ValueError(f"scope 要以这些开头之一：{'、'.join(SCOPE_PREFIXES)}。学到的规律用 learn.（比如 learn.habit.late_bath），"
-                         "偏好用 pref.，关于老大的事实用 profile.；habit. / ui. / dialogue. 已停用")
+                         "偏好用 pref.，关于 Psir 的事实用 profile.；habit. / ui. / dialogue. 已停用")
     return text
 
 

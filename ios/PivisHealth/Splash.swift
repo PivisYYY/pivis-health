@@ -40,7 +40,7 @@ enum TruthStore {
         return .builtIn
     }
 
-    /// 预取下一次开屏的那条（服务器按老大正在做的项目挑，最近看过的不重复）
+    /// 预取下一次开屏的那条（服务器按 Psir 正在做的项目挑，最近看过的不重复）
     static func prefetch() async {
         guard let t = try? await PivisAPI.fetch(Truth.self, PivisAPI.request("api/v3/truth", timeout: 10)),
               let enc = try? JSONEncoder().encode(t) else { return }

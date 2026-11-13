@@ -44,7 +44,7 @@ def test_setup_prepares_everything_without_launchd(tmp_path, monkeypatch):
     tables = {r[0] for r in sqlite3.connect(home / "vault/health.sqlite3").execute("select name from sqlite_master")}
     assert {"samples", "batches", "tombstones"} <= tables
     agents = (home / "workspace/AGENTS.md").read_text()
-    assert "小王" in agents and "老大" not in agents
+    assert "小王" in agents and "Psir" not in agents
     wrapper = (home / "workspace/pivis-health").read_text()
     assert "PIVIS_HEALTH_CONFIG" in wrapper and "PIVIS_DSH_LOG" in wrapper and str(home) in wrapper
     assert (home / "runtime/pair.html").exists() and calls == ["phealth"]
@@ -64,7 +64,7 @@ def test_launchd_jobs_point_at_this_install(tmp_path, monkeypatch):
     home = tmp_path / "H"
     d = setup.make_dirs(home)
     cfg = {"api_port": 9943, "dsh_web": "http://127.0.0.1:9960", "timezone": "Asia/Shanghai", "app_key": "k"}
-    env = setup.env_for(home, d, cfg, "老大")
+    env = setup.env_for(home, d, cfg, "Psir")
     jobs = setup.jobs(home, d, env, cfg, "phealth", tmp_path / "dsh", "com.phealth", whoop=False)
     assert set(jobs) == {f"com.phealth.{x}" for x in ("server", "dshweb", "notify", "events", "cycle", "insight")}
     assert jobs["com.phealth.server"]["ProgramArguments"][-4:] == ["--host", "0.0.0.0", "--port", "9943"]

@@ -69,7 +69,7 @@ def test_build_and_refresh(tools_env, monkeypatch, tmp_path):
     # 写文件：第一次写；没变不重写；数据变了才重写
     path = tmp_path / "CLAUDE.local.md"
     assert brief.refresh(tools, path=path)["written"] is True
-    assert "老大此刻的全盘" in path.read_text(encoding="utf-8")
+    assert "Psir 此刻的全盘" in path.read_text(encoding="utf-8")
     assert brief.refresh(tools, path=path)["written"] is False
     AgentContextStore(tools.cfg).record("sleep.cbti", {"earliest_bed": "23:50", "wake": "08:00"}, "休息", "t")
     assert brief.refresh(tools, path=path)["written"] is True
@@ -107,7 +107,7 @@ def test_agent_card_blocked_on_conflict(tools_env):
     t = st.add({"board": "sleep", "when": "22:15", "title": "洗完澡", "kind": "done"}, date(2026, 11, 10))
     with pytest.raises(TodoError, match="和睡眠安排冲突"):
         st.update(t["id"], {"when": "23:30"})
-    st.update(t["id"], {"when": "23:30"}, by="user")                  # 老大自己挪的不拦
+    st.update(t["id"], {"when": "23:30"}, by="user")                  # Psir 自己挪的不拦
 
 
 def test_event_filter_drops_repeats():

@@ -98,7 +98,7 @@ def user_media(tools) -> list[dict]:
 
 
 def media_add(tools, item: dict) -> dict:
-    """把核对过的公开素材收进老大的素材库（之后 media-library 能直接用，不用每次重新搜）。"""
+    """把核对过的公开素材收进 Psir 的素材库（之后 media-library 能直接用，不用每次重新搜）。"""
     url = str(item.get("url") or "").strip()
     title = str(item.get("title") or "").strip()
     if not url.startswith("https://") or not title:
@@ -152,5 +152,5 @@ def weekly_review_note(tools, day: date, board: str | None = None) -> str:
     return ("\n今天是周日，做周复盘：" + names + "。每个项目先跑 ./pivis-health project-stats --id <id> --days 7"
             "（睡眠类再跑 ./pivis-health sleep-week），按 habit-coach / 对应专业 skill 的复盘规则判断；"
             "每个项目加一张 kind=proposal 的待办「本周复盘」：数据和建议写清楚，给 2–3 个选项（不用改也给「保持不变」），"
-            "老大选了再 project-set。学到的规律用 context-record --scope learn.<主题> 记下。"
+            "Psir 选了再 project-set。学到的规律用 context-record --scope learn.<主题> 记下。"
             "说某个项目哪天开始、第几天，只按这条消息里「进行中的项目」的状态说。")

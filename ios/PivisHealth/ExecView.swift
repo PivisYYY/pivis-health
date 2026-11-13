@@ -15,7 +15,7 @@ final class PracticePlayer: ObservableObject {
     @Published private(set) var playing = false
     @Published private(set) var finished = false
     @Published private(set) var muted = false
-    /// 正在全屏看：画面只交给全屏那一层，卡里的小窗先放手（同一个播放器同时挂两层，全屏那层会黑屏，老大 11-11）
+    /// 正在全屏看：画面只交给全屏那一层，卡里的小窗先放手（同一个播放器同时挂两层，全屏那层会黑屏，Psir 11-11）
     @Published var fullscreen = false
     /// 点了封面才建；没建时外面显示封面
     @Published private(set) var player: AVPlayer?

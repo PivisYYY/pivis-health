@@ -143,7 +143,7 @@ def test_split_and_dotstrip_cards(tmp_path):
 
 # ---------------------------------------------------------------- 三期：反馈回流
 def simtools(tmp, now=NOW, **kw):
-    """模拟时钟：日志、待办记录都走同一个钟（真实环境里是老大那边的钟）。"""
+    """模拟时钟：日志、待办记录都走同一个钟（真实环境里是 Psir 那边的钟）。"""
     t = FakeTools(tmp, sim_mode=True, insight_push=True, **kw)
     set_now(t, now)
     return t
@@ -164,7 +164,7 @@ def record_at(tools, scope, payload, at):
 
 
 def _opened(tools, monkeypatch, texts=()):
-    """跑一期并点开；texts = 点开后老大在主对话里说的话。"""
+    """跑一期并点开；texts = 点开后 Psir 在主对话里说的话。"""
     monkeypatch.setattr(insight, "tag_topics", lambda *a, **k: {"ran": False})
     out = insight.cycle(tools, ask=_fake_ask, force=True)
     insight.open_pending(tools, out["pending"], send=lambda *a: {"ok": True})

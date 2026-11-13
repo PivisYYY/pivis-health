@@ -3,7 +3,7 @@
 
 1. 拼出 agent/AGENTS-real.md = agent/AGENTS-v3.md + agent/AGENTS-appendix.local.md（附录含个人信息，不进 git）
 2. 每个工作区的 AGENTS.md 先备份成 AGENTS.md.bak-<标签>，再换成新的
-3. 在那个工作区跑一次 prefs-sync，把偏好 / 了解到的老大写进同目录的 AGENTS.local.md（build 51 起偏好不放 AGENTS.md：
+3. 在那个工作区跑一次 prefs-sync，把偏好 / 了解到的 Psir 写进同目录的 AGENTS.local.md（build 51 起偏好不放 AGENTS.md：
    DSH 按文件刷新，记一条偏好只补这几 KB，AGENTS.md 只在这里安装时变）
 
 用法：scripts/install_agents.py <备份标签> [--only real,sim,demo,qa] [--dry-run]

@@ -6,10 +6,10 @@
 
 ---
 
-## 1. 背景（解释给老大听时用一两句）
+## 1. 背景（解释给 Psir 听时用一两句）
 
 - 半月板是膝关节里的软骨垫，负责分散压力、稳定关节。核磁的「1–3 级」是信号分级：**2 级 = 半月板内部有信号、还没到关节面**，通常不需要手术，以训练为主。
-- 对非急性的半月板损伤，**系统训练和关节镜手术相比，两年后疼痛和功能差不多**，训练组大腿力量更好 [1][2]。所以「练对肌肉」本身就是治疗，不是辅助。
+- 对非急性的半月板损伤，**系统训练和关节镜手术相比，两年后疼痛和功能差不多**，训练组大腿力量更好 [1][2]。美国物理治疗学会骨科分会的半月板临床指南也把渐进的股四头肌 / 髋部力量训练和神经肌肉训练列为一线 [6]。所以「练对肌肉」本身就是治疗，不是辅助。
 - 半月板受力最大的三种情况：**负重下膝盖弯得很深**（超过约 90°，越深压力越大）[3]、**脚踩住地面时膝盖扭转**（急停转身、单脚转体）、**落地冲击**（跳、跑下坡）。训练和打球的安排都围绕「先避开这三样，逐步加回来」。
 
 ## 2. 要练什么（目标肌群和为什么）
@@ -73,4 +73,5 @@
 2. Thorlund JB, et al. Arthroscopic surgery for degenerative knee: systematic review and meta-analysis of benefits and harms. *BMJ*. 2015;350:h2747.
 3. Escamilla RF. Knee biomechanics of the dynamic squat exercise. *Med Sci Sports Exerc*. 2001;33:127–139.
 4. Silbernagel KG, et al. Continued sports activity, using a pain-monitoring model, during rehabilitation in patients with Achilles tendinopathy: a randomized controlled study. *Am J Sports Med*. 2007;35:897–906.
+6. Logerstedt DS, et al. Knee pain and mobility impairments: meniscal and articular cartilage lesions revision 2018. Clinical practice guidelines (APTA Orthopaedic Section). *J Orthop Sports Phys Ther*. 2018;48(2):A1–A50.
 5. Lauersen JB, Bertelsen DM, Andersen LB. The effectiveness of exercise interventions to prevent sports injuries: a systematic review and meta-analysis of randomised controlled trials. *Br J Sports Med*. 2014;48:871–877.

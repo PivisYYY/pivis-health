@@ -16,7 +16,7 @@ P-Health 跑在**你自己的 Mac** 上：健康数据、对话、记忆都只�
 
 ```sh
 dsh plugin --profile phealth add github:PivisYYY/pivis-health
-~/.dsh/profiles/phealth/node_modules/dsh-plugin-phealth/bin/phealth setup --nickname 老大
+~/.dsh/profiles/phealth/node_modules/dsh-plugin-phealth/bin/phealth setup --nickname Psir
 ```
 
 `dsh` 在 `/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh`；没在 PATH 里就用完整路径。

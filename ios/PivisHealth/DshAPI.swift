@@ -131,7 +131,7 @@ enum DshAPI {
         }
     }
 
-    /// DSH 的错误码 → 给老大看的中文
+    /// DSH 的错误码 → 给 Psir 看的中文
     private static func friendly(_ code: String) -> String {
         switch code {
         case "session/writer-held": return "这段对话正被桌面端占用，请在桌面端关掉对应会话后重试"
@@ -196,7 +196,7 @@ enum DshAPI {
     }
 
     /// 读取会话消息（通过 pivis-health 后端中转）；after = 增量轮询（ISO 时间），session = 板块标签。
-    /// busy = dsh 回合还在进行（阶段性回复用）；lastTool = 本轮最近一次动作，已换成给老大看的话（进度提示）。
+    /// busy = dsh 回合还在进行（阶段性回复用）；lastTool = 本轮最近一次动作，已换成给 Psir 看的话（进度提示）。
     static func fetchMessages(limit: Int = 15, after: String? = nil, session: String = "") async -> (msgs: [ChatMsg], latest: String?, busy: Bool, lastTool: String?, sessionId: String?) {
         let req = PivisAPI.request("api/chat", ["limit": String(limit),
                                                 "after": (after?.isEmpty ?? true) ? nil : after,

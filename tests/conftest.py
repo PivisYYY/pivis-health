@@ -14,6 +14,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+# 测试绝不碰真实 DSH 工作区：后台重排关掉，默认工作区指到临时目录（dsh_chat 在 import 时读这两个变量）
+import tempfile as _tempfile
+os.environ["PIVIS_NO_REPUBLISH"] = "1"
+os.environ.setdefault("PIVIS_DSH_CWD", _tempfile.mkdtemp(prefix="pivis-test-ws-"))
+
 CN = ZoneInfo("Asia/Shanghai")
 UTC = timezone.utc
 BASE = date(2026, 10, 28)  # "今天"，周三

@@ -773,7 +773,7 @@ def r_sleep_window(ctx, n):
            "band": None,
            "ticks": [{"at": a, "label": f"{(lo + a) % 24:02d}:00"} for a in range(0, span + 1, step)]}
     if c:
-        # 窗口两头的时刻直接标在刻度上（最早上床 / 起床），不再在图下写一行「浅色带 = …」（老大 11-11：少文字）
+        # 窗口两头的时刻直接标在刻度上（最早上床 / 起床），不再在图下写一行「浅色带 = …」（Psir 11-11：少文字）
         bf, bt = round(bed + (24 if bed < 12 else 0) - lo, 2), round(wake + (24 if wake < 12 else 0) - lo, 2)
         out["band"] = {"from": bf, "to": bt}
         # 每晚破没破：和主卡「早上床 / 起晚」同一套宽限（上床早 10 分钟内、起床晚 15 分钟内都算守住），App 只把破的那截画亮
@@ -1761,7 +1761,13 @@ def r_media(ctx, n):
 
 def n_photo(node, ck, t):
     out: dict[str, Any] = {"t": t}
-    if node.get("todo"):
+    if node.get("exercise"):
+        # 动作库的示意动图（exercise --q 查到的 id）
+        ex_id = str(node["exercise"]).strip()
+        if not re.fullmatch(r"\d{4}", ex_id):
+            raise CanvasError("photo 的 exercise 写动作库的 4 位 id（./pivis-health exercise --q <动作> 查）")
+        out["exercise"] = ex_id
+    elif node.get("todo"):
         out["todo"] = _s(node, "todo", 80, t)
     elif node.get("latest"):
         b = str(node["latest"]).strip()
@@ -1769,7 +1775,7 @@ def n_photo(node, ck, t):
             raise CanvasError(f"photo 的 latest 只能是 {' / '.join(BOARDS)}（该板块今天最近一张）")
         out["latest"] = b
     else:
-        raise CanvasError("photo 要写 todo（待办 id）或 latest（板块，取今天最近一张）")
+        raise CanvasError("photo 要写 todo（待办 id）、latest（板块，取今天最近一张）或 exercise（动作库 id）")
     cap = _s(node, "caption", 30, t, ck)
     if cap:
         out["caption"] = cap
@@ -1789,6 +1795,13 @@ def _photo_names(t: dict) -> list[tuple[str, str]]:
 
 def r_photo(ctx, n):
     from .v3 import photo_file
+    if "exercise" in n:
+        from . import exercises
+        ex = exercises.get(ctx.tools.cfg, n["exercise"])
+        if not ex or not ex.get("动图"):
+            raise vizmod.VizUnavailable("动作库里没有这个动作")
+        cap = n.get("caption") or f"{ex['主练']} · {ex['name']}"[:30]
+        return {"url": ex["动图"], "caption": cap, "kind": "exercise"}
     if "todo" in n:
         t = _store(ctx).get(n["todo"])
         if not t:

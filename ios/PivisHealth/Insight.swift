@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-// MARK: - 洞察：P-Health 隔几天看出 1–3 件值得聊的事，等老大点开再聊
+// MARK: - 洞察：P-Health 隔几天看出 1–3 件值得聊的事，等 Psir 点开再聊
 // status.insight 有它（还没点开、没划掉）时：主对话输入框上方一条浮条、底栏中间圆钮亮点。
 // 点「聊聊」= open：服务器把那段话塞进主对话，P-Health 的回复像平常一样流进来；左右划掉 = dismiss。
 // 只在主对话（context ""）里出现，板块 / 习惯 / 待办对话里都没有。

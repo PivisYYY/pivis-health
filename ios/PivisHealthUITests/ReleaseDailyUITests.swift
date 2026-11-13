@@ -441,7 +441,7 @@ final class ReleaseDailyUITests: XCTestCase {
         XCTAssertTrue(seen, "下拉刷新后没有出两个小圆点")
         shot("17-refresh-dots")
         XCTAssertTrue(dots.label.contains("WHOOP") && dots.label.contains("Apple 健康"), "小圆点的读屏标签不对：\(dots.label)")
-        // 测试环境数据是新的、不用老大动手：不该有任何「没连上 / 没同步上」的字
+        // 测试环境数据是新的、不用 Psir 动手：不该有任何「没连上 / 没同步上」的字
         XCTAssertFalse(text(containing: "没同步上").exists || text(containing: "没连上").exists, "下拉后出现了「没连上 / 没同步上」")
         XCTAssertTrue(waitUntil(15) { !dots.exists }, "小圆点没有自己淡出")
     }
@@ -664,7 +664,7 @@ final class ReleaseDailyUITests: XCTestCase {
         full.tap()
         let close = app.buttons["practice-fullscreen-close"].firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 5), "全屏没打开")
-        // build 56（老大 11-11「全屏黑屏、播不完」）：全屏一打开，下面的对话页就把播放器停了，只剩黑底。全屏里必须真的在放
+        // build 56（Psir 11-11「全屏黑屏、播不完」）：全屏一打开，下面的对话页就把播放器停了，只剩黑底。全屏里必须真的在放
         let video = app.buttons["practice-fullscreen-player"].firstMatch
         XCTAssertTrue(waitUntil(8) { video.exists && video.label == "暂停" }, "全屏里视频没在放（黑屏）")
         shot("29-fullscreen")

@@ -1,4 +1,4 @@
-"""build 51：老大的「今天」到早上 6 点才翻页；数据断了的提示由服务器按真实状态写。"""
+"""build 51：Psir 的「今天」到早上 6 点才翻页；数据断了的提示由服务器按真实状态写。"""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
@@ -54,13 +54,13 @@ def test_model_outage_notices_hidden_server_ones_shown(tools_env, monkeypatch):
         "details": [], "notices": [{"text": "睡眠数据已经停了两晚"}, {"text": "周末别熬夜"}], "published_at": "2026-11-10T08:00:00+08:00"})
     monkeypatch.setattr(v3, "data_notices", lambda tools, page, day: [{"text": "WHOOP 授权掉了", "source": "server"}])
     doc = v3.page_doc(tools, "now")
-    # build 54（老大 11-11 少写字）：编排时写的提示和结论句都不显示，只留服务器的「要你动手」
+    # build 54（Psir 11-11 少写字）：编排时写的提示和结论句都不显示，只留服务器的「要你动手」
     assert [n["text"] for n in doc["notices"]] == ["WHOOP 授权掉了"]
     assert doc["headline"]["text"] == ""
 
 
 def test_apple_health_notice_only_when_permission_confirmed(tools_env, monkeypatch):
-    """build 53：只有 App 在前台查 HealthKit 查到 0 条、一天多没收到过样本，才提示开权限；服务器拒收不提示老大。"""
+    """build 53：只有 App 在前台查 HealthKit 查到 0 条、一天多没收到过样本，才提示开权限；服务器拒收不提示 Psir。"""
     from datetime import datetime, timezone
     from pivis_health import ingest
     tools = tools_env
@@ -88,7 +88,7 @@ def test_length_limits_on_agent_writes(tools_env):
         st.add({"board": "sleep", "when": "22:00", "title": "手机放客厅", "kind": "done",
                 "note": "放远一点，睡前一小时不看屏幕，床只用来睡觉"}, day)
     t = st.add({"board": "sleep", "when": "22:00", "title": "手机放客厅", "kind": "done"}, day)
-    st.update(t["id"], {"status": "done"}, by="user")                   # 老大的操作不查字数
+    st.update(t["id"], {"status": "done"}, by="user")                   # Psir 的操作不查字数
     with pytest.raises(TodoError, match="括号"):
         st.project_set({"id": "back", "name": "腰背放松（每周三次）", "board": "sport"}, day)
     st.project_set({"id": "cbt", "name": "CBT-I · 42 天", "board": "sleep"}, day)   # 天数后缀不算字数
@@ -97,7 +97,7 @@ def test_length_limits_on_agent_writes(tools_env):
 
 
 def test_hero_title_same_as_label_is_dropped():
-    """build 54：主卡上方写了指标名，画布里同样的标题删掉（老大 11-11：「近 7 晚睡了多久」出现两次）。"""
+    """build 54：主卡上方写了指标名，画布里同样的标题删掉（Psir 11-11：「近 7 晚睡了多久」出现两次）。"""
     lay = {"t": "v", "children": [{"t": "text", "text": "近 7 晚睡了多久", "role": "title"},
                                   {"t": "h", "children": [{"t": "text", "text": "近 7 晚 睡了多久"}, {"t": "stat", "label": "x"}]},
                                   {"t": "columns", "items": []}]}

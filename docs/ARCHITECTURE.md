@@ -53,7 +53,7 @@ P-Health 自己不建定时任务、不自己推送。要到点提醒的事一�
 | 对话卡片 | `cards.py` | 发卡前格式检查；坏卡片记进日志 |
 | 偏好与记忆 | `prefs.py`、`agent_context.py` | 一份共享记忆，页面编排和对话都读它；偏好、纠正、了解到的你单独写进工作区的 `AGENTS.local.md`（DSH 按文件刷新，记偏好不用重发整份规则） |
 | 洞察 | `insight.py`、`insight_cross.py`、`journal.py`、`scene.py` | 候选和数字只由代码算，样本不够不出；稿子过校验才存；只说"常一起出现"不说"导致"；场景只给模型标签 |
-| 简报与反馈 | `brief.py`、`goals.py`、`plan_lint.py`、`feedback.py`、`review.py` | 简报的数和交叉信号由代码算；计划冲突由代码查；复盘稿过校验才存，改规则、资料要老大同意并先考题 |
+| 简报与反馈 | `brief.py`、`goals.py`、`plan_lint.py`、`feedback.py`、`review.py` | 简报的数和交叉信号由代码算；计划冲突由代码查；复盘稿过校验才存，改规则、资料要 Psir 同意并先考题 |
 | 通知 | `notify.py`、`apns.py` | 每件事只推一次；每张卡可以改提醒方式（`remind`）；P-Health 没写时间的卡由 `timedraft.py` 拟一个并推送请用户确认；模拟、演示、测试环境不推 |
 | 数据连接状态 | `datastatus.py`、`ingest.py` | 分清原因（要用户动手 / 服务器的问题 / 手机没开 App），只有要用户动手的才提示 |
 | 插件安装 / 配对 | `setup.py`、`pairing.py`、`dsh/cordis.patch.yml`、`bin/phealth` | 一条命令建目录、配置、DSH 专用 profile 和 launchd 任务；配对二维码；服务器 `/dshp` 凭密钥转发 DSH（HTTP + WebSocket） |

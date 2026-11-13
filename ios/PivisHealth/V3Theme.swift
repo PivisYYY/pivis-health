@@ -147,9 +147,9 @@ struct LevelTag: View {
     let label: String
     var body: some View {
         if level == "nodata" || label.isEmpty {
-            EmptyView()   // 不再给老大看「数据不足」档位
+            EmptyView()   // 不再给 Psir 看「数据不足」档位
         } else {
-            // 档位只用一个会动的点表达（build 54，老大 11-11：少出现文字）：需处理外扩光圈，留意缓慢呼吸，平稳不动；字只给读屏
+            // 档位只用一个会动的点表达（build 54，Psir 11-11：少出现文字）：需处理外扩光圈，留意缓慢呼吸，平稳不动；字只给读屏
             LevelDot(level: level, size: 8)
                 .frame(width: 14, height: 14)
                 .accessibilityElement(children: .ignore)

@@ -2,11 +2,11 @@
 
 规则：
 - 每次只问一个主题，每个主题 2–4 题。
-- 老大在对话里，就把下面的 fields 放进 question 卡的 `fields`（可以加 `"allow_text":true`）。
-- 老大不在对话里，就放进「了解你 · <主题>」待办的 `inputs`，每项加 `"submit":"agent"`。待办的选项限 2–6 个，不能用 allow_text。
-- 记录时 payload 写老大的原话要点和一句 `summary`。`pref.*` 的 payload 必须带一句 `rule`。
+- Psir 在对话里，就把下面的 fields 放进 question 卡的 `fields`（可以加 `"allow_text":true`）。
+- Psir 不在对话里，就放进「了解你 · <主题>」待办的 `inputs`，每项加 `"submit":"agent"`。待办的选项限 2–6 个，不能用 allow_text。
+- 记录时 payload 写 Psir 的原话要点和一句 `summary`。`pref.*` 的 payload 必须带一句 `rule`。
 - 同一个 scope 的新记录会替换旧的。要补充时，先 `context-list --scope <scope>`，合并旧内容后再写。
-- 每个主题下面列了「红旗选项」。老大选了其中任何一个，当场按 `../../clinical-safety/SKILL.md` 处理。
+- 每个主题下面列了「红旗选项」。Psir 选了其中任何一个，当场按 `../../clinical-safety/SKILL.md` 处理。
 
 ## 1. 目标 → `profile.goals`
 ```json
@@ -49,7 +49,7 @@
  {"id":"hard","label":"最难控制的","type":"multi","options":["晚上饿","零食","饮料 / 奶茶","应酬","吃得太快","都还好"]},
  {"id":"doctor","label":"医生对饮食或用药有什么交代","type":"text"}]
 ```
-- 老大说了目标体重和速度，就按 AGENTS 第 8 节记 `pref.viz.weight`（数字只用老大亲口说的）。
+- Psir 说了目标体重和速度，就按 AGENTS 第 8 节记 `pref.viz.weight`（数字只用 Psir 亲口说的）。
 - 用药只记「在用什么、医生交代了什么」，不记剂量建议，也不评价剂量。
 
 ## 6. 压力 → `stress.profile`

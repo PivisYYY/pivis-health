@@ -256,7 +256,7 @@ struct V3Todo: Decodable, Identifiable, Hashable {
     var items: [String]? = nil      // checklist：几小步
     var record: V3Record? = nil
     var last: V3Last? = nil
-    var timeDraft: Bool? = nil      // build 53：服务器拟的时间，等老大确认（「好」/ 换个时间）
+    var timeDraft: Bool? = nil      // build 53：服务器拟的时间，等 Psir 确认（「好」/ 换个时间）
     var draftWhy: String? = nil     // 拟这个时间的依据，比如「按 23:30 上床倒推」
     var remind: V3Remind? = nil     // P-Health 改过的提醒方式；nil = 默认（提前 + 到点）
 
@@ -349,10 +349,10 @@ enum V3API {
         catch PivisAPI.Failure.decoding(let error) { DshAPI.dbg("v3 page decode \(name): \(error)"); throw PivisAPI.Failure.decoding(error) }
     }
 
-    /// 下拉刷新：让服务器马上拉一次 WHOOP。返回给老大看的一句话和是否成功（连不上服务器算失败）
+    /// 下拉刷新：让服务器马上拉一次 WHOOP。返回给 Psir 看的一句话和是否成功（连不上服务器算失败）
     /// build 53：服务器马上回（不再当场等 WHOOP）。whoop: fresh / late / needs_login / unknown；
     /// apple: fresh / quiet（手机没开 App）/ server（服务器的问题）/ blocked（权限关了）/ late。
-    /// action 不为空才需要老大动手（这时 ok = false）；pulling = 服务器在后台补拉 WHOOP
+    /// action 不为空才需要 Psir 动手（这时 ok = false）；pulling = 服务器在后台补拉 WHOOP
     struct HealthSync: Decodable {
         let ok: Bool
         let whoop: String?
@@ -389,7 +389,7 @@ enum V3API {
         case rejected(String)
     }
 
-    /// 待办动作。opId：同一个动作重发时服务器只算一次；clientAt：老大点下去的时间
+    /// 待办动作。opId：同一个动作重发时服务器只算一次；clientAt：Psir 点下去的时间
     @discardableResult
     static func submit(_ id: String, action: String, values: [String: Any] = [:], text: String? = nil,
                        summary: String? = nil, opId: String? = nil, clientAt: Date? = nil) async throws -> V3Todo {

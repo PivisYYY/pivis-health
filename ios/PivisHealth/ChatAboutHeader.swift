@@ -200,7 +200,7 @@ private struct AboutGlyph: View {
     }
 }
 
-/// P-Health 在忙时对话里的卡不动（老大 11-11：同时动的东西太多了，对话里的待办单可以不动）。
+/// P-Health 在忙时对话里的卡不动（Psir 11-11：同时动的东西太多了，对话里的待办单可以不动）。
 /// 忙不忙只看头像那一行；这里只留给读屏一句话。
 private struct AboutWorking: View {
     let on: Bool

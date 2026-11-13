@@ -92,7 +92,7 @@ class FakeWhoop:
                 q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
                 fake.log.append(("GET", u.path))
                 if u.path == "/oauth/oauth2/auth":
-                    # 模拟老大在浏览器里登录并同意 → 302 回本机回调
+                    # 模拟 Psir 在浏览器里登录并同意 → 302 回本机回调
                     assert q["client_id"] == CID and "offline" in q["scope"].split()
                     code = fake._new("code")
                     fake.codes[code] = q["redirect_uri"]
@@ -194,7 +194,7 @@ def _free_port() -> int:
 
 
 def _browser(url: str) -> None:
-    """代替老大的浏览器：后台线程打开授权页，跟随 302 到本机回调。"""
+    """代替 Psir 的浏览器：后台线程打开授权页，跟随 302 到本机回调。"""
     threading.Thread(target=lambda: urllib.request.urlopen(url, timeout=10).read(), daemon=True).start()
 
 

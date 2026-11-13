@@ -201,7 +201,7 @@ def test_no_repeat_and_correction(tmp_path):
     said["said"][key]["rate"] = 60                                               # 数字明显变了：可以再说
     assert any(c["key"] == key for c in insight.mine(tools, state=said)["picked"])
     AgentContextStore(tools.cfg).record(f"correction.insight.{key}", {"rule": "这个提醒时间是故意的"})
-    assert next(c for c in insight.mine(tools, state={})["dropped"] if c["key"] == key)["dropped"] == "老大 4 周内否过"
+    assert next(c for c in insight.mine(tools, state={})["dropped"] if c["key"] == key)["dropped"] == "Psir 4 周内否过"
 
 
 def test_pick_order_and_one_per_subject(tmp_path):
@@ -234,7 +234,7 @@ def test_validate_good_and_assemble():
     v = insight.validate_compose({"points": [GOOD]}, {"c11101": _cand()})
     assert v["options"] is None and v["points"][0]["option"] is None
     msg = insight.assemble(v)
-    assert msg.startswith("老大，这几天看出一件事：\n\n**1. 拉伸提醒 9 次里只有 2 次当场做。**22:40 提醒")
+    assert msg.startswith("Psir，这几天看出一件事：\n\n**1. 拉伸提醒 9 次里只有 2 次当场做。**22:40 提醒")
     assert msg.count("```phealth-ui") == 1
 
 
@@ -264,7 +264,7 @@ def test_validate_counts_and_soft_words():
         insight.validate_compose({"points": [{**p, "cid": "c0"}, {**p, "cid": "c0"}]}, cands)
     v = insight.validate_compose({"points": [{**p, "cid": "c0"}, {**p, "cid": "c1"}]}, cands)
     assert v["options"]["options"] == ["换个时间", "换个时间", "都先不动"]
-    assert insight.assemble(v).startswith("老大，这几天看出两件事：")
+    assert insight.assemble(v).startswith("Psir，这几天看出两件事：")
 
 
 def test_numbers_in_ignores_rule_constants():
@@ -290,7 +290,7 @@ def test_cycle_open_and_change(tmp_path, monkeypatch):
     tools.now = NOW
     (tmp_path / "sim_clock.json").write_text(json.dumps({"now": "2026-11-10T09:00:00+08:00"}))
     dry = insight.cycle(tools, dry_run=True, ask=_fake_ask)
-    assert dry["message"].startswith("老大，这几天看出一件事") and not (tmp_path / insight.PENDING).exists()
+    assert dry["message"].startswith("Psir，这几天看出一件事") and not (tmp_path / insight.PENDING).exists()
     out = insight.cycle(tools, ask=_fake_ask)
     assert out["push"]["skipped"].startswith("insight_push 没打开")
     st = insight.pending_status(tools.cfg)
@@ -471,7 +471,7 @@ def test_open_send_failure_and_change_error_paths(tmp_path, monkeypatch):
     assert insight.open_pending(tools, out["pending"], send=broken_send) == {"ok": False, "error": "send_failed"}
     runs = [json.loads(x) for x in (tmp_path / insight.RUNS).read_text().splitlines()]
     assert [r["op"] for r in runs][-2:] == ["change_error", "open"] and runs[-1]["error"] == "dsh down"
-    bj = datetime.now(CN).replace(tzinfo=None)                           # 老大那边的钟，不是这台机器的系统时区
+    bj = datetime.now(CN).replace(tzinfo=None)                           # Psir 那边的钟，不是这台机器的系统时区
     assert abs((datetime.fromisoformat(runs[-1]["at"]) - bj).total_seconds()) < 120
 
 
@@ -491,4 +491,4 @@ def test_real_env_gated_until_push_enabled(tmp_path, monkeypatch):
     assert out["gated"] and out["dry_run"] and insight.pending_status(tools.cfg) is None
     assert not (tmp_path / insight.STATE).exists()
     runs = [json.loads(x) for x in (tmp_path / insight.RUNS).read_text().splitlines()]
-    assert runs[-1]["op"] == "gated_dry_run" and runs[-1]["message"].startswith("老大，这几天看出")
+    assert runs[-1]["op"] == "gated_dry_run" and runs[-1]["message"].startswith("Psir，这几天看出")

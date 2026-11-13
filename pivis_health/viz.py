@@ -14,7 +14,7 @@ P-Health 在主卡里写一份描述：
 - days：看几天（DAYS[kind] 里选）
 - show：显示哪些参照（MARKS 的子集），不写就全显示
 数字全部由这里算：常态区间 = 个人 30 天均值 ± 1 个标准差；警戒线 = 均值 ∓ 1.5 个标准差（方向看指标）。
-老大用 pref.viz.<metric> 定过的数（warn、goal、target、start、start_date、rate_kg_week）以他定的为准。
+Psir 用 pref.viz.<metric> 定过的数（warn、goal、target、start、start_date、rate_kg_week）以他定的为准。
 不用医学阈值，不诊断。
 """
 from __future__ import annotations
@@ -75,7 +75,7 @@ def _text(v: float | None, nd: int) -> str:
 
 
 def prefs_for(cfg) -> dict[str, dict]:
-    """老大用 pref.viz.<metric> 定过的数和画法。"""
+    """Psir 用 pref.viz.<metric> 定过的数和画法。"""
     from .prefs import active_prefs
     out: dict[str, dict] = {}
     for e in active_prefs(cfg):

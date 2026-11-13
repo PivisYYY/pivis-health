@@ -39,7 +39,7 @@ struct NativeChatView: View {
     @State private var pinnedY: CGFloat = 0
     @State private var tailY: CGFloat = 0
     @State private var viewportH: CGFloat = 0
-    @State private var userScrolling = false   // 老大正在拖动 / 惯性滑动：这时不替他滚
+    @State private var userScrolling = false   // Psir 正在拖动 / 惯性滑动：这时不替他滚
     @State private var settleGen = 0           // 打开时等排版稳定再淡入
     @State private var flushPending = false    // 流式字合并成小批再上屏，不是每个字都重排整个列表
     @State private var showCapture = false
@@ -63,7 +63,7 @@ struct NativeChatView: View {
     /// 这次对话开始时已经有的行：卡排在它们后面，之后的新消息在卡下面（nil = 还没定，卡先排在最后）
     @State private var aboutBefore: Set<String>?
     @State private var aboutScroll = 0
-    /// 打开后、老大还没滑动也没发话：排版怎么变，卡都顶在上方
+    /// 打开后、Psir 还没滑动也没发话：排版怎么变，卡都顶在上方
     @State private var holdAboutTop = false
     private static let aboutRowId = "about-card"
     /// 顶上那一行占的高度：上下各 8 + 胶囊 48
@@ -258,7 +258,7 @@ struct NativeChatView: View {
                             if above != aboutAbove { aboutAbove = above }
                         }
                         let resized = abs(new.contentH - old.contentH) > 0.5 || abs(new.containerH - old.containerH) > 0.5
-                        // 带着卡刚打开、老大还没动过：上面的旧消息（卡片、图）后排好、网络补来的记录插在卡上面，
+                        // 带着卡刚打开、Psir 还没动过：上面的旧消息（卡片、图）后排好、网络补来的记录插在卡上面，
                         // 每次高度一变都重新落到卡上，卡一直顶在上方（以前只落一次，旧消息长高后卡被挤到了输入框后面）。
                         // 还没淡入的话排版停了再淡入
                         if resized, holdAboutTop, pinnedKey == Self.aboutRowId, !userScrolling {
@@ -274,9 +274,9 @@ struct NativeChatView: View {
                     }
                     .onScrollPhaseChange { _, phase in
                         userScrolling = phase == .tracking || phase == .interacting || phase == .decelerating
-                        // 老大自己滑了：卡不再替他顶在上方
+                        // Psir 自己滑了：卡不再替他顶在上方
                         if holdAboutTop, phase == .tracking || phase == .interacting { holdAboutTop = false }
-                        // 回复已经长过一屏、老大自己动手滑了：不再钉住刚发的那条，之后停到底部就跟着新内容走
+                        // 回复已经长过一屏、Psir 自己动手滑了：不再钉住刚发的那条，之后停到底部就跟着新内容走
                         if userScrolling, pinnedKey != nil, tailSpace <= 1 { pinnedKey = nil }
                     }
                     .onChange(of: scrollReset) { _, _ in
@@ -731,7 +731,7 @@ struct NativeChatView: View {
     }
 
     /// 【每日推荐】（系统发的，显示成一条分隔线）后面 P-Health 回的那一句：quiet，画成分隔线下的小灰字，
-    /// 不当成 P-Health 先开口说话。早上那次例外：回的是「今日判断」，老大要看的，照常显示。
+    /// 不当成 P-Health 先开口说话。早上那次例外：回的是「今日判断」，Psir 要看的，照常显示。
     /// rateable：每一轮 P-Health 回完的最后一条（后面一条不是它说的，或者没有了）下面放 👍 / 👎；最后一轮还在回（等回复中）时先不放。
     /// 服务器的历史会滤掉【洞察】【反馈】那段，前后两轮 P-Health 的话看着是连着的：这次打开对话里点开洞察 / 点踩转述时
     /// 记下的上一轮最后一条（turnFloorKey）照样算一轮的结尾；评过的那条不管在哪都留着小手（ReplyThumbs 自己看）
@@ -866,7 +866,8 @@ struct NativeChatView: View {
             }
             return
         }
-        let reply = "老大，今晚就这几件事：\n1. 22:40 把明天要做的事写下来，写完合上纸。\n2. 23:00 手机放到卧室外，开勿扰。\n3. 00:30 在床外做 5 分钟拉伸，困了再上床。\n4. 明早 08:30 照常起，周末也一样。\n\n```phealth-ui\n{\"type\":\"layout\",\"layout\":{\"t\":\"v\",\"children\":[{\"t\":\"value\",\"bind\":\"sleep\",\"size\":\"xl\"},{\"t\":\"chart\",\"metric\":\"hrv\",\"height\":\"l\"}]}}\n```\n\n```phealth-ui\n{\"type\":\"options\",\"title\":\"今晚先做哪个\",\"options\":[\"拉伸\",\"慢呼吸 5 分钟\",\"都不做\"]}\n```\n\n**今晚最要紧的是第 3 条**：床只用来睡。"   // 演示用的假回复（DEBUG -flowTest），不是真实对话
+        let gifTest = ProcessInfo.processInfo.arguments.contains("-flowTestGif")   // 动作示意动图（b60 验收用）
+        let reply = gifTest ? "侧卧抬腿这么做，要点在卡里。\n\n```phealth-ui\n{\"type\":\"layout\",\"layout\":{\"t\":\"v\",\"gap\":12,\"children\":[{\"t\":\"text\",\"role\":\"title\",\"text\":\"侧卧抬腿\"},{\"t\":\"photo\",\"exercise\":\"1427\"}]}}\n```" : "Psir，今晚就这几件事：\n1. 22:40 把明天要做的事写下来，写完合上纸。\n2. 23:00 手机放到卧室外，开勿扰。\n3. 00:30 在床外做 5 分钟拉伸，困了再上床。\n4. 明早 08:30 照常起，周末也一样。\n\n```phealth-ui\n{\"type\":\"layout\",\"layout\":{\"t\":\"v\",\"children\":[{\"t\":\"value\",\"bind\":\"sleep\",\"size\":\"xl\"},{\"t\":\"chart\",\"metric\":\"hrv\",\"height\":\"l\"}]}}\n```\n\n```phealth-ui\n{\"type\":\"options\",\"title\":\"今晚先做哪个\",\"options\":[\"拉伸\",\"慢呼吸 5 分钟\",\"都不做\"]}\n```\n\n**今晚最要紧的是第 3 条**：床只用来睡。"   // 演示用的假回复（DEBUG -flowTest），不是真实对话
         var chunks: [String] = []
         var cur = ""
         for ch in reply {
@@ -1235,7 +1236,7 @@ struct NativeChatView: View {
         }
     }
 
-    /// 卡片的「已回答」（重开对话后卡片仍锁着）：按卡片标题找后面老大的回答。
+    /// 卡片的「已回答」（重开对话后卡片仍锁着）：按卡片标题找后面 Psir 的回答。
     /// 只认以「回答「<卡片标题>」」开头的那条（问题 / 选项 / 打分卡点提交时发的就是它）；
     /// 方案 / 确认卡认「<按钮上的字>（<卡片标题>）」。以前后面随便哪句话都算回答，聊别的也会把卡锁上。
     /// 同名的卡后来又发了一次：再往后的回答算新的那张。
@@ -1331,7 +1332,7 @@ struct ChatRow: View, Equatable {
 
     var body: some View {
         if msg.isMe, isHarnessNoise(msg.text) || isInsightPrompt(msg.text) || isFeedbackPrompt(msg.text) {
-            // DSH 的后台任务通知、服务器塞的洞察提示、点踩转述等，不是老大说的话
+            // DSH 的后台任务通知、服务器塞的洞察提示、点踩转述等，不是 Psir 说的话
             EmptyView()
         } else if msg.isMe, msg.text.hasPrefix("【每日推荐】") {
             // 系统的定时推荐（早上 / 午后 / 傍晚）：不展示指令，只留一条分隔线；早上那次回的是「今日判断」
@@ -1479,7 +1480,7 @@ func isInsightPrompt(_ text: String) -> Bool {
     text.drop(while: { $0.isWhitespace }).hasPrefix("【洞察")
 }
 
-/// 点踩时写的那句，服务器转给 P-Health 的那段（以【反馈 开头）：不是老大在对话里打的字，不显示
+/// 点踩时写的那句，服务器转给 P-Health 的那段（以【反馈 开头）：不是 Psir 在对话里打的字，不显示
 func isFeedbackPrompt(_ text: String) -> Bool {
     text.drop(while: { $0.isWhitespace }).hasPrefix("【反馈")
 }
@@ -1539,7 +1540,7 @@ func toolGlyph(_ label: String) -> String {
     return "ellipsis"
 }
 
-/// 工具调用换成给老大看的话。P-Health 给 bash 写了中文说明（description）就直接用；
+/// 工具调用换成给 Psir 看的话。P-Health 给 bash 写了中文说明（description）就直接用；
 /// 没写或写成英文，就按 ./pivis-health 的子命令翻译；都不认识才说「处理中」。
 func actionLabel(_ name: String, _ arguments: String? = nil) -> String {
     let n = name.lowercased()
@@ -1560,7 +1561,7 @@ func actionLabel(_ name: String, _ arguments: String? = nil) -> String {
     return "处理中"
 }
 
-/// 中文、够短，才当成说给老大听的话
+/// 中文、够短，才当成说给 Psir 听的话
 private func isUserFacing(_ s: String) -> Bool {
     let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !t.isEmpty, t.count <= 14 else { return false }
@@ -1960,7 +1961,7 @@ enum GenParser {
                 }
                 out.append(.card(card))
             } else {
-                // 卡片 JSON 写坏了：不把原始代码露给老大，留一句话。
+                // 卡片 JSON 写坏了：不把原始代码露给 Psir，留一句话。
                 // （以前这里用闭区间 ...end.upperBound 截原文，卡片正好在消息最后时越界，打开对话就闪退）
                 out.append(.text("〔这张卡格式有误，没画出来〕"))
             }
@@ -2546,7 +2547,7 @@ struct ChatInputField: UIViewRepresentable {
             // 刚发出去：彻底清空，连还没选字的拼音一起
             context.coordinator.lastClearSignal = clearSignal
             // 还在组字（拼音没选完）时 unmarkText 会把那段字确认进来、触发 textViewDidChange，把整句又写回绑定，
-            // 下一次刷新再从绑定抄回框里：发出去的话就留在输入框里了（11-08 老大在习惯对话里碰到）。清的时候不认这次改动
+            // 下一次刷新再从绑定抄回框里：发出去的话就留在输入框里了（11-08 Psir 在习惯对话里碰到）。清的时候不认这次改动
             context.coordinator.clearing = true
             if uiView.markedTextRange != nil { uiView.unmarkText() }
             uiView.text = ""

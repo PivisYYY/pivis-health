@@ -59,7 +59,7 @@ conf=''.join([
  '<circle class="q-fall q-d2" cx="84" cy="30" r="2" fill="#fff"/>','<path class="q q-fall q-d3" d="M108 34 l-6 2"/>','<path class="q q-fall" d="M60 6 l2 6"/>',
  '<rect class="q-fall q-d2" x="12" y="40" width="4" height="4" fill="#fff" transform="rotate(20 14 42)"/>','<path class="q q-fall q-d3" d="M72 18 q3 -3 6 0"/>'])
 add('夸夸','太棒了','破纪录、阶段完成', conf + GROUND + C(60,80,.8, char('star','open',arms=UP_L+UP_R),'q-jump'))
-add('夸夸','比心','老大说谢谢',
+add('夸夸','比心','Psir 说谢谢',
   heart(96,40,1.2,cls='q-rise') + heart(104,28,.8,cls='q-rise q-d2') + heart(90,22,.7,cls='q-rise q-d3')
   + GROUND + C(54,80,.78, char('happy','w',arms=DOWN_L+f'<path class="q" d="M40,6 q8,-1 12,-10"/>{H(52,-5)}<path class="q" d="M50,-8 l5,-7 M54,-6 l4,-8"/>'),'q-bob'))
 SPIN='<g class="q-spin" style="transform-origin:60px 70px"><path class="q" style="stroke:#7a7a7a;stroke-dasharray:3 6" d="M14 70 A46 22 0 0 0 106 70"/></g>'
@@ -111,7 +111,7 @@ BOWL=('<path class="q" fill="#000" d="M36 86 q4 -10 9 -6 q4 -8 10 -3 q5 -8 11 -1
       '<path class="q" d="M76 80 L98 56 M80 82 L104 62"/><path class="q q-rise" style="stroke:#7a7a7a" d="M40 66 q-3 -4 0 -8 q3 -4 0 -8"/><path class="q q-rise q-d2" style="stroke:#7a7a7a" d="M60 64 q-3 -4 0 -8 q3 -4 0 -8"/>')
 add('提醒','好好吃饭','提醒按时吃饭', C(60,62,.62, char('happy','open',feet=False),'q-bob') + BOWL)
 SALUTE=f'<g class="q-armR"><path class="q" d="M40,10 q14,-8 4,-30"/>{H(42,-22)}<path class="q" d="M38,-24 l9,-4" /></g>'
-add('提醒','收到','老大交代事情',
+add('提醒','收到','Psir 交代事情',
   '<circle class="q" cx="24" cy="26" r="11"/><path class="q q-draw" style="stroke-dasharray:24" d="M19 26 l4 4 l7 -8"/>'
   + GROUND + C(62,80,.8, char('dot','smile',arms=DOWN_L+SALUTE),'q-nod'))
 BOOK=('<path class="q" fill="#000" d="M-24,16 q12,-4 24,0 q12,-4 24,0 v20 q-12,-4 -24,0 q-12,-4 -24,0 z"/><path class="q" d="M0,16 v20"/>'

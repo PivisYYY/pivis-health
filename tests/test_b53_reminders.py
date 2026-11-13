@@ -1,4 +1,4 @@
-"""build 53：P-Health 加的卡不留空时间（拟一个 + 推送请老大确认）、P-Health 能改怎么提醒、推送失败重试、漏推自检、单独的到点提醒。"""
+"""build 53：P-Health 加的卡不留空时间（拟一个 + 推送请 Psir 确认）、P-Health 能改怎么提醒、推送失败重试、漏推自检、单独的到点提醒。"""
 from __future__ import annotations
 
 from dataclasses import replace

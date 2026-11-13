@@ -194,7 +194,7 @@ struct PracticeVideoView: View {
 }
 
 /// 全屏从最上面那层窗口弹出来，不挂在习惯卡 / 对话卡上：以前挂在卡上，全屏期间卡一收起（对话里滚动会收起习惯卡），
-/// 全屏就没了主人，右上角 × 点了没反应（老大 11-08）。现在自己拿着这一层，× 直接关掉它
+/// 全屏就没了主人，右上角 × 点了没反应（Psir 11-08）。现在自己拿着这一层，× 直接关掉它
 @MainActor
 enum FullscreenVideo {
     private final class Holder { weak var vc: UIViewController? }
@@ -208,7 +208,7 @@ enum FullscreenVideo {
         let host = UIHostingController(rootView: PracticeFullscreen(player: player, onClose: { holder.vc?.dismiss(animated: true) }))
         holder.vc = host
         // .fullScreen 会把下面的对话页从窗口上摘下来、触发它的 onDisappear：以前那里直接把播放器停了，
-        // 全屏只剩黑底和停住的进度条（老大 11-11「全屏黑屏、播不完」）。现在 fullscreen 标记先立起来，
+        // 全屏只剩黑底和停住的进度条（Psir 11-11「全屏黑屏、播不完」）。现在 fullscreen 标记先立起来，
         // 对话页 / 卡片看到它就不停播放器；实时通道断了的，回来时重连（NativeChatView.wasCovered）
         host.modalPresentationStyle = .fullScreen
         host.view.backgroundColor = .black

@@ -1,4 +1,4 @@
-"""教练用的统计和记忆：提交的答案不丢、项目执行率、素材库扩充、周日复盘提示、了解到的老大同步进 AGENTS。"""
+"""教练用的统计和记忆：提交的答案不丢、项目执行率、素材库扩充、周日复盘提示、了解到的 Psir 同步进 AGENTS。"""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -80,7 +80,7 @@ def test_weekly_review_note_only_on_sunday(tmp_path):
 def test_known_facts_render_into_agents_block():
     block = prefs.render_block([{"scope": "pref.chart", "payload": {"rule": "图一律用折线"}, "recorded_at": "2026-11-05"}],
                                [{"scope": "learn.sleep", "payload": {"rule": "做了床外放松的晚上入睡更快"}, "recorded_at": "2026-11-05"}])
-    assert "图一律用折线" in block and "你已经了解到的老大" in block and "入睡更快（learn.sleep" in block
+    assert "图一律用折线" in block and "你已经了解到的 Psir" in block and "入睡更快（learn.sleep" in block
 
 
 def test_pause_and_template_change_clean_future_instances(tmp_path):

@@ -1,4 +1,4 @@
-"""build 58：回复更亲切（先接住人 → 结论 → 主动一步）、少量 emoji、表情包卡（老大 11-11 / 11-12）。"""
+"""build 58：回复更亲切（先接住人 → 结论 → 主动一步）、少量 emoji、表情包卡（Psir 11-11 / 11-12）。"""
 import json
 from pathlib import Path
 
@@ -32,7 +32,7 @@ def test_sticker_card_and_name():
 
 
 def test_sticker_goes_last():
-    ok = cards.check_text("早安老大 ☀️ 又守住一晚！\n" + STICKER + "\n")
+    ok = cards.check_text("早安 Psir ☀️ 又守住一晚！\n" + STICKER + "\n")
     assert ok["ok"], ok
     after_text = cards.check_text(STICKER + "\n再补一句")
     assert any("最后" in p for p in after_text["problems"])
@@ -59,16 +59,16 @@ def test_no_emoji_in_cards():
 
 
 def test_serious_replies_stay_plain():
-    res = cards.check_text("老大先坐下，闷得厉害马上打 120 🫂")
+    res = cards.check_text("Psir 先坐下，闷得厉害马上打 120 🫂")
     assert any("就医" in p for p in res["problems"])
     res = cards.check_text("这几条有一条就去医院。\n" + STICKER.replace("又守住了", "抱抱"))
     assert any("就医" in p for p in res["problems"])
-    assert cards.check_text("老大先坐下，慢慢呼吸，闷得厉害马上打 120。")["ok"]
+    assert cards.check_text("Psir 先坐下，慢慢呼吸，闷得厉害马上打 120。")["ok"]
 
 
 def test_notify_summary_for_stickers():
     assert notify.summarize(STICKER) == "发来一个表情：又守住了"
-    assert notify.summarize("晚安老大 🌙\n" + STICKER) == "晚安老大 🌙"
+    assert notify.summarize("晚安 Psir 🌙\n" + STICKER) == "晚安 Psir 🌙"
     card = '```phealth-ui\n{"type":"plan","title":"睡前放松","items":[{"title":"拉伸"}]}\n```'
     assert notify.summarize(card + "\n" + STICKER) == "发来一张卡：睡前放松"
 
@@ -76,7 +76,9 @@ def test_notify_summary_for_stickers():
 def test_rules_teach_the_new_tone():
     role = (REPO / "agent/skills/phealth-role/SKILL.md").read_text(encoding="utf-8")
     assert "不用表情符号" not in role
-    assert "先接住人" in role and "主动一步" in role and '"type":"sticker"' in role
+    assert "接住人" in role and "主动一步" in role and '"type":"sticker"' in role
+    # b60 导师立场：不附和、不因为 Psir 坚持就改
+    assert "不用「你说得对」「对」开头" in role and "说一次原因，不纠缠" not in role
     for name in cards.STICKERS:
         assert name in role
     agents = (REPO / "agent/AGENTS-v3.md").read_text(encoding="utf-8")

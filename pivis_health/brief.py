@@ -1,4 +1,4 @@
-"""全盘简报（build 52）：服务器把老大的全部数据算成一页，P-Health 每轮都看得到。
+"""全盘简报（build 52）：服务器把 Psir 的全部数据算成一页，P-Health 每轮都看得到。
 
 为什么：P-Health 每轮只跑一两条命令（几点了、今天的待办），从没把睡眠、恢复、训练、体重、饮食、
 习惯执行、伤病放在一起看，回答就只能就事论事（恢复 39 + 呼吸频率偏高的早上，它推荐「出门走 10 分钟」）。
@@ -110,7 +110,9 @@ def _today_state(tools, day: date) -> tuple[list[str], dict]:
     return parts, raw
 
 
-def _sleep(tools, day: date) -> tuple[list[str], dict]:
+def _sleep(tools, day: date, cb: dict | None = None) -> tuple[list[str], dict]:
+    """cb = 进行中的 CBT-I（cbti.state）：做 CBT-I 时不写「需要多少」和睡眠债——前两周少睡是方案本身，
+    这两个数会把 P-Health 带去劝补觉、放宽窗口（11-11 因此被点踩「不专业」）。"""
     from .coach import sleep_week
     lines, raw = [], {}
     try:
@@ -124,7 +126,7 @@ def _sleep(tools, day: date) -> tuple[list[str], dict]:
     last = nights[-1]
     yday = (day - timedelta(days=1)).isoformat()
     if last["night_of"] == yday:
-        need = f" / 需要 {last['need_h']:.1f}h" if last.get("need_h") else ""
+        need = f" / 需要 {last['need_h']:.1f}h" if last.get("need_h") and not cb else ""
         eff = f" · 效率 {last['efficiency_pct']:.0f}%" if last.get("efficiency_pct") else ""
         when = f" · {last['start']} 睡 → {last['end']} 起" if last.get("start") and last.get("end") else ""
         lines.append(f"昨晚：睡着 {last['asleep_h']:.1f}h{need}{eff}{when}")
@@ -137,8 +139,8 @@ def _sleep(tools, day: date) -> tuple[list[str], dict]:
     starts = [_night_min(n.get("start")) for n in nights if n.get("start")]
     ends = [_mins(n.get("end")) for n in nights if n.get("end")]
     effs = [n["efficiency_pct"] for n in nights if n.get("efficiency_pct") is not None]
-    seg = [f"近 {len(nights)} 晚：平均 {avg:.1f}h" + (f"（需要 {avg_need:.1f}h）" if avg_need else "")]
-    if debt is not None:
+    seg = [f"近 {len(nights)} 晚：平均 {avg:.1f}h" + (f"（需要 {avg_need:.1f}h）" if avg_need and not cb else "")]
+    if debt is not None and not cb:
         seg.append(f"睡眠债（近 5 晚）{debt:.1f}h")
     if starts:
         seg.append(f"入睡 {_hm(min(starts))}–{_hm(max(starts))}")
@@ -150,6 +152,42 @@ def _sleep(tools, day: date) -> tuple[list[str], dict]:
     raw.update({"avg": avg, "avg_need": avg_need, "debt5": debt, "starts": starts, "ends": ends, "effs": effs,
                 "last_is_yday": last["night_of"] == yday})
     return lines, raw
+
+
+def _cbti_lines(cb: dict | None) -> list[str]:
+    """CBT-I 进行中：处方、执行（实际上床 / 起床对窗口）、效率、下次复盘。全是 cbti.state 现算的。"""
+    if not cb:
+        return []
+    pj, rx, ad, ef, rv = cb["project"], cb["rx"], cb["adherence"], cb["efficiency"], cb["review"]
+    win = f"{rx.get('earliest_bed')}–{rx.get('wake')}" + (f"（{rx['window_h']:g}h）" if rx.get("window_h") else "")
+    out = [f"CBT-I：第 {pj['day']} 天 · 第 {pj['week']} 周（{cb.get('phase')}）· 窗口 {win} · 效率中位 "
+           + (f"{ef['median_7n']}%" if ef.get("median_7n") is not None else "没数")
+           + f" · 下次复盘 {rv['next'][5:]}（{'今天' if rv.get('today') else str(rv['in_days']) + ' 天后'}）"]
+    bed_m, wake_m = _night_min(rx.get("earliest_bed")), _mins(rx.get("wake"))
+    late_bed, early_rise, beds, rises = 0, 0, [], []
+    for n in cb.get("nights") or []:
+        if n.get("bed") and bed_m is not None:
+            d = _night_min(n["bed"]) - bed_m
+            if d > 45:
+                late_bed += 1
+                beds.append(d)
+        if n.get("rise") and wake_m is not None:
+            d = _mins(n["rise"]) - wake_m
+            if d < -30:
+                early_rise += 1
+                rises.append(-d)
+    if ad.get("nights"):
+        det = [f"守住 {ad['kept']}/{ad['nights']} 晚"]
+        if ad.get("early_bed"):
+            det.append(f"早于最早上床 {ad['early_bed']} 晚")
+        if ad.get("late_rise"):
+            det.append(f"晚于起床点 {ad['late_rise']} 晚")
+        if late_bed:
+            det.append(f"比最早上床晚 45 分钟以上才睡 {late_bed} 晚（中位晚 {int(statistics.median(beds))} 分钟）")
+        if early_rise:
+            det.append(f"比起床点早 30 分钟以上起 {early_rise} 晚（中位早 {int(statistics.median(rises))} 分钟）")
+        out.append("CBT-I 执行（近 7 晚，实际睡着 / 起床对窗口）：" + " · ".join(det))
+    return out
 
 
 def _training(tools, day: date) -> tuple[list[str], dict]:
@@ -261,8 +299,8 @@ def timeline(bed: str | None, wake: str | None) -> list[tuple[str, str]]:
     return out
 
 
-def _signals(state: dict, sleep: dict, train: dict, habits: list[dict]) -> list[str]:
-    """写死的交叉信号：每条都带触发它的数。"""
+def _signals(state: dict, sleep: dict, train: dict, habits: list[dict], cb: dict | None = None) -> list[str]:
+    """写死的交叉信号：每条都带触发它的数。cb = 进行中的 CBT-I：睡眠只按 CBT-I 的口径说。"""
     out = []
     rec = (state.get("whoop_recovery") or {})
     resp = (state.get("respiratory_rate") or {})
@@ -287,16 +325,18 @@ def _signals(state: dict, sleep: dict, train: dict, habits: list[dict]) -> list[
     elif rec and rec["value"] < 50 and (train.get("strain_yday") or 0) >= 14:
         out.append(f"昨天 strain {train['strain_yday']:.1f} 偏高、今天恢复 {rec['value']:.0f} → 今天轻一点")
     effs, avg, need = sleep.get("effs") or [], sleep.get("avg"), sleep.get("avg_need")
-    if len(effs) >= 5 and sum(1 for e in effs if e >= 90) >= len(effs) - 1 and avg and need and need - avg >= 1.0:
+    if cb:
+        out += _cbti_signals(cb)
+    elif len(effs) >= 5 and sum(1 for e in effs if e >= 90) >= len(effs) - 1 and avg and need and need - avg >= 1.0:
         out.append(f"效率 ≥90% 的有 {sum(1 for e in effs if e >= 90)}/{len(effs)} 晚，但平均只睡 {avg:.1f}h、需要 {need:.1f}h"
                    " → 躺下能睡着，缺的是睡眠时间（睡眠机会不足 / 作息偏晚），不是典型失眠：不要压缩窗口，按周把窗口往需要的时长放")
     starts = sleep.get("starts") or []
-    if starts and statistics.median(starts) > 25 * 60:
+    if starts and statistics.median(starts) > 25 * 60 and not cb:
         out.append(f"入睡中位数 {_hm(statistics.median(starts))}，在凌晨 1 点后 → 作息偏晚：起床固定、起床后马上见光、晚上提前调暗灯")
     ends = sleep.get("ends") or []
-    if len(ends) >= 4 and max(ends) - min(ends) >= 90:
+    if len(ends) >= 4 and max(ends) - min(ends) >= 90 and not cb:
         out.append(f"起床时间跨度 {(max(ends) - min(ends)) / 60:.1f}h（{_hm(min(ends))}–{_hm(max(ends))}）→ 固定起床是第一优先，周末也一样")
-    if sleep.get("debt5") is not None and sleep["debt5"] >= 10:
+    if sleep.get("debt5") is not None and sleep["debt5"] >= 10 and not cb:
         out.append(f"近 5 晚睡眠债 {sleep['debt5']:.1f}h → 一晚补不回来；白天困了最多睡 20 分钟、15:00 前")
     for h in habits:
         if h["pct"] is not None and h["n"] >= 3 and h["pct"] < 50:
@@ -304,9 +344,24 @@ def _signals(state: dict, sleep: dict, train: dict, habits: list[dict]) -> list[
     return out
 
 
+def _cbti_signals(cb: dict) -> list[str]:
+    """CBT-I 的口径：先看窗口守没守住，再看效率；不提睡眠债、补觉、按需要的时长放窗口。"""
+    out = []
+    ad, ef, rv, rx = cb["adherence"], cb["efficiency"], cb["review"], cb["rx"]
+    out.append("做 CBT-I：不提睡眠债、需要睡多久、补觉；白天困按 cbti 的「白天困」处理（不午睡，见光走动），"
+               "前两周少睡是方案本身")
+    if ad.get("nights") and ad["kept"] < ad["nights"]:
+        out.append(f"窗口近 7 晚只守住 {ad['kept']}/{ad['nights']} 晚 → 先把窗口守住再谈效率和调整；"
+                   "按 cbti「没守住窗口」逐条对：哪一头没守住、为什么，给一个今晚就能做的办法")
+    med = ef.get("median_7n")
+    if med is not None:
+        out.append(f"效率中位 {med}% → 周复盘建议「{rv.get('suggest')}」（{rv.get('reason')}）；周中不改窗口")
+    return out
+
+
 def _gaps(tools, day: date, train: dict, weight: dict, habits: list[dict]) -> list[str]:
     out = []
-    # WHOOP / Apple 健康：按 datastatus 的原因写（build 53）。服务器的问题不让老大改设置，手机没开 App 不算缺口
+    # WHOOP / Apple 健康：按 datastatus 的原因写（build 53）。服务器的问题不让 Psir 改设置，手机没开 App 不算缺口
     try:
         from . import datastatus
         out += datastatus.brief_lines(tools.cfg)
@@ -364,7 +419,13 @@ def build(tools, now: datetime | None = None) -> dict:
     day = day_of(now)
     goals = goals_mod.load(tools.cfg)
     state_parts, state = _today_state(tools, day)
-    sleep_lines, sleep = _sleep(tools, day)
+    cb = None
+    try:
+        from . import cbti as cbti_mod
+        cb = cbti_mod.state(tools, day, now)
+    except Exception:  # noqa: BLE001  CBT-I 现算出错时简报照常出，只是不带这一段
+        cb = None
+    sleep_lines, sleep = _sleep(tools, day, cb)
     train_lines, train = _training(tools, day)
     weight_lines, weight = _weight(tools, day, goals)
     habit_lines, habits = _habits(tools, day)
@@ -372,9 +433,9 @@ def build(tools, now: datetime | None = None) -> dict:
     tl = timeline(bed, wake)
     sections = {
         "head": f"【全盘 · {now.strftime('%m-%d')} 周{WD[now.weekday()]} {now.strftime('%H:%M')}】服务器算好的，数字直接用；"
-                f"「常态」是老大自己近 30 天的均值±标准差，不是医学标准",
+                f"「常态」是 Psir 自己近 30 天的均值±标准差，不是医学标准",
         "today": ["今天：" + " · ".join(state_parts)] if state_parts else ["今天：恢复 / HRV 还没出来"],
-        "sleep": sleep_lines + _safe(lambda: __import__("pivis_health.sleepwakes", fromlist=["x"]).brief_line(tools, day)),
+        "sleep": sleep_lines + _cbti_lines(cb) + _safe(lambda: __import__("pivis_health.sleepwakes", fromlist=["x"]).brief_line(tools, day)),
         "train": train_lines + weight_lines,
         "habits": habit_lines,
         "todos": _todos_left(tools, day),
@@ -383,7 +444,7 @@ def build(tools, now: datetime | None = None) -> dict:
         "limits": ["身体限制：" + "；".join(_limits(tools.cfg))] if _limits(tools.cfg) else [],
         "rehab": _safe(lambda: __import__("pivis_health.rehab", fromlist=["x"]).brief_lines(tools.cfg, day)),
         "nutrition": _safe(lambda: __import__("pivis_health.nutrition", fromlist=["x"]).brief_lines(tools, day)),
-        "signals": _signals(state, sleep, train, habits),
+        "signals": _signals(state, sleep, train, habits, cb),
         "gaps": _gaps(tools, day, train, weight, habits),
         "goals": goals_lines(tools, day, goals, sleep, weight, habits),
         "profile": _profile_missing(tools.cfg),
@@ -409,7 +470,7 @@ def render(s: dict) -> str:
     if s.get("goals"):
         lines.append("目标：" + "；".join(s["goals"]))
     else:
-        lines.append("目标：还没定（老大说过的目标用 ./pivis-health goal-set 记下来）")
+        lines.append("目标：还没定（Psir 说过的目标用 ./pivis-health goal-set 记下来）")
     if s.get("signals"):
         lines.append("交叉信号（规则算的，回答和推荐要先看这里）：")
         lines += [f"- {x}" for x in s["signals"]]
@@ -433,7 +494,7 @@ def brief_path() -> Path:
 
 def file_text(text: str) -> str:
     return ("<!-- P-Health 全盘简报：服务器每隔一阵自动重写，不要手改（build 52） -->\n"
-            "# 老大此刻的全盘（每轮回答和推荐之前先看这一段）\n\n" + text + "\n")
+            "# Psir 此刻的全盘（每轮回答和推荐之前先看这一段）\n\n" + text + "\n")
 
 
 def refresh(tools, force: bool = False, now: datetime | None = None, path: Path | None = None) -> dict:

@@ -1,6 +1,6 @@
 """一条命令装好 P-Health（build 55，DeepSeek Harness 插件）：别人在自己的 Mac 上装，数据都在自己电脑上。
 
-./bin/phealth setup [--home ~/PHealth] [--nickname 老大] [--api-port 8943] [--dsh-port 8960] [--profile phealth]
+./bin/phealth setup [--home ~/PHealth] [--nickname Psir] [--api-port 8943] [--dsh-port 8960] [--profile phealth]
 
 做的事（都可以重复跑，已有的不覆盖数据）：
 1. 目录：<home>/runtime（数据）、vault/health.sqlite3（空的健康库）、whoop/、whoop-auth/（0700）、workspace/（P-Health 的 DSH 工作区）
@@ -157,10 +157,10 @@ def write_wrapper(d: dict, env: dict) -> Path:
 
 
 def render_agents(nickname: str) -> str:
-    """AGENTS.md：P-Health 规则（开源那份，不带任何个人附录），「老大」换成用户自己的称呼。"""
+    """AGENTS.md：P-Health 规则（开源那份，不带任何个人附录），「Psir」换成用户自己的称呼。"""
     text = (CODE / "agent/AGENTS-v3.md").read_text(encoding="utf-8")
-    if nickname and nickname != "老大":
-        text = text.replace("老大", nickname)
+    if nickname and nickname != "Psir":
+        text = text.replace("Psir", nickname)
     # 规则里写死的开发机路径换成插件目录
     return text.replace("~/Tools/pivis-health", str(CODE))
 
@@ -370,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
     ap = argparse.ArgumentParser(prog="phealth setup", description=__doc__.split("\n")[0])
     ap.add_argument("--home", default=os.environ.get("PHEALTH_HOME") or str(Path.home() / "PHealth"))
-    ap.add_argument("--nickname", default=None, help="P-Health 怎么称呼你（默认「老大」，重跑时沿用上次的）")
+    ap.add_argument("--nickname", default=None, help="P-Health 怎么称呼你（默认「Psir」，重跑时沿用上次的）")
     ap.add_argument("--api-port", type=int, default=8943)
     ap.add_argument("--dsh-port", type=int, default=8960)
     ap.add_argument("--profile", default="phealth", help="P-Health 专用的 DSH profile 名")
@@ -394,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
         say("· 建好了空的健康数据库")
     cfg = write_config(home, d, a.api_port, a.dsh_port)
     nick_file = home / "nickname"
-    nickname = a.nickname or (nick_file.read_text(encoding="utf-8").strip() if nick_file.exists() else "") or "老大"
+    nickname = a.nickname or (nick_file.read_text(encoding="utf-8").strip() if nick_file.exists() else "") or "Psir"
     nick_file.write_text(nickname + "\n", encoding="utf-8")
     env = env_for(home, d, cfg, nickname, a.session_prefix)
     wrapper = write_wrapper(d, env)

@@ -11,7 +11,7 @@ func vfmt(_ v: Double?, _ nd: Int) -> String {
     return nd == 0 ? String(Int(v.rounded())) : String(format: "%.\(nd)f", v)
 }
 
-/// 参照线标签：整数就不带小数（老大说 28 就显示 28）
+/// 参照线标签：整数就不带小数（Psir 说 28 就显示 28）
 func lfmt(_ v: Double?, _ nd: Int) -> String {
     guard let v else { return "" }
     return abs(v - v.rounded()) < 0.05 ? String(Int(v.rounded())) : vfmt(v, nd)

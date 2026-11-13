@@ -227,7 +227,7 @@ struct V3Root: View {
                     }
                 }
             } else if let pending = info["pending"] as? String {
-                // 推送里带的问句只放进输入框当草稿，老大自己决定发不发（不替他发，P-Health 也不抢先说话）
+                // 推送里带的问句只放进输入框当草稿，Psir 自己决定发不发（不替他发，P-Health 也不抢先说话）
                 chatTarget = ChatTarget(context: V3_BOARDS.first { $0.id == selected }?.context ?? "", pendingText: nil,
                                         draft: pending)
             }

@@ -65,7 +65,7 @@ def test_fields_and_table_together_rejected_and_negative_change_matches():
     assert validate_page("stress", stress, FACTS)["hero"]["level"] == "watch"
 
 
-# ---- 老大确认过的主卡样子（pref.page.<page>.layout）：发布前代码核对
+# ---- Psir 确认过的主卡样子（pref.page.<page>.layout）：发布前代码核对
 from pivis_health.v3 import enforce_page_pref  # noqa: E402
 
 SPORT_PREF = {"rule": "运动页主卡用竖柱看步数",
