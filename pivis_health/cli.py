@@ -36,7 +36,15 @@ PROJECT_SET_HELP = """新建或修改一个项目（同 id 即修改，旧版本
 周复盘不写进模板：周日早上那次【每日推荐】会让你给每个进行中的项目出一张「本周复盘」"""
 
 
+_STATE: dict = {"cmd": None, "cfg": None}
+
+
 def _json(obj) -> None:
+    # b61：写入命令成功时带一个回执编号；回执卡的 ref 只能填它（receipts.py）
+    if _STATE["cfg"] is not None and _STATE["cmd"]:
+        from . import receipts
+        if _STATE["cmd"] in receipts.WRITE_CMDS and isinstance(obj, dict) and not obj.get("error") and obj.get("ok") is not False:
+            obj = {**obj, "receipt_id": receipts.record(_STATE["cfg"], _STATE["cmd"], json.dumps(obj, ensure_ascii=False, default=str)[:120])}
     print(json.dumps(obj, ensure_ascii=False, indent=1, default=str))
 
 
@@ -45,9 +53,9 @@ def _day(text: str | None) -> date | None:
 
 
 def _republish_async(tools, pages) -> None:
-    """项目变了：后台刷新页面的结论和主卡，不阻塞当前对话。"""
+    """项目变了：后台刷新受影响那几页的结论和主卡，不阻塞当前对话（b61 起不再四页全排）。"""
     from .v3 import republish_async
-    republish_async(tools.cfg)
+    republish_async(tools.cfg, pages)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -108,6 +116,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--id", default="", help="动作 id，看全部步骤")
     sp.add_argument("--limit", type=int, default=8)
     sp.add_argument("--safe-knee", action="store_true", help="排除有膝盖提醒的动作")
+    sp = sub.add_parser("weight-log", help="记 Psir 报的体重（页面、简报、目标进度都会用它）；称重卡提交的会自动记")
+    sp.add_argument("--kg", type=float, required=True); sp.add_argument("--date", help="哪天（默认今天）")
     sp = sub.add_parser("facts", help="v3 主卡可引用的数字"); sp.add_argument("--date")
     sp = sub.add_parser("brief", help="全盘简报：Psir 此刻的全部数据、今晚时间线、交叉信号、数据缺口（服务器算好的）")
     sp.add_argument("--write", action="store_true", help="同时写进工作区 CLAUDE.local.md（DSH 会补进每个对话）")
@@ -154,7 +164,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("page-v3", help="查看 v3 页面文档"); sp.add_argument("page", choices=["now", "sleep", "sport", "stress"])
     sp = sub.add_parser("daily-review", help="定时场景推荐（早上 8 点 / 午后 1 点 / 傍晚 6 点）：让 P-Health 主动推荐 1–2 件事"); sp.add_argument("--board", choices=["sleep", "sport", "stress"]); sp.add_argument("--force", action="store_true")
     sp.add_argument("--slot", choices=["morning", "noon", "evening"], help="不写就按现在的钟点判断")
-    sp = sub.add_parser("publish-v3", help="让 P-Health 重新生成 v3 页面主卡"); sp.add_argument("page", choices=["now", "sleep", "sport", "stress", "all"]); sp.add_argument("--timeout", type=int, default=420)
+    sp = sub.add_parser("publish-v3", help="让 P-Health 重新生成 v3 页面主卡（可以写几页，几页同时排）")
+    sp.add_argument("page", nargs="+", choices=["now", "sleep", "sport", "stress", "all"]); sp.add_argument("--timeout", type=int, default=420)
+    sp.add_argument("--auto", action="store_true", help="后台触发的：按失败退避来（手动指定页时不管退避）")
     sp = sub.add_parser("now", help="当前时间（模拟回放时为模拟时间）")
     sp = sub.add_parser("ui-reset"); sp.add_argument("--page", required=True); sp.add_argument("--component"); sp.add_argument("--source-session", default="unknown")
     sp = sub.add_parser("context-record", help="由 P-Health 保存可跨 Session 复用的个人记忆/决定")
@@ -259,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
                        "hint": "加 --form <名字> 看模板；写法规矩见 todo-cards skill"})
             return 0
         cfg: Config = load_config(getattr(args, "config", None))
+        _STATE["cmd"], _STATE["cfg"] = args.cmd, cfg
         if args.cmd == "serve":
             from .web import serve
             serve(cfg, host=args.host, port=args.port, tls_cert=args.tls_cert, tls_key=args.tls_key)
@@ -380,7 +393,9 @@ def main(argv: list[str] | None = None) -> int:
                 from . import prefs
                 entry = {**entry, "prefs_sync": prefs.sync_agents_md(tools.cfg)}
                 # 偏好会改页面（放什么字段、怎么对比）：后台重排四个页面，不卡对话
-                _republish_async(tools, ["now", "sleep", "sport", "stress"])
+                # 某一页的偏好只排那一页；其余偏好（图表、对比基线……）四页都可能用到
+                one = args.scope.split(".")[2] if args.scope.startswith("pref.page.") and args.scope.count(".") >= 2 else None
+                _republish_async(tools, [one] if one in ("now", "sleep", "sport", "stress") else ["now", "sleep", "sport", "stress"])
                 entry["pages"] = "页面会在后台按新偏好重排，几分钟后生效"
             _json(entry)
         elif args.cmd == "compare":
@@ -434,6 +449,15 @@ def main(argv: list[str] | None = None) -> int:
                 except Exception:  # noqa: BLE001
                     in_cbti = False
                 res = cards.check_text(text, cbti_active=in_cbti)
+                # b61：回执卡要带这一轮写入命令返回的 receipt_id
+                from . import receipts
+                found = []
+                for _i, _m in enumerate(cards._BLOCK.finditer(text or ""), 1):
+                    found.append((_i, cards.parse(_m.group(1).strip())[0]))
+                rp = receipts.receipt_problems(tools.cfg, found)
+                if rp:
+                    res["problems"] = list(res.get("problems") or []) + rp
+                    res["ok"] = False
                 if res["count"] == 0:
                     res["note"] = "这条回复里没有 ```phealth-ui 卡片：要讲数字、对比、步骤，就用卡片说"
                 _json(res)
@@ -522,6 +546,9 @@ def main(argv: list[str] | None = None) -> int:
                 _republish_async(tools, [proj["board"], "now"])
             else:
                 _json({"projects": store.projects()})
+        elif args.cmd == "weight-log":
+            from .tools import log_weight
+            _json(log_weight(tools.cfg, date.fromisoformat(args.date) if args.date else _day_of(tools._now()), args.kg))
         elif args.cmd == "exercise":
             from . import exercises
             if args.id:
@@ -618,9 +645,9 @@ def main(argv: list[str] | None = None) -> int:
             _json(page_doc(tools, args.page))
         elif args.cmd == "publish-v3":
             from .v3 import publish_all
-            pages = ["now", "sleep", "sport", "stress"] if args.page == "all" else [args.page]
-            # 单实例锁 + 失败退避都在 publish_all 里；指定一页时（手动）不管退避
-            _json(publish_all(tools, pages, args.timeout, force=args.page != "all"))
+            pages = ["now", "sleep", "sport", "stress"] if "all" in args.page else [p for p in ["now", "sleep", "sport", "stress"] if p in args.page]
+            # 单实例锁 + 失败退避都在 publish_all 里；手动指定页时不管退避，「all」和后台触发（--auto）按退避来
+            _json(publish_all(tools, pages, args.timeout, force=("all" not in args.page and not args.auto)))
         elif args.cmd == "daily-review":
             from .v3 import daily_review
             _json(daily_review(tools, [args.board] if args.board else None, args.force, args.slot))

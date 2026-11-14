@@ -470,12 +470,14 @@ final class ServerLink: ObservableObject {
         lastProbe = Date()
         DshAPI.dbg("paired \(v.link.name) via \(v.host) push=\(v.hello.push?.rawValue ?? "?") dsh=\(v.hello.dsh ?? "?") changed=\(changed)")
         DemoStore.reset()
+        PageCache.clear()          // 换了电脑：上一台的页面缓存不用
         reload()
         AppDelegate.startDeviceServices(afterPairing: true)
     }
 
     func unpair() {
         ServerConfig.clearPairing()
+        PageCache.clear()
         forgetOldServer()
         keyRejected = false
         Reminders.shared.clearTodoReminders()

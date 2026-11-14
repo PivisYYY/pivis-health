@@ -69,6 +69,11 @@
             config:
               - id: compaction-basic
                 name: '@deepseek-ai/dsh-compaction-basic'
+                # b61：早点压缩（约 20 万 token 就压，留最近 6 万原文）。默认要到窗口的 80% 才压，
+                # 主对话每一步都要带七十多万 token，慢也贵
+                config:
+                  thresholdRatio: 0.2
+                  retainTokens: 60000
               - id: command-compact
                 name: '@deepseek-ai/dsh-command-compact'
               - id: tool-result-pruner

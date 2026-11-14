@@ -40,7 +40,8 @@ description: "跟练视频：Psir 分享小红书 / B 站的动作示范视频�
    - `--secs`：每侧秒数。默认力量 12–20、拉伸 20–30；Psir 说了就听他的。单个动作要不同秒数，在 moves 里写 `"secs": 30`。
    - 博主只示范了一次、接不出无缝循环的动作，工具会自动改成「原速正放到顶点、停一下、原速倒放回来」（`loop_mode=pingpong`），不用你处理。
    - 返回 `job` 和 **`progress_card`**：**立刻把 progress_card 原样发成 phealth-ui 卡片**，配一句「开始做了，下面会自动更新进度」，然后才继续等。卡片由现有画布零件组成，后台自动刷新真实阶段、阶段进度、已用时和验收结果；重开对话会重新读取。别自己猜百分比、剩余分钟或成功状态，不重复发多张进度卡。
-   - 然后等它：`./pivis-health follow job <job> --wait 30`，没好就再等，**每次换一个等待秒数（30 → 45 → 60 → 30…）**，不要连着发一模一样的命令。阶段切换或异常时补一句短文字说明，同一阶段不重复刷屏。`state=done` 仍要检查 `result.verify_ok`，验收不通过不能说已完成。
+   - 然后等它：`./pivis-health follow wait <job>`（一条命令一直等到做完或失败，最多 9 分钟；**不要自己 sleep 轮询**）。还没好就告诉 Psir 还在做（进度卡会自己动），再 `follow wait` 一次。`state=done` 仍要检查 `result.verify_ok`，验收不通过不能说已完成。
+   - **失败了马上告诉 Psir**：照 `say` 说「没做成、卡在哪一步」，不要不吭声。能换个做法就只重试一次；同样的错第二次出现，用 `context-record --scope request.tool` 把 `dev` 里的错误记给开发，跟 Psir 说开发修好前先用原片或别的视频。
 5. **验收**：`result.verify_ok=true` 才交付（每组时长、原速、每秒报数、配音没破音、响度、跟练画面无残留字幕、全身入镜、循环无接缝、署名结构，v5 加：讲解段在且听得到博主的声音 `teach_segments`、跟练循环里只有一个人 `one_person_demo`）。讲解段里博主的字幕是保留的，不算残留。
    - `full_body` 不过：先看原片——那个动作本来就只拍了半身（上肢 / 颈肩）或者脚被身体挡住（坐姿 / 跪姿拉伸），可以接受，交付时说明；不是这样就换一段 `t0/t1` 重切。
    - `seamless_loop` / `no_text_residue` 不过：换一段 `t0/t1` 重切那个动作（`follow cut <sid> --moves '[…]'` → 用新的 mid `follow session set <ssid> --json '{"exercises":[{"n":序号,"move":"<新mid>"}]}'` → `follow build`）。**同一个动作最多重切 2 次**，还不行就换别的动作或删掉它，并告诉 Psir 原因。
@@ -53,7 +54,7 @@ description: "跟练视频：Psir 分享小红书 / B 站的动作示范视频�
 - 看清单：`./pivis-health follow session show <ssid>`（`exercises` 带序号）。
 - 删：`./pivis-health follow session rm-move <ssid> <序号或名字>`；改：`./pivis-health follow session set <ssid> --json '{"exercises":[{"n":2,"secs":20}]}'`（`"secs"` 放外层 = 全部改）。
 - 删掉的动作要用到的器材（如瑜伽球），同时把开场的器材也改掉：`follow session set <ssid> --json '{"gear":"一根弹力圈 · 一条毛巾卷"}'`。
-- 然后 `./pivis-health follow build <ssid>` → 立即发返回的 progress_card → `follow job <job> --wait 30` 到 done（同上，每次换一个等待秒数）→ 验收通过才交付新地址（`?v=` 版本号会变）。
+- 然后 `./pivis-health follow build <ssid>` → 立即发返回的 progress_card → `follow wait <job>` 到 done（同上；失败马上告诉 Psir）→ 验收通过才交付新地址（`?v=` 版本号会变）。
 - **已经放进计划的**：用同一个项目 id 再 `project-set`，只把那一项视频的 url / duration_min 换成新的（今天还没开始的待办会自动换成新版）。交付时说清删了什么、剩哪些。
 
 ## 放进计划：这个项目 + 一个视频（每天练 → 记录 → 复盘）

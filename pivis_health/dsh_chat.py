@@ -115,6 +115,10 @@ def _session_id(context: str = "") -> str:
         # 验收用例：每个用例一个独立会话（只在模拟 / 演示工作区用），互不串话
         slug = re.sub(r"[^A-Za-z0-9_-]+", "-", context.split(":", 1)[1]).strip("-")[:48]
         return f"{DSH_PREFIX or 'phealth-'}accept-{slug}"
+    if context == "事件处理":
+        # b61：事件分类每次只看这一条事件，不需要历史。按天换一个新会话，免得越堆越长（一个会话涨到 50 万 token）
+        from datetime import datetime as _dt
+        return f"{SESSION_BY_CONTEXT['事件处理']}-{_dt.now().strftime('%Y%m%d')}"
     return SESSION_BY_CONTEXT.get(context, SESSION_MAIN)
 
 

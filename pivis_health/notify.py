@@ -432,7 +432,7 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
             send = apns_sender(tools) if enabled(cfg) else (lambda *_a: {"ok": False, "skipped": "disabled"})
         first = not state
         out = replies(state, send if not first else (lambda *_a: {"ok": False}), events_of or dsh_chat.read_session_events,
-                      on_cards=None if first else (lambda ctx, texts: note_cards(cfg, ctx, texts, now)))
+                      on_cards=None if first else (lambda ctx, texts: _after_turn(cfg, state, ctx, texts, now)))
         if first:
             # 第一次：待办只记下已经过了的提醒，不补推
             out += todos(state, lambda *_a: {"ok": False, "skipped": "first_run"}, TodoStore(cfg), now, lead_minutes(cfg))
@@ -469,6 +469,21 @@ def tick(tools, send=None, events_of=None, now: datetime | None = None) -> dict:
     finally:
         fcntl.flock(lockf, fcntl.LOCK_UN)
         lockf.close()
+
+
+def _after_turn(cfg, state: dict, ctx: str, texts: list[str], now: datetime) -> None:
+    note_cards(cfg, ctx, texts, now)
+    # b61：回执核对。没写成功的「记好了」让 P-Health 自己更正；同一个对话 10 分钟最多催一次
+    from . import receipts
+    last = (state.setdefault("receipt_audit", {}) or {}).get(ctx or "main")
+    if last and (now - datetime.fromisoformat(last)).total_seconds() < 600:
+        receipts.audit_turn(cfg, ctx, texts, None)
+        return
+    def _send(msg: str, c: str) -> None:
+        from . import dsh_chat
+        dsh_chat.send_message(msg, c)
+    if receipts.audit_turn(cfg, ctx, texts, _send):
+        state["receipt_audit"][ctx or "main"] = now.isoformat()
 
 
 def note_cards(cfg, ctx: str, texts: list[str], now: datetime) -> None:

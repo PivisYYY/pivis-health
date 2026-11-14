@@ -101,15 +101,31 @@ class EventDelivery:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
+def _brief_context(cfg: Config) -> list[dict]:
+    """事件判断要用的记忆：只要生效的那几条的一句话（b61：以前整份记忆连作废的历史一起塞，事件会话涨到 50 万 token）。"""
+    out = []
+    for e in AgentContextStore(cfg).snapshot()["entries"]:
+        sc = str(e.get("scope", ""))
+        if e.get("status", "active") != "active" or not sc.startswith(("pref.", "profile.", "learn.", "stance.", "sleep.cbti", "device.")):
+            continue
+        if sc.startswith(("profile.home_place", "profile.location", "profile.address")):
+            continue
+        p = e.get("payload") or {}
+        rule = str(p.get("rule") or p.get("summary") or p.get("implication") or "").strip() if isinstance(p, dict) else str(p)
+        out.append({"scope": sc, "rule": (rule or json.dumps(p, ensure_ascii=False, default=str))[:160]})
+    return out[-60:]
+
+
 def send_event_to_agent(cfg: Config, event: dict) -> bool:
     """把原始事件交给内部事件处理 Session；投递成功不等于已采纳行动。"""
     from . import dsh_chat
     dsh_chat.ensure_session(EVENT_CONTEXT)
-    context = AgentContextStore(cfg).snapshot()
+    context = _brief_context(cfg)
     prompt = (
         "你是 P-Health 的事件处理 Agent。根据原始事件和共享上下文判断事件含义。\n"
         "要求：结合个人习惯；证据不足时保留不确定性；不得把单一信号写成诊断；"
-        "可能驾驶时不得即时打扰；需要行动时更新共享计划并发布相关页面。\n"
+        "不从位置变化、速度或蓝牙推断 Psir 在开车（Psir 两次纠正过），勿扰时段不即时打扰；"
+        "需要行动时更新共享计划并发布相关页面。\n"
         f"shared_context：{json.dumps(context, ensure_ascii=False, default=str)}\n"
         f"原始事件：{json.dumps(event, ensure_ascii=False, default=str)}"
     )

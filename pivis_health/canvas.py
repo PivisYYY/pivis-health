@@ -66,8 +66,10 @@ def _t(node: Any) -> str:
 
 
 def _numbers_in(text: str) -> list[str]:
-    # 时间（22:30）、日期（11-04）里的数也算，但只要求在证据里出现过
-    return re.findall(r"\d+(?:\.\d+)?", text)
+    """手写文字里要核对的数：日期（11-04）、「近 7 晚」这类计数不算（b61：以前全算，九成的「数字对不上」
+    退回都是它们，休息页几乎每次都被打回）。钟点照样要和证据对得上（起床 08:15、倒数到 23:45）。"""
+    from .v3 import _strip_dates_counts
+    return re.findall(r"\d+(?:\.\d+)?", _strip_dates_counts(text))
 
 
 def validate(layout: Any, slot: str = "hero", pool: list[float] | None = None, has_number=None) -> dict:

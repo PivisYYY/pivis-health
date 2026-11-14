@@ -345,8 +345,12 @@ struct ChatAbout: Equatable {
 enum V3API {
     static func page(_ name: String) async throws -> V3Page {
         if ServerConfig.isDemo { return try DemoStore.page(name) }
-        do { return try await PivisAPI.get(V3Page.self, "api/v3/page/\(name)", timeout: 30) }
-        catch PivisAPI.Failure.decoding(let error) { DshAPI.dbg("v3 page decode \(name): \(error)"); throw PivisAPI.Failure.decoding(error) }
+        let (data, _) = try await PivisAPI.send(PivisAPI.request("api/v3/page/\(name)", timeout: 30))
+        do {
+            let page = try PivisAPI.decode(V3Page.self, data)
+            PageCache.save(name, data)
+            return page
+        } catch PivisAPI.Failure.decoding(let error) { DshAPI.dbg("v3 page decode \(name): \(error)"); throw PivisAPI.Failure.decoding(error) }
     }
 
     /// 下拉刷新：让服务器马上拉一次 WHOOP。返回给 Psir 看的一句话和是否成功（连不上服务器算失败）
@@ -439,4 +443,33 @@ extension Notification.Name {
     static let pivisPagesDirty = Notification.Name("pivisPagesDirty")
     static let pivisOpenChat = Notification.Name("pivisOpenChat")
     static let pivisStartTodo = Notification.Name("pivisStartTodo")
+}
+
+/// 页面的本地缓存（b61）：冷启动时先画上次拿到的那份，网络回来再换新的，四张主卡不再等网络才出现。
+/// 只放本机 Caches；超过 12 小时的不用；解除配对时清掉。
+enum PageCache {
+    private static var dir: URL? {
+        guard let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        return base.appendingPathComponent(Profile.isSim ? "pages-sim" : "pages", isDirectory: true)
+    }
+
+    static func save(_ name: String, _ data: Data) {
+        guard let dir else { return }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? data.write(to: dir.appendingPathComponent("\(name).json"), options: .atomic)
+    }
+
+    static func load(_ name: String, maxAge: TimeInterval = 12 * 3600) -> V3Page? {
+        guard !ServerConfig.isDemo, let dir else { return nil }
+        let url = dir.appendingPathComponent("\(name).json")
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let modified = attrs[.modificationDate] as? Date, Date().timeIntervalSince(modified) < maxAge,
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? PivisAPI.decode(V3Page.self, data)
+    }
+
+    static func clear() {
+        guard let dir else { return }
+        try? FileManager.default.removeItem(at: dir)
+    }
 }

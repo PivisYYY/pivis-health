@@ -24,6 +24,8 @@ def pf_home(cfg: Config) -> Path:
 def run_cli(cfg: Config, argv: list[str]) -> tuple[dict, int]:
     if not cfg.follow_enabled:
         return {"error": "not_enabled", "message": "跟练视频功能还在模拟环境验收，这个环境暂未开放。可以先把视频链接存进素材库（media-add）。"}, 2
+    if argv and argv[0] == "wait":
+        return wait_job(cfg, argv[1:])
     if not argv or argv[0] in ("-h", "--help", "help"):
         argv = ["--help"]
     env = dict(os.environ, PF_HOME=str(pf_home(cfg)))
@@ -43,6 +45,56 @@ def run_cli(cfg: Config, argv: list[str]) -> tuple[dict, int]:
         if r.returncode == 0 and isinstance(jid, str) and SAFE.fullmatch(jid):
             out["progress_card"] = progress_card(jid)
     return out, (0 if r.returncode == 0 else 1)
+
+
+# 出片失败时给 Psir 的一句人话（b61：以前配音失败 6 次，P-Health 一次都没告诉他）
+_STEP_SAY = (("下载", "下载原片"), ("看懂", "识别动作"), ("分析", "识别动作"), ("切动作", "剪动作"),
+             ("配音", "配音"), ("出片", "合成视频"), ("验收", "验收"))
+
+
+def wait_job(cfg: Config, argv: list[str]) -> tuple[dict, int]:
+    """follow wait <job> [--timeout 秒]：一直等到出片结束（完成 / 失败）或超时，不用自己 sleep 轮询。
+    失败时带 say（给 Psir 的一句话）和 dev（给开发看的错误），P-Health 要马上告诉 Psir。"""
+    if not argv or not SAFE.fullmatch(argv[0]):
+        return {"error": "bad_job", "message": "用法：follow wait <job id> [--timeout 秒]"}, 2
+    jid = argv[0]
+    timeout = 540
+    if "--timeout" in argv:
+        try:
+            timeout = max(10, min(1800, int(argv[argv.index("--timeout") + 1])))
+        except (ValueError, IndexError):
+            pass
+    path = pf_home(cfg) / "jobs" / f"{jid}.json"
+    deadline = time.time() + timeout
+    job: dict = {}
+    while True:
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {"error": "no_job", "message": f"找不到任务 {jid}"}, 1
+        except (OSError, ValueError):
+            job = job or {}
+        state = str(job.get("state") or "")
+        if state in ("done", "failed") or time.time() >= deadline:
+            break
+        time.sleep(5)
+    step = str(job.get("step") or "")
+    out: dict = {"job": jid, "state": state or "unknown", "step": step, "progress_card": progress_card(jid)}
+    if state == "done":
+        result = job.get("result") if isinstance(job.get("result"), dict) else {}
+        out["result"] = result
+        out["say"] = "出好了，验收通过" if result.get("verify_ok") is True else "出好了，但验收没过，先别交给 Psir"
+        return out, 0
+    if state == "failed":
+        where = next((label for k, label in _STEP_SAY if k in step), "出片")
+        out["say"] = f"视频在「{where}」这一步失败了，这次没做成"
+        out["dev"] = str(job.get("error") or "")[:300]
+        out["next"] = ("马上告诉 Psir 没做成、卡在哪一步；能换个做法重试就说你打算怎么试（只重试一次），"
+                       "同样的错第二次出现就用 context-record --scope request.tool 记给开发，不要反复重试")
+        return out, 1
+    out["say"] = "还在做，超过等待时间了"
+    out["next"] = "告诉 Psir 还在做、进度卡会自己更新；之后再 follow wait 一次，别用 sleep 轮询"
+    return out, 0
 
 
 def _localize(obj, cfg):

@@ -714,6 +714,7 @@ class TodoStore:
             if op_id and op_id in (t.get("ops") or []):
                 return t
             values = values or {}
+            _maybe_log_weight(self.cfg, t, values, now)
             if action == "start":
                 t["status"] = "in_progress"
                 if t["kind"] == "timer":       # 计时：记下开始时间，App 按它倒计时
@@ -798,3 +799,27 @@ class TodoStore:
 
 def board_of_context(context: str) -> str | None:
     return {"休息": "sleep", "运动": "sport", "压力": "stress"}.get(context)
+
+
+def _maybe_log_weight(cfg, t: dict, values: dict, now) -> None:
+    """称重卡（标题或输入里有「体重 / 称重」、单位 kg）提交的数字，记进体重数据（b61：以前只留在待办里，
+    页面和简报一直用旧体重）。"""
+    try:
+        from .clock import day_of
+        from .tools import log_weight
+        title = str(t.get("title") or "")
+        for f in t.get("inputs") or []:
+            if not isinstance(f, dict) or f.get("type") not in ("number", None):
+                continue
+            label = f"{title} {f.get('label') or ''} {f.get('id') or ''} {f.get('unit') or ''}"
+            if not any(k in label for k in ("体重", "称重", "weight", "kg")):
+                continue
+            v = values.get(f.get("id")) if f.get("id") else None
+            if v is None and len(values) == 1:
+                v = next(iter(values.values()))
+            if v is None:
+                continue
+            log_weight(cfg, day_of(now), float(v), source=f"todo:{t.get('id')}")
+            return
+    except (ValueError, TypeError):
+        return

@@ -213,17 +213,29 @@ def _note_discovery(cfg, page: str, old: dict | None, new: dict | None) -> None:
 # 日期、钟点、编号不是「数」：不进来源池，也不当成要核对的数（以前日期里的每个数字都进了池，1–31 随便写都能过）
 _NOT_A_NUMBER = re.compile(
     r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?"   # 2026-11-07、ISO 时间
-    r"|\b\d{1,2}:\d{2}\b"                                                                 # 01:00、22:40
-    r"|\b\d{1,2}/\d{1,2}\b"                                                               # 11/7
+    # b61：钟点、月日前后紧跟汉字时 \b 不成立（Python 把汉字算单词字符），改用「前后不是数字」
+    r"|(?<![\d.])\d{1,2}:\d{2}(?![\d.])"                                                  # 01:00、按计划22:00
+    r"|(?<![\d.])\d{1,2}/\d{1,2}(?![\d./])"                                               # 11/7
+    r"|(?<![\d.:])(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12]\d|3[01])(?![\d.])"                     # 11-07、11-7（月-日）
     r"|\d{1,2}月\d{1,2}日?"                                                               # 11月7日
     r"|[A-Za-z_]+[-_]?\d[\w-]*"                                                           # id、ssid、key 里的数字
 )
 # 「近 7 晚」「第 2 天」「连续 3 次」这类计数 / 窗口不是健康数据
-_COUNT_PHRASE = re.compile(r"(?:近|第|最近|连续|这|前|过去|每)\s*\d+\s*(?:天|晚|周|次|件|个|顿|组)")
+_COUNT_PHRASE = re.compile(r"(?:近|第|最近|连续|这|前|过去|每|共|有|只有)\s*\d+\s*(?:天|晚|周|次|件|个|顿|组|夜)"
+                           r"|\d+\s*/\s*\d+\s*(?:天|晚|周|次)")   # 「5/7 晚」：几晚里几晚
 
 
 def _strip_non_numbers(text: str) -> str:
     return _COUNT_PHRASE.sub(" ", _NOT_A_NUMBER.sub(" ", text))
+
+
+# 画布零件里手写的钟点（起床 08:15、倒数到 23:45）要和证据对得上，所以只去掉日期和计数
+_DATE_ONLY = re.compile(r"\d{4}-\d{2}-\d{2}|(?<![\d.:])(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12]\d|3[01])(?![\d.:])"
+                        r"|\d{1,2}月\d{1,2}日?")
+
+
+def _strip_dates_counts(text: str) -> str:
+    return _COUNT_PHRASE.sub(" ", _DATE_ONLY.sub(" ", text))
 
 
 def _numbers(obj: Any) -> list[float]:
@@ -636,7 +648,7 @@ def publish(tools, page: str, timeout: int = 420) -> dict:
     deadline = time.time() + timeout
     tries = 0
     while time.time() < deadline:
-        time.sleep(2)
+        time.sleep(1)   # b61：等编排结果 2 秒一看改 1 秒
         events = dsh_chat.read_session_events(context)
         new = events[before:]
         ended = [d for d in new if d.get("type") == "turn/end"]
@@ -785,26 +797,57 @@ def _save_republish_state(cfg, st: dict) -> None:
     tmp.replace(path)
 
 
-def republish_async(cfg) -> bool:
-    """后台跑一次 publish-v3 all（真正的单实例锁和退避在 publish_all 里）。
-    正在跑：记一个「再跑一遍」，跑完接着跑，不丢改动。一分钟内只拉起一次。返回是否新拉起了进程。"""
+def _again_pages(cfg) -> list[str]:
+    """republish.again 里记的「跑完再排一遍」的页（b61 起是页名列表；老格式只有时间戳 = 四页都要）。"""
+    f = cfg.data_dir / "republish.again"
+    try:
+        raw = f.read_text(encoding="utf-8").strip()
+    except OSError:
+        return []
+    try:
+        val = json.loads(raw)
+    except ValueError:
+        return list(PAGES)
+    if isinstance(val, list):
+        return [x for x in PAGES if x in val]
+    return list(PAGES)
+
+
+def _add_again(cfg, pages) -> None:
+    import os
+    want = sorted(set(_again_pages(cfg)) | set(pages or PAGES), key=PAGES.index)
+    f = cfg.data_dir / "republish.again"
+    tmp = f.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(want), encoding="utf-8")
+    tmp.replace(f)
+
+
+def republish_async(cfg, pages=None) -> bool:
+    """后台重排受影响的页（真正的单实例锁和退避在 publish_all 里）。pages 不写 = 四页都排。
+    正在跑：把这几页记进「再排一遍」，跑完接着排这几页，不丢改动。同一页一分钟内只拉起一次。返回是否新拉起了进程。"""
     import os
     import subprocess
     import sys
+    pages = [x for x in PAGES if x in (pages or PAGES)]
     # 跑测试时不许拉起真实的 publish-v3（以前一周在真实工作区里凭空开了 1800 多个 composer 会话）
-    if os.environ.get("PIVIS_NO_REPUBLISH") == "1":
+    if os.environ.get("PIVIS_NO_REPUBLISH") == "1" or not pages:
         return False
     try:
         if _republish_lock_busy(cfg):
-            (cfg.data_dir / "republish.again").write_text(str(time.time()))
+            _add_again(cfg, pages)
             return False
         st = _republish_state(cfg)
-        if time.time() - float(st.get("spawned_at") or 0) < REPUBLISH_THROTTLE_S:
+        spawned = st.setdefault("spawned", {})
+        now = time.time()
+        go = [x for x in pages if now - float(spawned.get(x) or 0) >= REPUBLISH_THROTTLE_S]
+        if not go:
             return False
-        st["spawned_at"] = time.time()
+        for x in go:
+            spawned[x] = now
+        st["spawned_at"] = now
         _save_republish_state(cfg, st)
         log = open(cfg.data_dir / "republish.log", "a")
-        subprocess.Popen([sys.executable, "-m", "pivis_health.cli", "publish-v3", "all"], stdout=log, stderr=log,
+        subprocess.Popen([sys.executable, "-m", "pivis_health.cli", "publish-v3", *go, "--auto"], stdout=log, stderr=log,
                          stdin=subprocess.DEVNULL, start_new_session=True, env={**os.environ})
         return True
     except Exception:  # noqa: BLE001
@@ -826,30 +869,54 @@ def publish_all(tools, pages: list[str], timeout: int = 420, force: bool = False
     out: dict[str, Any] = {}
     prog = cfg.data_dir / "republish.progress.json"
     again = cfg.data_dir / "republish.again"
+    guard = threading.Lock()
+    left: list[str] = []
+
+    def _progress() -> None:
+        # 还没排好的页：客户端按它在这几张主卡上显示「正在更新」（b61 起几页同时排，没有先后）
+        prog.write_text(json.dumps({"current": None, "left": [x for x in PAGES if x in left], "at": time.time()}))
+
+    def _one(pg: str) -> None:
+        t0 = time.time()
+        try:
+            res: dict[str, Any] = {"ok": True, "published_at": publish(tools, pg, timeout).get("published_at")}
+            err = None
+        except Exception as exc:  # noqa: BLE001
+            res, err = {"error": str(exc)[:300]}, str(exc)[:300]
+        with guard:
+            out[pg] = res
+            st = _republish_state(cfg)
+            pst = st.setdefault("pages", {})
+            fails = 0 if not err else int(pst.get(pg, {}).get("fails") or 0) + 1
+            pst[pg] = {"fails": fails, "at": time.time(),
+                       "next_try": time.time() + min(BACKOFF_FIRST_S * 2 ** (fails - 1), BACKOFF_MAX_S) if fails else 0}
+            _save_republish_state(cfg, st)
+            if pg in left:
+                left.remove(pg)
+            _progress()
+        _log_agent_error(cfg, "publish", pg, err, secs=round(time.time() - t0))
+
     try:
+        want = list(pages)
         for _round in range(3):
             again.unlink(missing_ok=True)
             st = _republish_state(cfg)
-            todo = [pg for pg in pages
+            todo = [pg for pg in want
                     if force or time.time() >= float((st.get("pages") or {}).get(pg, {}).get("next_try") or 0)]
-            for i, pg in enumerate(todo):
-                prog.write_text(json.dumps({"current": pg, "left": todo[i + 1:], "at": time.time()}))
-                t0 = time.time()
-                try:
-                    out[pg] = {"ok": True, "published_at": publish(tools, pg, timeout).get("published_at")}
-                    fails = 0
-                except Exception as exc:  # noqa: BLE001
-                    out[pg] = {"error": str(exc)[:300]}
-                    fails = int((st.get("pages") or {}).get(pg, {}).get("fails") or 0) + 1
-                st = _republish_state(cfg)
-                pst = st.setdefault("pages", {})
-                pst[pg] = {"fails": fails, "at": time.time(),
-                           "next_try": time.time() + min(BACKOFF_FIRST_S * 2 ** (fails - 1), BACKOFF_MAX_S) if fails else 0}
-                _save_republish_state(cfg, st)
-                _log_agent_error(cfg, "publish", pg, out[pg].get("error"), secs=round(time.time() - t0))
-            for skipped in set(pages) - set(todo):
+            with guard:
+                left[:] = list(todo)
+                _progress()
+            # 几页同时排（每页一个独立的编排会话）：以前一页一页排，排在最后的那页要等前面几页全部排完
+            threads = [threading.Thread(target=_one, args=(pg,), daemon=True) for pg in todo]
+            for th in threads:
+                th.start()
+            for th in threads:
+                th.join()
+            for skipped in set(want) - set(todo):
                 out.setdefault(skipped, {"skipped": "backoff"})
-            if not again.exists():
+            # 排的时候又有变化：只把变了的那几页再排一遍
+            want = _again_pages(cfg)
+            if not want:
                 break
     finally:
         prog.unlink(missing_ok=True)
@@ -1055,7 +1122,7 @@ def page_doc(tools, page: str) -> dict:
     # 主卡是昨天（或更早）编排的：标记过期，后台重新编排；客户端显示「正在更新」
     stale = (not pub) or _pub_day(pub) < day
     if stale:
-        republish_async(tools.cfg)
+        republish_async(tools.cfg, [page])
     todos = store.for_date(day, None if page == "now" else page)
     # 昨晚的“上床”这类跨午夜待办，今天早上在已完成里显示
     carry = [t for t in store.for_date(day - timedelta(days=1), None if page == "now" else page)
@@ -1430,7 +1497,7 @@ def sync_status(tools) -> dict:
         except Exception:  # noqa: BLE001
             updating = list(PAGES)
         if again.exists():
-            updating = list(PAGES)
+            updating = [x for x in PAGES if x in set(updating) | set(_again_pages(cfg))]
     agent: dict[str, Any] = {"busy": False}
     for ctx in CHAT_CONTEXTS:
         st = _turn(ctx)

@@ -119,15 +119,37 @@ class ReadOnlyObjectiveStore:
         )
 
     def rows_of_type(self, sample_type: str, since_local: date, until_local: date) -> list[dict[str, Any]]:
-        """按投影语义逐日取数再合并（保证睡眠归属一致）。"""
-        out: list[dict[str, Any]] = []
-        day = since_local
-        while day <= until_local:
-            for row in self.projection_rows(day):
-                if row["type"] == sample_type:
-                    out.append(row)
-            day += timedelta(days=1)
-        return out
+        """某一类样本在这几天里的行（和逐日 projection_rows 的归属一致：睡眠按中午到中午，其余按自然日）。
+        b61：一条查询只取这一类。以前逐日把当天全部类型（几千条心率）都捞出来再挑，30 天的步数图要 0.6 秒。"""
+        if until_local < since_local:
+            return []
+        if sample_type == "sleep_analysis":
+            lo, hi = self._sleep_utc_bounds(since_local)[0], self._sleep_utc_bounds(until_local)[1]
+        else:
+            lo, hi = self._utc_bounds(since_local)[0], self._utc_bounds(until_local)[1]
+        con = self.connect()
+        try:
+            rows = con.execute(
+                """
+                SELECT s.sample_id, s.type, s.start_at, s.end_at, s.unit,
+                       s.numeric_value, s.category_value, s.device_id
+                FROM samples AS s
+                WHERE s.type = ? AND s.start_at >= ? AND s.start_at < ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM tombstones AS t
+                      WHERE t.device_id = s.device_id AND t.sample_id = s.sample_id
+                  )
+                ORDER BY s.start_at, s.type, s.sample_id
+                """,
+                (sample_type, lo, hi),
+            ).fetchall()
+        finally:
+            con.close()
+        return [
+            {"sample_id": r[0], "type": r[1], "start_at": r[2], "end_at": r[3], "unit": r[4],
+             "numeric_value": r[5], "category_value": r[6]}
+            for r in _dedupe_app_installs(rows)
+        ]
 
     def latest_sample_at_by_type(self) -> dict[str, datetime]:
         con = self.connect()

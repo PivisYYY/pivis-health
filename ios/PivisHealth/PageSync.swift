@@ -204,7 +204,11 @@ final class PageLoader: ObservableObject {
     private var again = false
     private var generation = 0
 
-    init(page: String) { self.page = page }
+    init(page: String) {
+        self.page = page
+        // b61：先画上次那份（不加 version，提醒照旧只按网络拉到的新数据排），网络回来立刻换新
+        doc = PageCache.load(page)
+    }
 
     func markDirty() { dirty = true }
 

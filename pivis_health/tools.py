@@ -170,6 +170,14 @@ class HealthTools:
             w = self._whoop_window(PREFER_WHOOP[canonical], end_day, days)
             if w:
                 return w
+        if canonical == "weight":
+            # b61：Psir 自己报的体重（称重卡、对话里说的）也算数，同一天以手动的为准
+            out = self._apple_daily(canonical, end_day, days)
+            start = end_day - timedelta(days=days)
+            for d, kg in manual_weights(self.cfg).items():
+                if start <= d <= end_day:
+                    out[d] = kg
+            return dict(sorted(out.items()))
         if canonical in APPLE_SERIES:
             return self._apple_daily(canonical, end_day, days)
         if canonical in WHOOP_SERIES:
@@ -636,3 +644,42 @@ class HealthTools:
             "notify": notify_any,
             "rule": "单一来源断更 ≥3 天才提醒；缺数据 ≠ 身体异常；摘表时段已在覆盖核对时豁免说明",
         }
+
+
+# ---------------------------------------------------------------- 手动体重（b61）
+MANUAL_WEIGHT_FILE = "weights_manual.json"
+
+
+def manual_weights(cfg) -> dict:
+    """Psir 自己报的体重：{日期: kg}。称重待办提交、weight-log 命令都写这里。"""
+    import json as _json
+    from datetime import date as _date
+    try:
+        raw = _json.loads((Path(cfg.data_dir) / MANUAL_WEIGHT_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for k, v in (raw or {}).items():
+        try:
+            out[_date.fromisoformat(k)] = float(v["kg"] if isinstance(v, dict) else v)
+        except (ValueError, TypeError, KeyError):
+            continue
+    return out
+
+
+def log_weight(cfg, day, kg: float, source: str = "manual") -> dict:
+    import json as _json
+    import os as _os
+    kg = round(float(kg), 1)
+    if not 30 <= kg <= 250:
+        raise ValueError(f"体重 {kg} kg 不像真的（30–250 kg）")
+    path = Path(cfg.data_dir) / MANUAL_WEIGHT_FILE
+    try:
+        raw = _json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raw = {}
+    raw[day.isoformat()] = {"kg": kg, "source": source}
+    tmp = path.with_suffix(f".{_os.getpid()}.tmp")
+    tmp.write_text(_json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(path)
+    return {"ok": True, "date": day.isoformat(), "kg": kg}
